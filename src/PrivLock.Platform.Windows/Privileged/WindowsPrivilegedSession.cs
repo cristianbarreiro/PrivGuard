@@ -16,6 +16,7 @@ public sealed class WindowsPrivilegedSession : IDisposable
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsPrivilegedSession>();
     private static readonly Lazy<WindowsPrivilegedSession> InstanceLazy = new(() => new());
+    private static WindowsPrivilegedSession? _testOverrideInstance;
 
     private readonly object _lock = new();
     private readonly SemaphoreSlim _commandGate = new(1, 1);
@@ -25,12 +26,23 @@ public sealed class WindowsPrivilegedSession : IDisposable
     private long _requestSequence;
     private bool _isElevatedSessionActive;
     private int _elevationLaunchCount;
+    private int _deferredScopeDepth;
 
-    public static WindowsPrivilegedSession Instance => InstanceLazy.Value;
+    internal WindowsPrivilegedSession() { }
+
+    public static WindowsPrivilegedSession Instance => _testOverrideInstance ?? InstanceLazy.Value;
+
+    internal static void SetTestOverrideInstance(WindowsPrivilegedSession? testSession) =>
+        _testOverrideInstance = testSession;
+
+    internal Func<string, string, Task<OperationResult>>? CustomCommandExecutor { get; set; }
+    internal Func<Task>? CustomWorkerLauncher { get; set; }
 
     public int ElevationLaunchCount => Volatile.Read(ref _elevationLaunchCount);
 
     public void ResetElevationLaunchCount() => Interlocked.Exchange(ref _elevationLaunchCount, 0);
+
+    public bool IsDeferredScopeActive => Volatile.Read(ref _deferredScopeDepth) > 0;
 
     public bool IsSessionActive
     {
@@ -38,10 +50,25 @@ public sealed class WindowsPrivilegedSession : IDisposable
         {
             lock (_lock)
             {
-                return _isElevatedSessionActive &&
-                       _pipeServer is { IsConnected: true } &&
-                       _workerProcess is { HasExited: false };
+                if (!_isElevatedSessionActive)
+                    return false;
+
+                if (_workerProcess != null && _workerProcess.HasExited)
+                    return false;
+
+                if (_pipeServer != null && !_pipeServer.IsConnected)
+                    return false;
+
+                return true;
             }
+        }
+    }
+
+    internal void SimulateWorkerExit()
+    {
+        lock (_lock)
+        {
+            _isElevatedSessionActive = false;
         }
     }
 
@@ -58,15 +85,28 @@ public sealed class WindowsPrivilegedSession : IDisposable
         {
             await EnsureSessionActiveAsync();
 
+            if (CustomCommandExecutor != null)
+            {
+                dispatchStarted = true;
+                return await CustomCommandExecutor(command, argument);
+            }
+
             NamedPipeServerStream pipe;
             string nonce;
+            int? workerPid;
             lock (_lock)
             {
                 if (_pipeServer is not { IsConnected: true } || string.IsNullOrEmpty(_sessionNonce))
                     throw new InvalidOperationException("Elevated worker is not connected.");
                 pipe = _pipeServer;
                 nonce = _sessionNonce;
+                workerPid = _workerProcess?.Id;
             }
+
+            Log.Information(
+                "Dispatching privileged command '{Command}' to elevated worker (PID={WorkerPid})",
+                command,
+                workerPid);
 
             var requestId = Interlocked.Increment(ref _requestSequence).ToString(
                 global::System.Globalization.CultureInfo.InvariantCulture);
@@ -143,11 +183,29 @@ public sealed class WindowsPrivilegedSession : IDisposable
         lock (_lock)
         {
             if (_isElevatedSessionActive &&
-                _pipeServer is { IsConnected: true } &&
-                _workerProcess is { HasExited: false })
+                (_workerProcess == null || !_workerProcess.HasExited) &&
+                (_pipeServer == null || _pipeServer.IsConnected))
             {
+                Log.Information(
+                    "Reusing existing elevated worker: PID={WorkerPid}, ElevationLaunchCount={LaunchCount}",
+                    _workerProcess?.Id,
+                    ElevationLaunchCount);
                 return;
             }
+        }
+
+        if (CustomWorkerLauncher != null)
+        {
+            await CustomWorkerLauncher();
+            Interlocked.Increment(ref _elevationLaunchCount);
+            lock (_lock)
+            {
+                _isElevatedSessionActive = true;
+            }
+            Log.Information(
+                "Elevated worker launched (custom test launcher): ElevationLaunchCount={LaunchCount}",
+                ElevationLaunchCount);
+            return;
         }
 
         var exePath = Environment.ProcessPath;
@@ -188,6 +246,10 @@ public sealed class WindowsPrivilegedSession : IDisposable
                 ?? throw new InvalidOperationException("Failed to launch elevated session worker process.");
 
             Interlocked.Increment(ref _elevationLaunchCount);
+            Log.Information(
+                "Elevated worker process launched: PID={WorkerPid}, ElevationLaunchCount={LaunchCount}",
+                candidateProcess.Id,
+                ElevationLaunchCount);
 
             using var connectionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             await AcceptAuthenticatedWorkerAsync(candidatePipe, candidateProcess, nonce, connectionTimeout.Token);
@@ -277,31 +339,79 @@ public sealed class WindowsPrivilegedSession : IDisposable
     }
 
     /// <summary>
-    /// Begins a scoped elevation session so all privileged operations within the scope
-    /// share a single elevated worker process (at most 1 UAC prompt).
+    /// Begins a deferred/lazy elevation scope. Entering the scope does not launch an elevated process;
+    /// the first privileged operation launches the worker on-demand, subsequent operations reuse it,
+    /// and disposing the scope closes the worker.
     /// </summary>
-    public async Task<IDisposable> BeginElevationScopeAsync(CancellationToken cancellationToken = default)
+    public IDisposable BeginDeferredScope()
     {
-        await _commandGate.WaitAsync(cancellationToken);
-        try
+        var depth = Interlocked.Increment(ref _deferredScopeDepth);
+        Log.Information("Deferred elevation scope entered (depth: {Depth})", depth);
+        return new DeferredScopeToken(this);
+    }
+
+    private void EndDeferredScope()
+    {
+        var remaining = Interlocked.Decrement(ref _deferredScopeDepth);
+        Log.Information("Deferred elevation scope exiting (remaining depth: {Depth})", remaining);
+        if (remaining <= 0)
         {
-            await EnsureSessionActiveAsync();
-            return new ElevationScope(this);
-        }
-        finally
-        {
-            _commandGate.Release();
+            Interlocked.CompareExchange(ref _deferredScopeDepth, 0, remaining);
+            Log.Information(
+                "Closing elevated worker at end of deferred scope: ElevationLaunchCount={LaunchCount}",
+                ElevationLaunchCount);
+            CloseSession();
         }
     }
 
     /// <summary>
+    /// Begins a scoped elevation session so all privileged operations within the scope
+    /// share a single elevated worker process (at most 1 UAC prompt). The worker is launched lazily.
+    /// </summary>
+    public Task<IDisposable> BeginElevationScopeAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(BeginDeferredScope());
+    }
+
+    /// <summary>
+    /// Releases the elevated session after an operation pass completes normally.
+    /// If a deferred scope is active, the session is retained so subsequent operations reuse the worker.
+    /// If no scope is active, the worker is immediately closed to uphold least privilege.
+    /// </summary>
+    public bool ReleaseSession()
+    {
+        if (IsDeferredScopeActive)
+        {
+            int? pid;
+            lock (_lock)
+            {
+                pid = _workerProcess?.Id;
+            }
+            Log.Debug(
+                "Elevated session retained across operation within active deferred scope (PID={WorkerPid}, ElevationLaunchCount={LaunchCount})",
+                pid,
+                ElevationLaunchCount);
+            return true;
+        }
+
+        Log.Information(
+            "Elevated session released after operation; closing worker (ElevationLaunchCount={LaunchCount})",
+            ElevationLaunchCount);
+        return CloseSession();
+    }
+
+    /// <summary>
     /// Ends the helper and proves process/lease quiescence before callers reconcile OS state.
+    /// Forcefully terminates the worker unconditionally regardless of any active scope.
     /// </summary>
     public bool CloseSession()
     {
         _commandGate.Wait();
         try
         {
+            Log.Information(
+                "Closing elevated session (quiescence / emergency / end-of-scope / shutdown): ElevationLaunchCount={LaunchCount}",
+                ElevationLaunchCount);
             return CloseSessionCore();
         }
         finally
@@ -356,12 +466,12 @@ public sealed class WindowsPrivilegedSession : IDisposable
 
     public void Dispose() => CloseSession();
 
-    private sealed class ElevationScope : IDisposable
+    private sealed class DeferredScopeToken : IDisposable
     {
         private readonly WindowsPrivilegedSession _session;
         private int _disposed;
 
-        public ElevationScope(WindowsPrivilegedSession session)
+        public DeferredScopeToken(WindowsPrivilegedSession session)
         {
             _session = session;
         }
@@ -370,7 +480,7 @@ public sealed class WindowsPrivilegedSession : IDisposable
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                _session.CloseSession();
+                _session.EndDeferredScope();
             }
         }
     }

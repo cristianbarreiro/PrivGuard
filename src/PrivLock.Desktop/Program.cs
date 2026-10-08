@@ -3,6 +3,7 @@ using Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using PrivLock.Application.Services;
 using PrivLock.Domain.Models;
+using PrivLock.Domain.Results;
 using PrivLock.Infrastructure.Common.Logging;
 using PrivLock.Infrastructure.Common.Storage;
 using PrivLock.Platform.Abstractions;
@@ -140,101 +141,111 @@ public static class Program
             }
 
 
-            // 6. Recover a previous unfinished session before creating ViewModels or accepting actions.
-            var recoveryService = serviceProvider.GetRequiredService<PrivacyRecoveryService>();
-            var startupRecovery = recoveryService.RecoverAtStartupAsync().GetAwaiter().GetResult();
-
-            // 7. Handle CLI recovery and the standard-user uninstall wrapper. The wrapper is
-            // the only path that may elevate Inno Setup; PrivLock itself remains asInvoker.
-            if (safeUninstallPlan != null ||
-                args.Any(a => a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) ||
-                              a.Equals("-u", StringComparison.OrdinalIgnoreCase)))
-            {
-                Log.Information("CLI recovery requested. Restoring only journal-owned changes...");
-                var settingsService = serviceProvider.GetRequiredService<SettingsService>();
-                var restoreReason = safeUninstallPlan == null
-                    ? "CommandLineUnblockAndExit"
-                    : "SafeUninstallWrapper";
-                var restore = _shutdownCoordinator.RestoreAsync(restoreReason).GetAwaiter().GetResult();
-                if (restore.SafeToExit)
-                    settingsService.SetAutostart(false);
-
-                var workerStopped = true;
-                if (safeUninstallPlan != null && restore.SafeToExit)
-                {
-                    workerStopped = !OperatingSystem.IsWindows() ||
-                        Platform.Windows.Privileged.WindowsPrivilegedSession.Instance.CloseSession();
-                    if (!workerStopped)
-                        Log.Error("Safe uninstall stopped because elevated worker quiescence could not be proven");
-                }
-
-                _shutdownCoordinator = null;
-
-                if (safeUninstallPlan != null)
-                {
-                    SafeUninstallResult uninstallResult;
-                    if (!restore.SafeToExit)
-                    {
-                        uninstallResult = new SafeUninstallResult(
-                            SafeUninstallStatus.RestoreFailed,
-                            "PrivGvard could not safely restore system privacy state prior to uninstallation.");
-                        Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
-                        SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
-                    }
-                    else if (!workerStopped)
-                    {
-                        uninstallResult = new SafeUninstallResult(
-                            SafeUninstallStatus.WorkerNotStopped,
-                            "PrivGvard could not prove elevated worker quiescence prior to uninstallation.");
-                        Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
-                        SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
-                    }
-                    else if (!OperatingSystem.IsWindows() ||
-                             singleInstanceGuard is not Platform.Windows.System.WindowsSingleInstanceGuard windowsGuard)
-                    {
-                        uninstallResult = new SafeUninstallResult(
-                            SafeUninstallStatus.LaunchFailed,
-                            "The Windows uninstall gate is unavailable.");
-                        Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
-                        SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
-                    }
-                    else
-                    {
-                        uninstallResult = SafeUninstallLauncher.TryLaunch(
-                            safeUninstallPlan,
-                            windowsGuard.ReleaseUninstallGateForHandoff);
-
-                        if (!uninstallResult.Success &&
-                            uninstallResult.Status != SafeUninstallStatus.UserCancelled &&
-                            !string.IsNullOrEmpty(uninstallResult.Message))
-                        {
-                            SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message, safeUninstallPlan.Quiet);
-                        }
-                    }
-
-                    Log.Information(
-                        "Safe uninstall workflow finished. Status={Status}, Success={Success}, ExitCode={ExitCode}",
-                        uninstallResult.Status,
-                        uninstallResult.Success,
-                        uninstallResult.Success ? 0 : 1);
-                    Log.CloseAndFlush();
-                    return uninstallResult.Success ? 0 : 1;
-                }
-
-                // CLI --unblock-and-exit path
-                Log.Information(
-                    "CLI recovery complete. SafeToExit={SafeToExit}",
-                    restore.SafeToExit);
-                Log.CloseAndFlush();
-                return restore.SafeToExit ? 0 : 1;
-            }
-
-            // 8. Initialize localization
+            // 6. Initialize localization
             var localizationService = serviceProvider.GetRequiredService<LocalizationService>();
             localizationService.Initialize();
 
-            // 9. Reconcile persistent DesiredState with actual OS protection state
-            var reconcileResult = recoveryService.ReconcileAtStartupAsync(startupRecovery).GetAwaiter().GetResult();
+            // 7. Startup privilege scope spans both recovery and reconciliation.
+            // Entering the scope is deferred/lazy (no process is started and no UAC prompt appears).
+            // If either recovery or reconciliation executes privileged operations, at most 1 elevated
+            // worker process is launched on-demand and reused across all operations.
+            // Upon exiting the scope, the elevated worker is cleanly shut down, leaving PrivGvard asInvoker.
+            var recoveryService = serviceProvider.GetRequiredService<PrivacyRecoveryService>();
+            PrivacyRecoveryResult startupRecovery;
+            OperationResult reconcileResult;
+
+            using (recoveryService.BeginStartupPrivilegeScope())
+            {
+                startupRecovery = recoveryService.RecoverAtStartupAsync().GetAwaiter().GetResult();
+
+                // 8. Handle CLI recovery and the standard-user uninstall wrapper. The wrapper is
+                // the only path that may elevate Inno Setup; PrivLock itself remains asInvoker.
+                if (safeUninstallPlan != null ||
+                    args.Any(a => a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) ||
+                                  a.Equals("-u", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Log.Information("CLI recovery requested. Restoring only journal-owned changes...");
+                    var settingsService = serviceProvider.GetRequiredService<SettingsService>();
+                    var restoreReason = safeUninstallPlan == null
+                        ? "CommandLineUnblockAndExit"
+                        : "SafeUninstallWrapper";
+                    var restore = _shutdownCoordinator.RestoreAsync(restoreReason).GetAwaiter().GetResult();
+                    if (restore.SafeToExit)
+                        settingsService.SetAutostart(false);
+
+                    var workerStopped = true;
+                    if (safeUninstallPlan != null && restore.SafeToExit)
+                    {
+                        workerStopped = !OperatingSystem.IsWindows() ||
+                            Platform.Windows.Privileged.WindowsPrivilegedSession.Instance.CloseSession();
+                        if (!workerStopped)
+                            Log.Error("Safe uninstall stopped because elevated worker quiescence could not be proven");
+                    }
+
+                    _shutdownCoordinator = null;
+
+                    if (safeUninstallPlan != null)
+                    {
+                        SafeUninstallResult uninstallResult;
+                        if (!restore.SafeToExit)
+                        {
+                            uninstallResult = new SafeUninstallResult(
+                                SafeUninstallStatus.RestoreFailed,
+                                "PrivGvard could not safely restore system privacy state prior to uninstallation.");
+                            Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
+                            SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
+                        }
+                        else if (!workerStopped)
+                        {
+                            uninstallResult = new SafeUninstallResult(
+                                SafeUninstallStatus.WorkerNotStopped,
+                                "PrivGvard could not prove elevated worker quiescence prior to uninstallation.");
+                            Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
+                            SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
+                        }
+                        else if (!OperatingSystem.IsWindows() ||
+                                 singleInstanceGuard is not Platform.Windows.System.WindowsSingleInstanceGuard windowsGuard)
+                        {
+                            uninstallResult = new SafeUninstallResult(
+                                SafeUninstallStatus.LaunchFailed,
+                                "The Windows uninstall gate is unavailable.");
+                            Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
+                            SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
+                        }
+                        else
+                        {
+                            uninstallResult = SafeUninstallLauncher.TryLaunch(
+                                safeUninstallPlan,
+                                windowsGuard.ReleaseUninstallGateForHandoff);
+
+                            if (!uninstallResult.Success &&
+                                uninstallResult.Status != SafeUninstallStatus.UserCancelled &&
+                                !string.IsNullOrEmpty(uninstallResult.Message))
+                            {
+                                SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message, safeUninstallPlan.Quiet);
+                            }
+                        }
+
+                        Log.Information(
+                            "Safe uninstall workflow finished. Status={Status}, Success={Success}, ExitCode={ExitCode}",
+                            uninstallResult.Status,
+                            uninstallResult.Success,
+                            uninstallResult.Success ? 0 : 1);
+                        Log.CloseAndFlush();
+                        return uninstallResult.Success ? 0 : 1;
+                    }
+
+                    // CLI --unblock-and-exit path
+                    Log.Information(
+                        "CLI recovery complete. SafeToExit={SafeToExit}",
+                        restore.SafeToExit);
+                    Log.CloseAndFlush();
+                    return restore.SafeToExit ? 0 : 1;
+                }
+
+                // 9. Reconcile persistent DesiredState with actual OS protection state
+                reconcileResult = recoveryService.ReconcileAtStartupAsync(startupRecovery).GetAwaiter().GetResult();
+            }
 
             // 10. Start Avalonia Application
             var startMinimized = args.Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));

@@ -163,36 +163,33 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
         };
     }
 
-    private int _recoveryPassSuppressed;
+    private readonly Stack<IDisposable> _legacyScopeTokens = new();
+
+    public IDisposable BeginDeferredElevationScope() =>
+        WindowsPrivilegedSession.Instance.BeginDeferredScope();
 
     public void CompleteRecoveryPass()
     {
-        if (Volatile.Read(ref _recoveryPassSuppressed) > 0)
-        {
-            Log.Debug("CompleteRecoveryPass suppressed: startup reconciliation scope is active");
-            return;
-        }
-
-        WindowsPrivilegedSession.Instance.CloseSession();
+        WindowsPrivilegedSession.Instance.ReleaseSession();
     }
 
     public void SuppressRecoveryPassCompletion()
     {
-        var count = Interlocked.Increment(ref _recoveryPassSuppressed);
-        Log.Information("Startup privileged scope entered (suppression depth: {Depth})", count);
+        lock (_legacyScopeTokens)
+        {
+            _legacyScopeTokens.Push(WindowsPrivilegedSession.Instance.BeginDeferredScope());
+        }
     }
 
     public void ResumeRecoveryPassCompletion()
     {
-        var count = Interlocked.Decrement(ref _recoveryPassSuppressed);
-        Log.Information("Startup privileged scope exiting (suppression depth: {Depth})", count);
-        if (count <= 0)
+        IDisposable? token = null;
+        lock (_legacyScopeTokens)
         {
-            // Ensure we never go negative
-            Interlocked.CompareExchange(ref _recoveryPassSuppressed, 0, count);
-            Log.Information("Closing startup privileged worker session");
-            WindowsPrivilegedSession.Instance.CloseSession();
+            if (_legacyScopeTokens.Count > 0)
+                token = _legacyScopeTokens.Pop();
         }
+        token?.Dispose();
     }
 
     private static void CaptureStandardRegistry(
