@@ -82,6 +82,8 @@ public partial class App : Avalonia.Application
             {
                 DataContext = _mainViewModel
             };
+            mainWindow.CloseRequested += () =>
+                _ = RequestShutdownAsync(desktop, "MainWindowClose", allowIncomplete: false);
             _mainWindow = mainWindow;
             desktop.MainWindow = _mainWindow;
 

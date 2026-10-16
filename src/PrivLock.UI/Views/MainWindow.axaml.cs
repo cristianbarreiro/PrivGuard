@@ -12,6 +12,8 @@ public partial class MainWindow : Window
     private readonly SettingsViewModel? _settingsViewModel;
     private SettingsWindow? _settingsWindow;
 
+    public event Action? CloseRequested;
+
     public MainWindow() : this(null)
     {
     }
@@ -102,6 +104,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (ShouldRequestShutdownOnClose(_trayAvailable, _allowApplicationClose))
+        {
+            e.Cancel = true;
+            CloseRequested?.Invoke();
+            return;
+        }
+
         _allowApplicationClose = true;
         _settingsWindow?.Close();
         _settingsWindow = null;
@@ -111,6 +120,9 @@ public partial class MainWindow : Window
 
     internal static bool ShouldHideOnClose(bool trayAvailable, bool allowApplicationClose) =>
         trayAvailable && !allowApplicationClose;
+
+    internal static bool ShouldRequestShutdownOnClose(bool trayAvailable, bool allowApplicationClose) =>
+        !trayAvailable && !allowApplicationClose;
 
     public void AllowApplicationClose()
     {

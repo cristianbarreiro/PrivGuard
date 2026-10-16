@@ -39,6 +39,21 @@ public class TrayIconLocalizationTests
             PrivLock.UI.Views.MainWindow.ShouldHideOnClose(trayAvailable, allowApplicationClose));
     }
 
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    public void Close_RequestsCoordinatedShutdownWhenTrayIsUnavailable(
+        bool trayAvailable,
+        bool allowApplicationClose,
+        bool expectedRequest)
+    {
+        Assert.Equal(
+            expectedRequest,
+            PrivLock.UI.Views.MainWindow.ShouldRequestShutdownOnClose(trayAvailable, allowApplicationClose));
+    }
+
     private sealed class InMemoryStateStore : IStateStore
     {
         public DesiredState State { get; set; } = new DesiredState { Language = "es" };
