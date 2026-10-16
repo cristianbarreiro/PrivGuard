@@ -440,13 +440,7 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
             {
                 return OperationResult.Fail(
                     "Windows policy prevents enabling the PrivGvard MSIX startup task.");
-            }
-
-            if (taskState == WindowsStartupTaskState.DisabledByUser)
-            {
-                taskState = await _startupTask.RequestEnableAsync().ConfigureAwait(false);
-            }
-            else if (taskState == WindowsStartupTaskState.Disabled)
+            if (taskState is WindowsStartupTaskState.DisabledByUser or WindowsStartupTaskState.Disabled)
             {
                 taskState = await _startupTask.RequestEnableAsync().ConfigureAwait(false);
             }
