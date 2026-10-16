@@ -294,6 +294,13 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                 "The legacy Run value does not identify a PrivLock or PrivGvard executable and was left unchanged.");
         }
 
+        if (legacyApproval is { Length: > 0 } && (legacyApproval[0] & 0x01) != 0 &&
+            currentApproval is { Length: > 0 } && (currentApproval[0] & 0x01) == 0)
+        {
+            return OperationResult.Fail(
+                "The legacy and current Windows startup approvals conflict and were left unchanged.");
+        }
+
         var currentPath = GetValidatedCurrentPath();
         if (currentPath.Error != null)
             return OperationResult.Fail(currentPath.Error.Message!);
