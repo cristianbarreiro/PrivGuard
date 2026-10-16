@@ -49,6 +49,7 @@ public class TrayIconLocalizationTests
     [InlineData(false, false, true)]
     [InlineData(false, true, false)]
     [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
     public void Close_RequestsCoordinatedShutdownOnlyWhenTrayIsUnavailable(
         bool trayAvailable,
         bool allowApplicationClose,

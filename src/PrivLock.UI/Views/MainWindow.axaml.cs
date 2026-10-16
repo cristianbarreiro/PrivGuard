@@ -110,7 +110,6 @@ public partial class MainWindow : Window
             UserCloseRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
-
         _settingsWindow?.Close();
         _settingsWindow = null;
 

@@ -432,6 +432,13 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                 "The legacy Run value does not identify a PrivLock or PrivGvard executable and was left unchanged.");
         }
 
+        if (legacyApproval is { Length: > 0 } && (legacyApproval[0] & 0x01) != 0 &&
+            currentApproval is { Length: > 0 } && (currentApproval[0] & 0x01) == 0)
+        {
+            return OperationResult.Fail(
+                "The legacy and current startup registrations have conflicting Windows user states and were left unchanged.");
+        }
+
         var currentPath = GetValidatedCurrentPath();
         if (currentPath.Error != null)
             return OperationResult.Fail(currentPath.Error.Message!);
@@ -688,7 +695,6 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                 return OperationResult.Fail(
                     "Windows policy prevents enabling the PrivGvard MSIX startup task.");
             }
-
             if (taskState is WindowsStartupTaskState.DisabledByUser or WindowsStartupTaskState.Disabled)
             {
                 taskState = await _startupTask.RequestEnableAsync().ConfigureAwait(false);
