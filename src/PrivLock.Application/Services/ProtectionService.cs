@@ -401,6 +401,13 @@ public sealed class ProtectionService
     }
 
     /// <summary>
+    /// Begins a deferred/lazy platform elevation scope so multiple sequential operations
+    /// share at most 1 elevated worker process (at most 1 UAC prompt).
+    /// </summary>
+    public IDisposable BeginDeferredElevationScope() =>
+        _privacySessions.BeginDeferredPlatformScope();
+
+    /// <summary>
     /// Startup recovery runs before the ViewModel/UI exists and before any new mutation is allowed.
     /// </summary>
     public async Task<PrivacyRecoveryResult> RecoverPreviousSessionAsync(
@@ -479,8 +486,7 @@ public sealed class ProtectionService
             var failures = new List<string>();
             var details = new List<DeviceOperationDetail>();
 
-            _privacySessions.SuppressPlatformPassCompletion();
-            try
+            using (_privacySessions.BeginDeferredPlatformScope())
             {
                 if (cameraNeedsStandard)
                 {
@@ -559,10 +565,6 @@ public sealed class ProtectionService
                         }
                     }
                 }
-            }
-            finally
-            {
-                _privacySessions.ResumePlatformPassCompletion();
             }
 
             await PublishVerifiedStateAsync(cancellationToken);

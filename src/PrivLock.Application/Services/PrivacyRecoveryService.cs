@@ -16,10 +16,22 @@ public sealed class PrivacyRecoveryService
         _protectionService = protectionService;
     }
 
+    /// <summary>
+    /// Begins a deferred/lazy elevation scope spanning both startup recovery and reconciliation.
+    /// Entering the scope does not launch an elevated process; if either phase requires elevation,
+    /// a single elevated worker process is launched on demand and reused across all recovery and
+    /// reconciliation operations. Disposing the scope cleanly closes the worker.
+    /// </summary>
+    public IDisposable BeginStartupPrivilegeScope()
+    {
+        Log.Information("Startup privilege scope starting");
+        return _protectionService.BeginDeferredElevationScope();
+    }
+
     public async Task<PrivacyRecoveryResult> RecoverAtStartupAsync(
         CancellationToken cancellationToken = default)
     {
-        Log.Information("Checking for an unfinished reversible privacy session");
+        Log.Information("Startup recovery beginning: Checking for an unfinished reversible privacy session");
         var result = await _protectionService.RecoverPreviousSessionAsync(cancellationToken);
         Log.Information(
             "Startup recovery finished: Supported={Supported}, Complete={Complete}, Conflicts={Conflicts}, IrreducibleAmbiguities={IrreducibleAmbiguities}, Missing={Missing}, Failed={Failed}",
@@ -36,7 +48,7 @@ public sealed class PrivacyRecoveryService
         PrivacyRecoveryResult? recoveryResult = null,
         CancellationToken cancellationToken = default)
     {
-        Log.Information("Reconciling persistent desired protection state with actual OS state");
+        Log.Information("Startup reconciliation beginning: Reconciling persistent desired protection state with actual OS state");
         var result = await _protectionService.ReconcileDesiredProtectionAsync(recoveryResult, cancellationToken);
         Log.Information(
             "Startup reconciliation finished: Success={Success}, Error={Error}",

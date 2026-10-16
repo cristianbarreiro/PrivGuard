@@ -71,6 +71,14 @@ public interface IPrivacySessionPlatformAdapter
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Begins a deferred/lazy elevation scope. Entering the scope does not launch an elevated process;
+    /// the first privileged operation launches the worker on-demand, subsequent operations reuse it,
+    /// and disposing the scope closes the worker. Normal pass completion is suppressed while the scope is active,
+    /// but force quiescence can still terminate the worker.
+    /// </summary>
+    IDisposable BeginDeferredElevationScope() => NullDisposable.Instance;
+
+    /// <summary>
     /// Releases any privilege scoped to the current restoration pass. Implementations must not
     /// retain an elevated worker after this callback.
     /// </summary>
@@ -88,4 +96,11 @@ public interface IPrivacySessionPlatformAdapter
     /// privilege that was retained during the suppressed window.
     /// </summary>
     void ResumeRecoveryPassCompletion() { }
+}
+
+public sealed class NullDisposable : IDisposable
+{
+    public static readonly NullDisposable Instance = new();
+    private NullDisposable() { }
+    public void Dispose() { }
 }

@@ -1236,6 +1236,24 @@ public sealed class PrivacySessionService
     }
 
     /// <summary>
+    /// Begins a deferred/lazy elevation scope on the platform adapter.
+    /// Entering the scope does not launch an elevated process; the first privileged operation launches
+    /// the worker on-demand, subsequent operations reuse it, and disposing the scope closes the worker.
+    /// </summary>
+    public IDisposable BeginDeferredPlatformScope()
+    {
+        try
+        {
+            return _platform.BeginDeferredElevationScope();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to begin deferred platform elevation scope");
+            return NullDisposable.Instance;
+        }
+    }
+
+    /// <summary>
     /// Suppresses elevated worker teardown after each operation so multiple sequential
     /// privileged operations reuse a single elevated session (at most one UAC prompt).
     /// Must be balanced by <see cref="ResumePlatformPassCompletion"/>.

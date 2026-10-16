@@ -240,9 +240,34 @@ internal sealed class ScriptedPrivacySessionPlatformAdapter : IPrivacySessionPla
     public int SuppressCalls => Volatile.Read(ref _suppressCalls);
     public int ResumeCalls => Volatile.Read(ref _resumeCalls);
 
+    public IDisposable BeginDeferredElevationScope()
+    {
+        SuppressRecoveryPassCompletion();
+        return new ActionDisposable(() => ResumeRecoveryPassCompletion());
+    }
+
     public void CompleteRecoveryPass() => Interlocked.Increment(ref _completedRecoveryPasses);
     public void SuppressRecoveryPassCompletion() => Interlocked.Increment(ref _suppressCalls);
     public void ResumeRecoveryPassCompletion() => Interlocked.Increment(ref _resumeCalls);
+}
+
+internal sealed class ActionDisposable : IDisposable
+{
+    private readonly Action _onDispose;
+    private int _disposed;
+
+    public ActionDisposable(Action onDispose)
+    {
+        _onDispose = onDispose;
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            _onDispose();
+        }
+    }
 }
 
 internal static class PrivacyRecoveryTestData
