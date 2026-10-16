@@ -140,6 +140,12 @@ public partial class App : Avalonia.Application
 
     private bool SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
     {
+        if (!TrayIcon.IsTrayIconSupported)
+        {
+            Log.Error("The current desktop backend does not support System Tray icons.");
+            return false;
+        }
+
         TrayIcon? candidate = null;
         try
         {
