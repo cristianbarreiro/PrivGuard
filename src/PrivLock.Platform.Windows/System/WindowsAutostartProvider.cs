@@ -204,22 +204,26 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
             if (_isPackaged())
             {
                 var current = await _startupTask.GetStateAsync().ConfigureAwait(false);
-                if (current is WindowsStartupTaskState.Enabled or WindowsStartupTaskState.EnabledByPolicy)
+                if (current == WindowsStartupTaskState.EnabledByPolicy)
                 {
-                    if (current == WindowsStartupTaskState.EnabledByPolicy)
-                    {
-                        var policyCleanup = await RemoveLegacyEntriesAsync(removeCurrentRunEntry: true).ConfigureAwait(false);
-                        if (!policyCleanup.Success)
-                            return policyCleanup;
-
-                        return OperationResult.Fail(
-                            "Windows policy requires PrivGvard to start automatically and prevents disabling this startup task.");
-                    }
-
-                    await _startupTask.DisableAsync().ConfigureAwait(false);
+                    return OperationResult.Fail(
+                        "Windows policy requires PrivGvard to start automatically and prevents disabling this startup task.");
                 }
 
-                var packagedCleanup = await RemoveLegacyEntriesAsync(removeCurrentRunEntry: true).ConfigureAwait(false);
+                if (current == WindowsStartupTaskState.Enabled)
+                    await _startupTask.DisableAsync().ConfigureAwait(false);
+
+                var afterDisable = await _startupTask.GetStateAsync().ConfigureAwait(false);
+                if (afterDisable is not (WindowsStartupTaskState.Disabled or
+                    WindowsStartupTaskState.DisabledByUser or
+                    WindowsStartupTaskState.DisabledByPolicy))
+                {
+                    return OperationResult.Fail(
+                        $"Windows did not disable the startup task (effective state: {afterDisable}).");
+                }
+
+                var packagedCleanup = await MigratePackagedEntriesAsync(preserveLegacyDisabledState: false)
+                    .ConfigureAwait(false);
                 if (!packagedCleanup.Success)
                     return packagedCleanup;
 
@@ -249,8 +253,149 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
     public Task<OperationResult> MigrateLegacyEntriesAsync()
     {
         return _isPackaged()
-            ? RemoveLegacyEntriesAsync(removeCurrentRunEntry: true)
+            ? MigratePackagedEntriesAsync(preserveLegacyDisabledState: true)
             : MigrateLegacyWin32EntryAsync();
+    }
+
+    private async Task<OperationResult> MigratePackagedEntriesAsync(bool preserveLegacyDisabledState)
+    {
+        object? currentRun;
+        object? legacyRun;
+        byte[]? currentApproval;
+        byte[]? legacyApproval;
+        WindowsStartupTaskState taskState;
+        try
+        {
+            currentRun = _registry.ReadRunValue(AppName);
+            legacyRun = _registry.ReadRunValue(LegacyAppName);
+            currentApproval = _registry.ReadStartupApprovedValue(AppName);
+            legacyApproval = _registry.ReadStartupApprovedValue(LegacyAppName);
+            taskState = await _startupTask.GetStateAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to inspect the MSIX startup task and prior Win32 registrations");
+            return OperationResult.Fail($"MSIX startup migration could not be verified: {ex.Message}");
+        }
+
+        if (MapStartupTaskState(taskState).State == AutostartState.Failed)
+        {
+            return OperationResult.Fail(
+                $"Windows returned an unknown StartupTask state: {taskState}; Win32 registrations were left unchanged.");
+        }
+
+        if (currentRun != null &&
+            (currentRun is not string currentCommand || !IsRecognizedRunCommand(currentCommand, legacy: false)))
+        {
+            return OperationResult.Fail(
+                "The PrivGvard Run value is not a recognized app-owned command and was left unchanged.");
+        }
+
+        if (legacyRun != null &&
+            (legacyRun is not string legacyCommand || !IsRecognizedRunCommand(legacyCommand, legacy: true)))
+        {
+            return OperationResult.Fail(
+                "The PrivLock Run value is not a recognized app-owned command and was left unchanged.");
+        }
+
+        if (!TryGetApprovalDisabledState(currentApproval, out var currentDisabled) ||
+            !TryGetApprovalDisabledState(legacyApproval, out var legacyDisabled))
+        {
+            return OperationResult.Fail(
+                "Windows returned an invalid Startup Apps approval value; Win32 registrations were left unchanged.");
+        }
+
+        if (preserveLegacyDisabledState &&
+            currentApproval != null &&
+            legacyApproval != null &&
+            currentDisabled != legacyDisabled)
+        {
+            return OperationResult.Fail(
+                "The Win32 startup registrations have conflicting Windows user states and were left unchanged.");
+        }
+
+        if (preserveLegacyDisabledState && (currentDisabled || legacyDisabled))
+        {
+            if (taskState == WindowsStartupTaskState.EnabledByPolicy)
+            {
+                return OperationResult.Fail(
+                    "Windows policy enables the MSIX startup task, conflicting with a disabled Win32 startup preference; prior registrations were left unchanged.");
+            }
+
+            if (taskState == WindowsStartupTaskState.Enabled)
+            {
+                try
+                {
+                    await _startupTask.DisableAsync().ConfigureAwait(false);
+                    taskState = await _startupTask.GetStateAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Could not preserve the disabled Win32 preference in the MSIX StartupTask");
+                    return OperationResult.Fail(
+                        $"The disabled Win32 startup preference could not be preserved; prior registrations were left unchanged: {ex.Message}");
+                }
+
+                if (taskState is not (WindowsStartupTaskState.Disabled or WindowsStartupTaskState.DisabledByUser))
+                {
+                    return OperationResult.Fail(
+                        $"The MSIX startup task did not preserve the disabled Win32 preference (effective state: {taskState}); prior registrations were left unchanged.");
+                }
+            }
+        }
+
+        var originalRunValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (currentRun is string currentRunCommand)
+            originalRunValues[AppName] = currentRunCommand;
+        if (legacyRun is string legacyRunCommand)
+            originalRunValues[LegacyAppName] = legacyRunCommand;
+
+        var originalApprovalValues = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        if (currentApproval != null)
+            originalApprovalValues[AppName] = currentApproval;
+        if (legacyApproval != null)
+            originalApprovalValues[LegacyAppName] = legacyApproval;
+
+        try
+        {
+            if (!Equals(_registry.ReadRunValue(AppName), currentRun) ||
+                !Equals(_registry.ReadRunValue(LegacyAppName), legacyRun) ||
+                !ApprovalValuesEqual(_registry.ReadStartupApprovedValue(AppName), currentApproval) ||
+                !ApprovalValuesEqual(_registry.ReadStartupApprovedValue(LegacyAppName), legacyApproval) ||
+                await _startupTask.GetStateAsync().ConfigureAwait(false) != taskState)
+            {
+                throw new InvalidOperationException(
+                    "The startup task or prior Win32 registrations changed during migration; no further entries were removed.");
+            }
+
+            foreach (var name in new[] { AppName, LegacyAppName })
+            {
+                if (originalRunValues.ContainsKey(name))
+                {
+                    _registry.DeleteRunValue(name);
+                    if (_registry.ReadRunValue(name) != null)
+                        throw new InvalidOperationException($"The obsolete Run value '{name}' remained after migration.");
+                }
+
+                if (originalApprovalValues.ContainsKey(name))
+                {
+                    _registry.DeleteStartupApprovedValue(name);
+                    if (_registry.ReadStartupApprovedValue(name) != null)
+                        throw new InvalidOperationException($"The obsolete Startup Apps value '{name}' remained after migration.");
+                }
+            }
+
+            return OperationResult.Ok();
+        }
+        catch (Exception ex)
+        {
+            var rollbackErrors = RollbackPackagedMigration(originalRunValues, originalApprovalValues);
+            Log.Error(ex, "MSIX transition cleanup failed; attempting to restore previous Win32 registrations");
+            var rollbackDetail = rollbackErrors.Count == 0
+                ? ""
+                : $" Rollback was incomplete: {string.Join("; ", rollbackErrors)}";
+            return OperationResult.Fail($"MSIX startup migration failed: {ex.Message}{rollbackDetail}");
+        }
     }
 
     private async Task<OperationResult> MigrateLegacyWin32EntryAsync()
@@ -275,20 +420,13 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         if (legacyValue == null)
             return await RemoveLegacyEntriesAsync(removeCurrentRunEntry: false).ConfigureAwait(false);
 
-        if (currentValue != null)
-            return await RemoveLegacyEntriesAsync(removeCurrentRunEntry: false).ConfigureAwait(false);
-
         if (legacyValue is not string legacyCommand)
         {
             return OperationResult.Fail(
                 "The legacy PrivLock startup entry is not a valid command string and was left unchanged.");
         }
 
-        var legacyPath = ExtractExecutablePath(legacyCommand);
-        if (legacyPath == null ||
-            !Path.IsPathFullyQualified(legacyPath) ||
-            (!Path.GetFileName(legacyPath).Equals("PrivLock.exe", StringComparison.OrdinalIgnoreCase) &&
-             !Path.GetFileName(legacyPath).Equals("PrivGvard.exe", StringComparison.OrdinalIgnoreCase)))
+        if (!IsRecognizedRunCommand(legacyCommand, legacy: true))
         {
             return OperationResult.Fail(
                 "The legacy Run value does not identify a PrivLock or PrivGvard executable and was left unchanged.");
@@ -298,14 +436,42 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         if (currentPath.Error != null)
             return OperationResult.Fail(currentPath.Error.Message!);
 
+        var expectedCurrentCommand = FormatRunCommand(currentPath.Path!);
+        if (currentValue != null &&
+            (currentValue is not string currentCommand ||
+             !string.Equals(currentCommand, expectedCurrentCommand, StringComparison.Ordinal)))
+        {
+            return OperationResult.Fail(
+                "The current PrivGvard Run value is not a verified replacement; both startup registrations were left unchanged.");
+        }
+
+        if (!TryGetApprovalDisabledState(legacyApproval, out var legacyDisabled) ||
+            !TryGetApprovalDisabledState(currentApproval, out var currentDisabled))
+        {
+            return OperationResult.Fail(
+                "Windows returned an invalid Startup Apps approval value; both startup registrations were left unchanged.");
+        }
+
+        if (legacyApproval != null &&
+            currentApproval != null &&
+            legacyDisabled != currentDisabled)
+        {
+            return OperationResult.Fail(
+                "The legacy and current startup registrations have conflicting Windows user states; both were left unchanged.");
+        }
+
         var currentRunCreated = false;
         var currentApprovalCreated = false;
         try
         {
-            _registry.WriteRunValue(AppName, FormatRunCommand(currentPath.Path!));
-            currentRunCreated = true;
+            if (currentValue == null)
+            {
+                _registry.WriteRunValue(AppName, expectedCurrentCommand);
+                currentRunCreated = true;
+            }
+
             if (_registry.ReadRunValue(AppName) is not string migratedCommand ||
-                !string.Equals(migratedCommand, FormatRunCommand(currentPath.Path!), StringComparison.Ordinal))
+                !string.Equals(migratedCommand, expectedCurrentCommand, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("The replacement Run value did not match the verified current executable.");
             }
@@ -318,6 +484,19 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                     !copiedApproval.SequenceEqual(legacyApproval))
                     throw new InvalidOperationException("The legacy Windows startup approval state could not be copied.");
             }
+
+            var approvalBeforeDelete = _registry.ReadStartupApprovedValue(AppName);
+            var legacyApprovalBeforeDelete = _registry.ReadStartupApprovedValue(LegacyAppName);
+            if (!ApprovalStateMatches(approvalBeforeDelete, currentApproval ?? legacyApproval) ||
+                !ApprovalStateMatches(legacyApprovalBeforeDelete, legacyApproval) ||
+                !ApprovalStatesCompatible(approvalBeforeDelete, legacyApprovalBeforeDelete))
+            {
+                throw new InvalidOperationException(
+                    "Windows startup approval state changed or conflicted during migration; the legacy entry was not removed.");
+            }
+
+            if (!Equals(_registry.ReadRunValue(LegacyAppName), legacyValue))
+                throw new InvalidOperationException("The legacy Run value changed during migration.");
 
             _registry.DeleteRunValue(LegacyAppName);
             if (_registry.ReadRunValue(LegacyAppName) != null)
@@ -345,7 +524,8 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                 legacyCommand,
                 legacyApproval,
                 currentRunCreated,
-                currentApprovalCreated);
+                currentApprovalCreated,
+                expectedCurrentCommand);
             Log.Error(ex, "Legacy Win32 autostart migration failed");
             var rollbackDetail = rollbackErrors.Count == 0
                 ? ""
@@ -354,17 +534,77 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         }
     }
 
+    private List<string> RollbackPackagedMigration(
+        IReadOnlyDictionary<string, string> originalRunValues,
+        IReadOnlyDictionary<string, byte[]> originalApprovalValues)
+    {
+        var errors = new List<string>();
+        foreach (var (name, value) in originalRunValues)
+        {
+            try
+            {
+                var current = _registry.ReadRunValue(name);
+                if (current == null)
+                {
+                    _registry.WriteRunValue(name, value);
+                    if (!Equals(_registry.ReadRunValue(name), value))
+                        throw new InvalidOperationException("readback did not match the original value");
+                }
+                else if (!Equals(current, value))
+                {
+                    throw new InvalidOperationException("a different value is present; it was preserved");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{name} Run value: {ex.Message}");
+            }
+        }
+
+        foreach (var (name, value) in originalApprovalValues)
+        {
+            try
+            {
+                var current = _registry.ReadStartupApprovedValue(name);
+                if (current == null)
+                {
+                    _registry.WriteStartupApprovedValue(name, value);
+                    if (_registry.ReadStartupApprovedValue(name) is not { } restored ||
+                        !restored.SequenceEqual(value))
+                    {
+                        throw new InvalidOperationException("readback did not match the original value");
+                    }
+                }
+                else if (!current.SequenceEqual(value))
+                {
+                    throw new InvalidOperationException("a different value is present; it was preserved");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{name} Startup Apps state: {ex.Message}");
+            }
+        }
+
+        return errors;
+    }
+
     private List<string> RollbackWin32Migration(
         string legacyCommand,
         byte[]? legacyApproval,
         bool currentRunCreated,
-        bool currentApprovalCreated)
+        bool currentApprovalCreated,
+        string expectedCurrentCommand)
     {
         var errors = new List<string>();
         try
         {
             if (_registry.ReadRunValue(LegacyAppName) == null)
+            {
                 _registry.WriteRunValue(LegacyAppName, legacyCommand);
+                if (!Equals(_registry.ReadRunValue(LegacyAppName), legacyCommand))
+                    throw new InvalidOperationException("readback did not match the original value");
+            }
         }
         catch (Exception ex)
         {
@@ -374,7 +614,14 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         try
         {
             if (legacyApproval != null && _registry.ReadStartupApprovedValue(LegacyAppName) == null)
+            {
                 _registry.WriteStartupApprovedValue(LegacyAppName, legacyApproval);
+                if (_registry.ReadStartupApprovedValue(LegacyAppName) is not { } restored ||
+                    !restored.SequenceEqual(legacyApproval))
+                {
+                    throw new InvalidOperationException("readback did not match the original approval");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -385,7 +632,10 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         {
             try
             {
-                _registry.DeleteRunValue(AppName);
+                if (Equals(_registry.ReadRunValue(AppName), expectedCurrentCommand))
+                    _registry.DeleteRunValue(AppName);
+                if (_registry.ReadRunValue(AppName) != null)
+                    throw new InvalidOperationException("the replacement changed externally and was preserved");
             }
             catch (Exception ex)
             {
@@ -397,7 +647,15 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         {
             try
             {
-                _registry.DeleteStartupApprovedValue(AppName);
+                if (legacyApproval != null &&
+                    _registry.ReadStartupApprovedValue(AppName) is { } current &&
+                    current.SequenceEqual(legacyApproval))
+                {
+                    _registry.DeleteStartupApprovedValue(AppName);
+                }
+
+                if (_registry.ReadStartupApprovedValue(AppName) != null)
+                    throw new InvalidOperationException("the replacement approval changed externally and was preserved");
             }
             catch (Exception ex)
             {
@@ -424,10 +682,6 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
     {
         try
         {
-            var cleanup = await RemoveLegacyEntriesAsync(removeCurrentRunEntry: true).ConfigureAwait(false);
-            if (!cleanup.Success)
-                return cleanup;
-
             var taskState = await _startupTask.GetStateAsync().ConfigureAwait(false);
             if (taskState == WindowsStartupTaskState.DisabledByPolicy)
             {
@@ -435,11 +689,7 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                     "Windows policy prevents enabling the PrivGvard MSIX startup task.");
             }
 
-            if (taskState == WindowsStartupTaskState.DisabledByUser)
-            {
-                taskState = await _startupTask.RequestEnableAsync().ConfigureAwait(false);
-            }
-            else if (taskState == WindowsStartupTaskState.Disabled)
+            if (taskState is WindowsStartupTaskState.DisabledByUser or WindowsStartupTaskState.Disabled)
             {
                 taskState = await _startupTask.RequestEnableAsync().ConfigureAwait(false);
             }
@@ -447,6 +697,11 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
             var status = MapStartupTaskState(taskState);
             if (status.IsEnabled)
             {
+                var cleanup = await MigratePackagedEntriesAsync(preserveLegacyDisabledState: false)
+                    .ConfigureAwait(false);
+                if (!cleanup.Success)
+                    return cleanup;
+
                 var verified = await GetPackagedStatusAsync().ConfigureAwait(false);
                 return verified.IsEnabled
                     ? OperationResult.Ok()
@@ -560,7 +815,8 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
                 (string.Equals(segments[index + 1], "Debug", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(segments[index + 1], "Release", StringComparison.OrdinalIgnoreCase)))
             {
-                return true;
+                return index + 2 < segments.Length - 1 &&
+                       IsTargetFrameworkSegment(segments[index + 2]);
             }
 
             if (string.Equals(segments[index], "publish_out", StringComparison.OrdinalIgnoreCase))
@@ -569,6 +825,70 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
 
         return false;
     }
+
+    private static bool IsRecognizedRunCommand(string command, bool legacy)
+    {
+        var executablePath = ExtractExecutablePath(command);
+        if (executablePath == null || !Path.IsPathFullyQualified(executablePath))
+            return false;
+
+        var executableName = Path.GetFileName(executablePath);
+        var recognizedName = executableName.Equals("PrivGvard.exe", StringComparison.OrdinalIgnoreCase) ||
+                             legacy && executableName.Equals("PrivLock.exe", StringComparison.OrdinalIgnoreCase);
+        if (!recognizedName)
+            return false;
+
+        var trimmed = command.Trim();
+        var quotedPath = $"\"{executablePath}\"";
+        if (trimmed.Equals(quotedPath, StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals($"{quotedPath} --minimized", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !executablePath.Any(char.IsWhiteSpace) &&
+               (trimmed.Equals(executablePath, StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals($"{executablePath} --minimized", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool TryGetApprovalDisabledState(byte[]? approval, out bool disabled)
+    {
+        disabled = false;
+        if (approval == null)
+            return true;
+        if (approval.Length == 0)
+            return false;
+
+        disabled = (approval[0] & 0x01) != 0;
+        return true;
+    }
+
+    private static bool ApprovalStateMatches(byte[]? left, byte[]? right)
+    {
+        if (left == null || right == null)
+            return left == null && right == null;
+
+        return left.Length > 0 &&
+               right.Length > 0 &&
+               (left[0] & 0x01) == (right[0] & 0x01);
+    }
+
+    private static bool ApprovalStatesCompatible(byte[]? left, byte[]? right)
+    {
+        return left == null ||
+               right == null ||
+               ApprovalStateMatches(left, right);
+    }
+
+    private static bool ApprovalValuesEqual(byte[]? left, byte[]? right) =>
+        left == null
+            ? right == null
+            : right != null && left.SequenceEqual(right);
+
+    private static bool IsTargetFrameworkSegment(string segment) =>
+        segment.StartsWith("net", StringComparison.OrdinalIgnoreCase) &&
+        segment.Length > 3 &&
+        char.IsDigit(segment[3]);
 
     private static bool IsPrivGvardExecutable(string path)
     {

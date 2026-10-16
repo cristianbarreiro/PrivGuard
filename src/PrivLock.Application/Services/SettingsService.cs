@@ -36,7 +36,12 @@ public sealed class SettingsService
         if (result.Success)
         {
             var effective = await _autostartProvider.GetAutostartStatusAsync().ConfigureAwait(false);
-            if (effective.IsEnabled != enable)
+            var verified = enable
+                ? effective.State == AutostartState.Enabled
+                : effective.State is AutostartState.Disabled
+                    or AutostartState.DisabledByUser
+                    or AutostartState.DisabledByPolicy;
+            if (!verified)
             {
                 return OperationResult.Fail(
                     effective.Message ??

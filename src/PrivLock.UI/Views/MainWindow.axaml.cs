@@ -12,6 +12,8 @@ public partial class MainWindow : Window
     private readonly SettingsViewModel? _settingsViewModel;
     private SettingsWindow? _settingsWindow;
 
+    public event EventHandler? UserCloseRequested;
+
     public MainWindow() : this(null)
     {
     }
@@ -102,7 +104,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        _allowApplicationClose = true;
+        if (ShouldRequestCoordinatedClose(_trayAvailable, _allowApplicationClose))
+        {
+            e.Cancel = true;
+            UserCloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         _settingsWindow?.Close();
         _settingsWindow = null;
 
@@ -111,6 +119,9 @@ public partial class MainWindow : Window
 
     internal static bool ShouldHideOnClose(bool trayAvailable, bool allowApplicationClose) =>
         trayAvailable && !allowApplicationClose;
+
+    internal static bool ShouldRequestCoordinatedClose(bool trayAvailable, bool allowApplicationClose) =>
+        !trayAvailable && !allowApplicationClose;
 
     public void AllowApplicationClose()
     {

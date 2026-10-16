@@ -185,7 +185,18 @@ public static class Program
                         : "SafeUninstallWrapper";
                     var restore = _shutdownCoordinator.RestoreAsync(restoreReason).GetAwaiter().GetResult();
                     if (restore.SafeToExit)
-                        settingsService.SetAutostartAsync(false).GetAwaiter().GetResult();
+                    {
+                        try
+                        {
+                            var autostartResult = settingsService.SetAutostartAsync(false).GetAwaiter().GetResult();
+                            if (!autostartResult.Success)
+                                Log.Warning("Autostart could not be disabled during uninstall: {Error}", autostartResult.ErrorMessage);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warning(ex, "Autostart disable failed during uninstall; continuing with the coordinated restore result");
+                        }
+                    }
 
                     var workerStopped = true;
                     if (safeUninstallPlan != null && restore.SafeToExit)

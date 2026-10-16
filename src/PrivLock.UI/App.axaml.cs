@@ -2,6 +2,7 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -82,6 +83,8 @@ public partial class App : Avalonia.Application
             {
                 DataContext = _mainViewModel
             };
+            mainWindow.UserCloseRequested += (_, _) =>
+                _ = RequestShutdownAsync(desktop, "WindowClose", allowIncomplete: false);
             _mainWindow = mainWindow;
             desktop.MainWindow = _mainWindow;
 
@@ -143,6 +146,12 @@ public partial class App : Avalonia.Application
         TrayIcon? candidate = null;
         try
         {
+            if (!HasTrayIconImplementation(() => PlatformManager.CreateTrayIcon()))
+            {
+                Log.Warning("System Tray is not supported by the active Avalonia desktop backend");
+                return false;
+            }
+
             WindowIcon? windowIcon = null;
             WindowIcon? trayIcon = null;
 
@@ -233,6 +242,12 @@ public partial class App : Avalonia.Application
             candidate?.Dispose();
             return false;
         }
+    }
+
+    internal static bool HasTrayIconImplementation(Func<IDisposable?> createProbe)
+    {
+        using var probe = createProbe();
+        return probe != null;
     }
 
     private void OnLanguageChanged(string lang)

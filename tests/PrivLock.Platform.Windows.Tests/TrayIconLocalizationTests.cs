@@ -25,6 +25,12 @@ public class TrayIconLocalizationTests
         Assert.Equal(expected, App.ShouldHideStartupWindow(startMinimized, trayInitialized));
     }
 
+    [Fact]
+    public void TrayProbe_ReportsUnsupportedBackendWhenNoImplementationIsRegistered()
+    {
+        Assert.False(App.HasTrayIconImplementation(() => null));
+    }
+
     [Theory]
     [InlineData(false, false, false)]
     [InlineData(true, false, true)]
@@ -37,6 +43,39 @@ public class TrayIconLocalizationTests
         Assert.Equal(
             expectedHide,
             PrivLock.UI.Views.MainWindow.ShouldHideOnClose(trayAvailable, allowApplicationClose));
+    }
+
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    public void Close_RequestsCoordinatedShutdownOnlyWhenTrayIsUnavailable(
+        bool trayAvailable,
+        bool allowApplicationClose,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            PrivLock.UI.Views.MainWindow.ShouldRequestCoordinatedClose(trayAvailable, allowApplicationClose));
+    }
+
+    [Fact]
+    public void WindowCloseWithoutTray_RaisesTheCoordinatedShutdownRequest()
+    {
+        EnsureAppInitialized();
+        var window = new PrivLock.UI.Views.MainWindow();
+        window.SetTrayAvailability(false);
+        var requestCount = 0;
+        window.UserCloseRequested += (_, _) => requestCount++;
+
+        window.Show();
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1, requestCount);
+        Assert.True(window.IsVisible);
+        window.AllowApplicationClose();
+        window.Close();
     }
 
     private sealed class InMemoryStateStore : IStateStore

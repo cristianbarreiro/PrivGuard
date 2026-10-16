@@ -108,6 +108,21 @@ public sealed class WindowsAutostartProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task EnableAutostart_AllowsReleasePathWithoutTargetFrameworkSegment()
+    {
+        var installedPath = Path.Combine(_testDirectory, "bin", "Release", "PrivGvard.exe");
+        var provider = CreateProvider(
+            new MemoryRegistry(),
+            pathProvider: () => installedPath,
+            fileExists: _ => true,
+            isProductExecutable: _ => true);
+
+        var result = await provider.EnableAutostartAsync();
+
+        Assert.True(result.Success, result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task EnableAutostart_RejectsMissingAndNonFullyQualifiedPaths()
     {
         var missing = CreateProvider(
@@ -216,6 +231,60 @@ public sealed class WindowsAutostartProviderTests : IDisposable
         Assert.Equal(AutostartState.DisabledByUser, (await provider.GetAutostartStatusAsync()).State);
     }
 
+    [Fact]
+    public async Task Migration_LeavesLegacyAndInvalidCurrentEntriesUnchanged()
+    {
+        var registry = new MemoryRegistry();
+        registry.RunValues["PrivLock"] = "\"C:\\Old\\PrivLock.exe\" --minimized";
+        registry.RunValues["PrivGvard"] = "\"C:\\Missing\\PrivGvard.exe\" --minimized";
+        var provider = CreateProvider(registry);
+
+        var result = await provider.MigrateLegacyEntriesAsync();
+
+        Assert.False(result.Success);
+        Assert.Equal("\"C:\\Old\\PrivLock.exe\" --minimized", registry.RunValues["PrivLock"]);
+        Assert.Equal("\"C:\\Missing\\PrivGvard.exe\" --minimized", registry.RunValues["PrivGvard"]);
+    }
+
+    [Fact]
+    public async Task Migration_RejectsConflictingStartupApprovedStatesWithoutChangingEntries()
+    {
+        var registry = new MemoryRegistry();
+        registry.RunValues["PrivLock"] = "\"C:\\Old\\PrivLock.exe\" --minimized";
+        registry.RunValues["PrivGvard"] = $"\"{_dummyExePath}\" --minimized";
+        registry.ApprovedValues["PrivLock"] = [0x03, 0, 0];
+        registry.ApprovedValues["PrivGvard"] = [0x02, 0, 0];
+        var provider = CreateProvider(registry);
+
+        var result = await provider.MigrateLegacyEntriesAsync();
+
+        Assert.False(result.Success);
+        Assert.Contains("conflicting Windows user states", result.ErrorMessage);
+        Assert.Equal("\"C:\\Old\\PrivLock.exe\" --minimized", registry.RunValues["PrivLock"]);
+        Assert.Equal($"\"{_dummyExePath}\" --minimized", registry.RunValues["PrivGvard"]);
+        Assert.Equal(new byte[] { 0x03, 0, 0 }, registry.ApprovedValues["PrivLock"]);
+        Assert.Equal(new byte[] { 0x02, 0, 0 }, registry.ApprovedValues["PrivGvard"]);
+    }
+
+    [Fact]
+    public async Task Migration_ValidatesAnExistingCurrentEntryBeforeRemovingLegacyEntry()
+    {
+        var registry = new MemoryRegistry();
+        registry.RunValues["PrivLock"] = "\"C:\\Old\\PrivLock.exe\" --minimized";
+        registry.RunValues["PrivGvard"] = $"\"{_dummyExePath}\" --minimized";
+        registry.ApprovedValues["PrivLock"] = [0x03, 0, 0];
+        var provider = CreateProvider(registry);
+
+        var result = await provider.MigrateLegacyEntriesAsync();
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.False(registry.RunValues.ContainsKey("PrivLock"));
+        Assert.Equal($"\"{_dummyExePath}\" --minimized", registry.RunValues["PrivGvard"]);
+        Assert.False(registry.ApprovedValues.ContainsKey("PrivLock"));
+        Assert.Equal(new byte[] { 0x03, 0, 0 }, registry.ApprovedValues["PrivGvard"]);
+        Assert.Equal(AutostartState.DisabledByUser, (await provider.GetAutostartStatusAsync()).State);
+    }
+
     [Theory]
     [InlineData("Enabled", AutostartState.Enabled)]
     [InlineData("EnabledByPolicy", AutostartState.Enabled)]
@@ -280,10 +349,14 @@ public sealed class WindowsAutostartProviderTests : IDisposable
         registry.RunValues["PrivGvard"] = "\"C:\\OldPackageVersion\\PrivGvard.exe\" --minimized";
         registry.RunValues["PrivLock"] = "\"C:\\OldPackageVersion\\PrivLock.exe\" --minimized";
         registry.ApprovedValues["PrivGvard"] = [0x03, 0, 0];
+        var startupTask = new FakeStartupTask(WindowsStartupTaskState.Enabled)
+        {
+            StateAfterDisable = WindowsStartupTaskState.DisabledByUser
+        };
         var provider = CreateProvider(
             registry,
             packaged: true,
-            startupTask: new FakeStartupTask(WindowsStartupTaskState.Enabled));
+            startupTask: startupTask);
 
         Assert.Equal(AutostartState.MigrationRequired, (await provider.GetAutostartStatusAsync()).State);
         var migrated = await provider.MigrateLegacyEntriesAsync();
@@ -291,7 +364,7 @@ public sealed class WindowsAutostartProviderTests : IDisposable
         Assert.True(migrated.Success, migrated.ErrorMessage);
         Assert.Empty(registry.RunValues);
         Assert.Empty(registry.ApprovedValues);
-        Assert.Equal(AutostartState.Enabled, (await provider.GetAutostartStatusAsync()).State);
+        Assert.Equal(AutostartState.DisabledByUser, (await provider.GetAutostartStatusAsync()).State);
     }
 
     [Fact]
@@ -306,9 +379,13 @@ public sealed class WindowsAutostartProviderTests : IDisposable
         using (var approvedKey = Registry.CurrentUser.OpenSubKey(_testStartupApprovedKeyPath, writable: true))
             approvedKey!.SetValue("PrivGvard", new byte[] { 0x03, 0, 0 }, RegistryValueKind.Binary);
 
+        var startupTask = new FakeStartupTask(WindowsStartupTaskState.Enabled)
+        {
+            StateAfterDisable = WindowsStartupTaskState.DisabledByUser
+        };
         var provider = new WindowsAutostartProvider(
             new WindowsAutostartRegistry(_testRunKeyPath, _testStartupApprovedKeyPath),
-            new FakeStartupTask(WindowsStartupTaskState.Enabled),
+            startupTask,
             () => true,
             () => _dummyExePath);
 
@@ -321,7 +398,43 @@ public sealed class WindowsAutostartProviderTests : IDisposable
         using var verifyApproval = Registry.CurrentUser.OpenSubKey(_testStartupApprovedKeyPath);
         Assert.Null(verifyApproval!.GetValue("PrivGvard"));
         Assert.Null(verifyApproval.GetValue("PrivLock"));
-        Assert.Equal(AutostartState.Enabled, (await provider.GetAutostartStatusAsync()).State);
+        Assert.Equal(AutostartState.DisabledByUser, (await provider.GetAutostartStatusAsync()).State);
+    }
+
+    [Fact]
+    public async Task MsixMigration_LeavesEntriesWhenStartupTaskStateCannotBeRead()
+    {
+        var registry = new MemoryRegistry();
+        registry.RunValues["PrivGvard"] = "\"C:\\OldPackageVersion\\PrivGvard.exe\" --minimized";
+        var startupTask = new FakeStartupTask(WindowsStartupTaskState.Enabled)
+        {
+            GetStateFailure = new InvalidOperationException("StartupTask unavailable")
+        };
+        var provider = CreateProvider(registry, packaged: true, startupTask: startupTask);
+
+        var result = await provider.MigrateLegacyEntriesAsync();
+
+        Assert.False(result.Success);
+        Assert.Contains("StartupTask unavailable", result.ErrorMessage);
+        Assert.Equal("\"C:\\OldPackageVersion\\PrivGvard.exe\" --minimized", registry.RunValues["PrivGvard"]);
+    }
+
+    [Fact]
+    public async Task MsixMigration_LeavesEntriesWhenPolicyConflictsWithDisabledWin32Preference()
+    {
+        var registry = new MemoryRegistry();
+        registry.RunValues["PrivGvard"] = "\"C:\\OldPackageVersion\\PrivGvard.exe\" --minimized";
+        registry.ApprovedValues["PrivGvard"] = [0x03, 0, 0];
+        var startupTask = new FakeStartupTask(WindowsStartupTaskState.EnabledByPolicy);
+        var provider = CreateProvider(registry, packaged: true, startupTask: startupTask);
+
+        var result = await provider.MigrateLegacyEntriesAsync();
+
+        Assert.False(result.Success);
+        Assert.Contains("Windows policy enables", result.ErrorMessage);
+        Assert.Equal("\"C:\\OldPackageVersion\\PrivGvard.exe\" --minimized", registry.RunValues["PrivGvard"]);
+        Assert.Equal(new byte[] { 0x03, 0, 0 }, registry.ApprovedValues["PrivGvard"]);
+        Assert.Equal(0, startupTask.DisableCount);
     }
 
     [Fact]
@@ -434,8 +547,12 @@ public sealed class WindowsAutostartProviderTests : IDisposable
         public int DisableCount { get; private set; }
         public WindowsStartupTaskState? StateAfterEnableRequest { get; init; }
         public WindowsStartupTaskState? StateAfterDisable { get; init; }
+        public Exception? GetStateFailure { get; init; }
 
-        public Task<WindowsStartupTaskState> GetStateAsync() => Task.FromResult(_state);
+        public Task<WindowsStartupTaskState> GetStateAsync() =>
+            GetStateFailure == null
+                ? Task.FromResult(_state)
+                : Task.FromException<WindowsStartupTaskState>(GetStateFailure);
 
         public Task<WindowsStartupTaskState> RequestEnableAsync()
         {

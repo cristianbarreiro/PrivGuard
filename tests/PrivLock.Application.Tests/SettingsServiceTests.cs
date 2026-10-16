@@ -62,4 +62,34 @@ public class SettingsServiceTests
         Assert.Contains("Blocked by policy", result.ErrorMessage);
         _storeMock.Verify(s => s.Save(It.IsAny<DesiredState>()), Times.Never);
     }
+
+    [Fact]
+    public async Task SetAutostart_DisableDoesNotPersistWhenEffectiveStateIsUnknown()
+    {
+        _autostartMock.Setup(a => a.DisableAutostartAsync()).ReturnsAsync(OperationResult.Ok());
+        _autostartMock.Setup(a => a.GetAutostartStatusAsync())
+            .ReturnsAsync(new AutostartStatus(AutostartState.Failed, "Registry read failed."));
+
+        var result = await _service.SetAutostartAsync(false);
+
+        Assert.False(result.Success);
+        Assert.Contains("Registry read failed", result.ErrorMessage);
+        _storeMock.Verify(s => s.Save(It.IsAny<DesiredState>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(AutostartState.Disabled)]
+    [InlineData(AutostartState.DisabledByUser)]
+    [InlineData(AutostartState.DisabledByPolicy)]
+    public async Task SetAutostart_DisableAcceptsOnlyExplicitDisabledStates(AutostartState state)
+    {
+        _autostartMock.Setup(a => a.DisableAutostartAsync()).ReturnsAsync(OperationResult.Ok());
+        _autostartMock.Setup(a => a.GetAutostartStatusAsync())
+            .ReturnsAsync(new AutostartStatus(state));
+
+        var result = await _service.SetAutostartAsync(false);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        _storeMock.Verify(s => s.Save(It.Is<DesiredState>(desired => !desired.Autostart)), Times.Once);
+    }
 }
