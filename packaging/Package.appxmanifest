@@ -2,12 +2,13 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
-  IgnorableNamespaces="uap rescap desktop desktop4 desktop6 mp">
+  IgnorableNamespaces="uap uap10 rescap desktop desktop4 desktop6 mp">
 
   <Identity
     Name="cdevstudios.PrivGvard"
@@ -48,7 +49,7 @@
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
-        <desktop:Extension Category="windows.startupTask" Executable="PrivGvard.exe" EntryPoint="Windows.FullTrustApplication">
+        <desktop:Extension Category="windows.startupTask" Executable="PrivGvard.exe" EntryPoint="Windows.FullTrustApplication" uap10:Parameters="--minimized">
           <desktop:StartupTask TaskId="PrivGvardStartupTask" Enabled="false" DisplayName="PrivGvard" />
         </desktop:Extension>
       </Extensions>

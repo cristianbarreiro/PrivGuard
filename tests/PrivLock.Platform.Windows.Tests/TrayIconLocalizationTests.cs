@@ -12,6 +12,33 @@ namespace PrivLock.Platform.Windows.Tests;
 
 public class TrayIconLocalizationTests
 {
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, true)]
+    public void MinimizedStartup_HidesOnlyWhenTrayIsReady(
+        bool startMinimized,
+        bool trayInitialized,
+        bool expected)
+    {
+        Assert.Equal(expected, App.ShouldHideStartupWindow(startMinimized, trayInitialized));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    public void Close_HidesOnlyWhenTrayIsAvailable(
+        bool trayAvailable,
+        bool allowApplicationClose,
+        bool expectedHide)
+    {
+        Assert.Equal(
+            expectedHide,
+            PrivLock.UI.Views.MainWindow.ShouldHideOnClose(trayAvailable, allowApplicationClose));
+    }
+
     private sealed class InMemoryStateStore : IStateStore
     {
         public DesiredState State { get; set; } = new DesiredState { Language = "es" };

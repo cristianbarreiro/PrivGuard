@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PrivLock.Application.Services;
 using PrivLock.Domain.Models;
+using PrivLock.Platform.Abstractions;
 using Serilog;
 
 namespace PrivLock.UI.ViewModels;
@@ -213,7 +214,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         _isSpanishSelected = _localizationService.CurrentLanguage == "es";
         _isEnglishSelected = !_isSpanishSelected;
-        _isAutostartEnabled = _settingsService.IsAutostartEnabled();
+        _ = RefreshAutostartStatusAsync();
 
         UpdatePlatformAndCapabilities();
 
@@ -691,14 +692,30 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleAutostart(bool enable)
+    private async Task ToggleAutostart(bool enable)
     {
         if (_isUpdating) return;
-        var result = _settingsService.SetAutostart(enable);
-        IsAutostartEnabled = _settingsService.IsAutostartEnabled();
+        var result = await _settingsService.SetAutostartAsync(enable);
+        var status = await _settingsService.GetAutostartStatusAsync();
+        IsAutostartEnabled = status.IsEnabled;
         if (!result.Success)
         {
-            ShowError(result.ErrorMessage ?? _localizationService.GetString("ErrorAutostart", "Failed to update autostart setting"));
+            ShowError(status.Message ?? result.ErrorMessage ??
+                _localizationService.GetString("ErrorAutostart", "Failed to update autostart setting"));
+        }
+    }
+
+    private async Task RefreshAutostartStatusAsync()
+    {
+        try
+        {
+            var status = await _settingsService.GetAutostartStatusAsync();
+            IsAutostartEnabled = status.IsEnabled;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to read the effective autostart state");
+            IsAutostartEnabled = false;
         }
     }
 

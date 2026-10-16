@@ -1,4 +1,5 @@
 using PrivLock.Domain.Results;
+using System.Threading.Tasks;
 
 namespace PrivLock.Platform.Abstractions;
 
@@ -8,17 +9,23 @@ namespace PrivLock.Platform.Abstractions;
 public interface IAutostartProvider
 {
     /// <summary>
-    /// Checks whether autostart is currently enabled for the current user.
+    /// Reads the effective state of the mechanism used by the current distribution.
     /// </summary>
-    bool IsAutostartEnabled();
+    Task<AutostartStatus> GetAutostartStatusAsync();
 
     /// <summary>
-    /// Enables autostart with the operating system.
+    /// Enables and verifies autostart with the operating system.
     /// </summary>
-    OperationResult EnableAutostart();
+    Task<OperationResult> EnableAutostartAsync();
 
     /// <summary>
-    /// Disables autostart with the operating system.
+    /// Disables and verifies autostart with the operating system.
     /// </summary>
-    OperationResult DisableAutostart();
+    Task<OperationResult> DisableAutostartAsync();
+
+    /// <summary>
+    /// Removes only registrations owned by earlier PrivGvard versions or distributions.
+    /// </summary>
+    Task<OperationResult> MigrateLegacyEntriesAsync() =>
+        Task.FromResult(OperationResult.Ok());
 }

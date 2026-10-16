@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PrivLock.Application.Services;
 using PrivLock.Domain.Models;
+using PrivLock.Platform.Abstractions;
 using Serilog;
 
 namespace PrivLock.UI.ViewModels;
@@ -27,6 +28,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     // --- General Section Properties ---
     [ObservableProperty]
     private bool _isAutostartEnabled;
+
+    [ObservableProperty]
+    private string _autostartStatusMessage = "";
+
+    public bool HasAutostartStatusMessage => !string.IsNullOrWhiteSpace(AutostartStatusMessage);
 
     [ObservableProperty]
     private bool _isSpanishSelected;
@@ -145,7 +151,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         _isSpanishSelected = _localizationService.CurrentLanguage == "es";
         _isEnglishSelected = !_isSpanishSelected;
-        _isAutostartEnabled = _settingsService.IsAutostartEnabled();
+        _ = RefreshAutostartStatusAsync();
 
         var entryAssembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
         var ver = entryAssembly.GetName().Version;
@@ -184,15 +190,54 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleAutostart(bool enable)
+    private async Task ToggleAutostart(bool enable)
     {
-        var result = _settingsService.SetAutostart(enable);
-        IsAutostartEnabled = _settingsService.IsAutostartEnabled();
+        var result = await _settingsService.SetAutostartAsync(enable);
+        var status = await _settingsService.GetAutostartStatusAsync();
+        IsAutostartEnabled = status.IsEnabled;
+        AutostartStatusMessage = GetAutostartStatusMessage(status);
         if (!result.Success)
         {
             Log.Warning("Failed to update autostart from settings: {Error}", result.ErrorMessage);
+            if (status.State is not (AutostartState.DisabledByUser or AutostartState.DisabledByPolicy))
+                AutostartStatusMessage = result.ErrorMessage ??
+                    _localizationService.GetString("ErrorAutostart", "Failed to update autostart setting");
         }
     }
+
+    private async Task RefreshAutostartStatusAsync()
+    {
+        try
+        {
+            var status = await _settingsService.GetAutostartStatusAsync();
+            IsAutostartEnabled = status.IsEnabled;
+            AutostartStatusMessage = GetAutostartStatusMessage(status);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to read the effective autostart state for Settings");
+            IsAutostartEnabled = false;
+            AutostartStatusMessage = ex.Message;
+        }
+    }
+
+    private string GetAutostartStatusMessage(AutostartStatus status) =>
+        status.State switch
+        {
+            AutostartState.Enabled or AutostartState.Disabled => "",
+            AutostartState.DisabledByUser => _localizationService.GetString(
+                "AutostartDisabledByUser",
+                "Windows has disabled startup for PrivGvard. Enable it in Windows Settings or Task Manager."),
+            AutostartState.DisabledByPolicy => _localizationService.GetString(
+                "AutostartDisabledByPolicy",
+                "Windows policy prevents PrivGvard from starting automatically."),
+            _ => status.Message ?? _localizationService.GetString(
+                "ErrorAutostart",
+                "Failed to update autostart setting")
+        };
+
+    partial void OnAutostartStatusMessageChanged(string value) =>
+        OnPropertyChanged(nameof(HasAutostartStatusMessage));
 
     [RelayCommand]
     public async Task RefreshDiagnosticsAsync()
@@ -279,6 +324,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(StartupTitle));
             OnPropertyChanged(nameof(StartupDescription));
             OnPropertyChanged(nameof(StartWithSystemLabel));
+            OnPropertyChanged(nameof(AutostartStatusMessage));
+            _ = RefreshAutostartStatusAsync();
             OnPropertyChanged(nameof(LanguageTitle));
             OnPropertyChanged(nameof(LanguageDescription));
 
