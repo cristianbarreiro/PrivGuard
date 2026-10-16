@@ -146,16 +146,21 @@
 
                         <!-- System Startup Card -->
                         <Border Classes="settingCard">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding StartupTitle}" FontSize="13" FontWeight="Bold" Foreground="White" />
-                                    <TextBlock Text="{Binding StartupDescription}" FontSize="11" Foreground="#888888" TextWrapping="Wrap" />
-                                </StackPanel>
-                                <CheckBox Grid.Column="1" IsChecked="{Binding IsAutostartEnabled}"
-                                          Content="{Binding StartWithSystemLabel}" FontSize="12" Foreground="#CCCCCC"
-                                          Command="{Binding ToggleAutostartCommand}" CommandParameter="{Binding $self.IsChecked}"
-                                          VerticalAlignment="Center" Margin="10,0,0,0" />
-                            </Grid>
+                            <StackPanel Spacing="7">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding StartupTitle}" FontSize="13" FontWeight="Bold" Foreground="White" />
+                                        <TextBlock Text="{Binding StartupDescription}" FontSize="11" Foreground="#888888" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <CheckBox Grid.Column="1" IsChecked="{Binding IsAutostartEnabled}"
+                                              Content="{Binding StartWithSystemLabel}" FontSize="12" Foreground="#CCCCCC"
+                                              Command="{Binding ToggleAutostartCommand}" CommandParameter="{Binding $self.IsChecked}"
+                                              VerticalAlignment="Center" Margin="10,0,0,0" />
+                                </Grid>
+                                <TextBlock Text="{Binding AutostartStatusMessage}"
+                                           IsVisible="{Binding HasAutostartStatusMessage}"
+                                           FontSize="11" Foreground="#FFCC66" TextWrapping="Wrap" />
+                            </StackPanel>
                         </Border>
 
                         <!-- Interface Language Card -->

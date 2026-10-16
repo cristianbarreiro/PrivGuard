@@ -20,21 +20,31 @@ public sealed class SettingsService
         _stateStore = stateStore;
     }
 
-    public bool IsAutostartEnabled()
+    public Task<AutostartStatus> GetAutostartStatusAsync()
     {
-        return _autostartProvider.IsAutostartEnabled();
+        return _autostartProvider.GetAutostartStatusAsync();
     }
 
-    public OperationResult SetAutostart(bool enable)
+    public async Task<OperationResult> SetAutostartAsync(bool enable)
     {
         Log.Information("Setting autostart to {Enable}", enable);
 
         var result = enable
-            ? _autostartProvider.EnableAutostart()
-            : _autostartProvider.DisableAutostart();
+            ? await _autostartProvider.EnableAutostartAsync().ConfigureAwait(false)
+            : await _autostartProvider.DisableAutostartAsync().ConfigureAwait(false);
 
         if (result.Success)
         {
+            var effective = await _autostartProvider.GetAutostartStatusAsync().ConfigureAwait(false);
+            if (enable
+                    ? effective.State != AutostartState.Enabled
+                    : effective.State is not (AutostartState.Disabled or AutostartState.DisabledByUser or AutostartState.DisabledByPolicy))
+            {
+                return OperationResult.Fail(
+                    effective.Message ??
+                    $"Autostart verification failed; the effective state is {effective.State}.");
+            }
+
             try
             {
                 var state = _stateStore.Load();
@@ -45,7 +55,7 @@ public sealed class SettingsService
             {
                 Log.Error(ex, "Autostart changed but its application preference could not be persisted");
                 return OperationResult.Fail(
-                    $"Autostart changed, but PrivLock could not save the preference: {ex.Message}");
+                    $"Autostart changed, but PrivGvard could not save the preference: {ex.Message}");
             }
         }
 

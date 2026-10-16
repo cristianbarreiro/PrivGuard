@@ -8,11 +8,19 @@ namespace PrivLock.UI.Views;
 public partial class MainWindow : Window
 {
     private bool _allowApplicationClose;
+    private bool _trayAvailable;
     private readonly SettingsViewModel? _settingsViewModel;
     private SettingsWindow? _settingsWindow;
 
+    public event Action? CloseRequested;
+
     public MainWindow() : this(null)
     {
+    }
+
+    public void SetTrayAvailability(bool isAvailable)
+    {
+        _trayAvailable = isAvailable;
     }
 
     public MainWindow(SettingsViewModel? settingsViewModel)
@@ -89,18 +97,32 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_allowApplicationClose)
+        if (ShouldHideOnClose(_trayAvailable, _allowApplicationClose))
         {
             e.Cancel = true;
             Hide();
             return;
         }
 
+        if (ShouldRequestShutdownOnClose(_trayAvailable, _allowApplicationClose))
+        {
+            e.Cancel = true;
+            CloseRequested?.Invoke();
+            return;
+        }
+
+        _allowApplicationClose = true;
         _settingsWindow?.Close();
         _settingsWindow = null;
 
         base.OnClosing(e);
     }
+
+    internal static bool ShouldHideOnClose(bool trayAvailable, bool allowApplicationClose) =>
+        trayAvailable && !allowApplicationClose;
+
+    internal static bool ShouldRequestShutdownOnClose(bool trayAvailable, bool allowApplicationClose) =>
+        !trayAvailable && !allowApplicationClose;
 
     public void AllowApplicationClose()
     {
@@ -109,4 +131,3 @@ public partial class MainWindow : Window
         _settingsWindow = null;
     }
 }
-

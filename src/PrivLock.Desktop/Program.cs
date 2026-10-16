@@ -110,6 +110,7 @@ public static class Program
 
         ServiceProvider? serviceProvider = null;
         ISingleInstanceGuard? singleInstanceGuard = null;
+        OperationResult? autostartMigrationResult = null;
         try
         {
             // 4. Build Dependency Injection Service Provider
@@ -124,6 +125,19 @@ public static class Program
                 Log.Warning("Another instance of PrivGvard is already running. Exiting without changing system state.");
                 Log.CloseAndFlush();
                 return 2;
+            }
+
+            // Migrate only PrivGvard-owned autostart entries after single-instance admission and
+            // before recovery. This path never starts a privileged worker or changes privacy state.
+            autostartMigrationResult = serviceProvider
+                .GetRequiredService<IAutostartProvider>()
+                .MigrateLegacyEntriesAsync()
+                .GetAwaiter()
+                .GetResult();
+            if (!autostartMigrationResult.Success)
+            {
+                Log.Error("Autostart migration failed independently of startup recovery: {Error}",
+                    autostartMigrationResult.ErrorMessage);
             }
 
             _shutdownCoordinator = serviceProvider.GetRequiredService<ShutdownCoordinator>();
@@ -171,7 +185,7 @@ public static class Program
                         : "SafeUninstallWrapper";
                     var restore = _shutdownCoordinator.RestoreAsync(restoreReason).GetAwaiter().GetResult();
                     if (restore.SafeToExit)
-                        settingsService.SetAutostart(false);
+                        settingsService.SetAutostartAsync(false).GetAwaiter().GetResult();
 
                     var workerStopped = true;
                     if (safeUninstallPlan != null && restore.SafeToExit)
@@ -256,16 +270,31 @@ public static class Program
 
             var mainViewModel = serviceProvider.GetRequiredService<MainViewModel>();
             var settingsViewModel = serviceProvider.GetRequiredService<SettingsViewModel>();
+            var startupMessages = new List<string>();
             if (!startupRecovery.SafeToExit || startupRecovery.ConflictCount > 0)
             {
-                mainViewModel.ReportExternalError(
-                    startupRecovery.ErrorMessage ?? localizationService.GetString("StartupRecoveryFailed", "A previous privacy session could not be fully restored."));
+                startupMessages.Add(
+                    startupRecovery.ErrorMessage ??
+                    localizationService.GetString("StartupRecoveryFailed", "A previous privacy session could not be fully restored."));
             }
             else if (!reconcileResult.Success)
             {
-                mainViewModel.ReportExternalError(
-                    reconcileResult.ErrorMessage ?? localizationService.GetString("StartupReconcileFailed", "Desired privacy protection could not be applied at startup."));
+                startupMessages.Add(
+                    reconcileResult.ErrorMessage ??
+                    localizationService.GetString("StartupReconcileFailed", "Desired privacy protection could not be applied at startup."));
             }
+
+            if (autostartMigrationResult is { Success: false })
+            {
+                startupMessages.Add(string.Format(
+                    localizationService.GetString(
+                        "AutostartMigrationFailed",
+                        "PrivGvard startup settings could not be migrated: {0}"),
+                    autostartMigrationResult.ErrorMessage ??
+                    localizationService.GetString("ErrorAutostart", "Windows startup migration failed.")));
+            }
+            if (startupMessages.Count > 0)
+                mainViewModel.ReportExternalError(string.Join(Environment.NewLine, startupMessages));
 
             // Strip --minimized from args before passing to Avalonia to avoid unknown-argument warnings
             var avaloniaArgs = args.Where(a => !a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -408,7 +437,7 @@ public static class Program
         services.AddSingleton<SettingsViewModel>();
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    [System.Runtime.Versioning.SupportedOSPlatform("windows10.0.19041")]
     private static void ConfigureWindowsServices(IServiceCollection services)
     {
         services.AddSingleton<Platform.Windows.Devices.WindowsDeviceDetector>();

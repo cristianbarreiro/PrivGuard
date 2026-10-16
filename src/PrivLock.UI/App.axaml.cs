@@ -28,6 +28,7 @@ public partial class App : Avalonia.Application
     private NativeMenuItem? _trayExitItem;
     private bool _shutdownCommitted;
     private bool _shutdownInProgress;
+    private bool _trayInitialized;
     private readonly bool _startMinimized;
 
     // Default constructor for designer
@@ -81,18 +82,29 @@ public partial class App : Avalonia.Application
             {
                 DataContext = _mainViewModel
             };
+            mainWindow.CloseRequested += () =>
+                _ = RequestShutdownAsync(desktop, "MainWindowClose", allowIncomplete: false);
             _mainWindow = mainWindow;
             desktop.MainWindow = _mainWindow;
 
-            // When launched via Windows autostart (--minimized), hide the main window
-            // so only the System Tray icon is visible. The user can restore the window
-            // from the tray at any time.
-            if (_startMinimized)
+            _trayInitialized = SetupTrayIcon(desktop);
+            mainWindow.SetTrayAvailability(_trayInitialized);
+            if (!_trayInitialized)
+            {
+                desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                Log.Error("System Tray initialization failed; keeping the main window available and enabling normal close behavior");
+            }
+
+            if (ShouldHideStartupWindow(_startMinimized, _trayInitialized))
             {
                 Log.Information("Starting minimized to system tray (--minimized flag detected)");
                 _mainWindow.ShowInTaskbar = false;
                 _mainWindow.WindowState = WindowState.Minimized;
                 mainWindow.Opened += OnStartMinimizedOpened;
+            }
+            else if (_startMinimized)
+            {
+                Log.Warning("Ignoring --minimized because no working System Tray is available");
             }
 
             desktop.ShutdownRequested += (_, e) =>
@@ -123,15 +135,20 @@ public partial class App : Avalonia.Application
 
             desktop.Exit += (_, _) => _trayIcon?.Dispose();
 
-            // Setup Tray Icon
-            SetupTrayIcon(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private void SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
+    private bool SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
     {
+        if (!TrayIcon.IsTrayIconSupported)
+        {
+            Log.Error("The current desktop backend does not support System Tray icons.");
+            return false;
+        }
+
+        TrayIcon? candidate = null;
         try
         {
             WindowIcon? windowIcon = null;
@@ -180,6 +197,10 @@ public partial class App : Avalonia.Application
                 _mainWindow.Icon = windowIcon;
             }
 
+            var effectiveTrayIcon = trayIcon ?? windowIcon;
+            if (effectiveTrayIcon == null)
+                throw new InvalidOperationException("No usable application icon is available for the System Tray.");
+
             var nativeMenu = new NativeMenu();
 
             var openTitle = _localizationService?.GetString("TrayOpen", "Abrir PrivGvard") ?? "Abrir PrivGvard";
@@ -196,32 +217,29 @@ public partial class App : Avalonia.Application
             nativeMenu.Items.Add(_trayExitItem);
 
             var toolTip = _localizationService?.GetString("Tray.ToolTip", "PrivGvard - Bloqueador de Cámara y Micrófono") ?? "PrivGvard - Bloqueador de Cámara y Micrófono";
-            _trayIcon = new TrayIcon
+            candidate = new TrayIcon
             {
                 ToolTipText = toolTip,
                 IsVisible = true,
                 Menu = nativeMenu
             };
 
-            if (trayIcon != null)
-            {
-                _trayIcon.Icon = trayIcon;
-            }
-            else if (windowIcon != null)
-            {
-                _trayIcon.Icon = windowIcon;
-            }
+            candidate.Icon = effectiveTrayIcon;
 
-            _trayIcon.Clicked += (_, _) => ShowMainWindow();
+            candidate.Clicked += (_, _) => ShowMainWindow();
 
-            var trayIcons = new TrayIcons { _trayIcon };
+            var trayIcons = new TrayIcons { candidate };
             TrayIcon.SetIcons(this, trayIcons);
+            _trayIcon = candidate;
 
             Log.Information("System Tray Icon initialized successfully");
+            return true;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to initialize System Tray Icon");
+            candidate?.Dispose();
+            return false;
         }
     }
 
@@ -248,10 +266,21 @@ public partial class App : Avalonia.Application
         if (sender is Window window)
         {
             window.Opened -= OnStartMinimizedOpened;
-            window.Hide();
-            Log.Debug("Main window hidden to system tray after initial Opened event");
+            if (ShouldHideStartupWindow(_startMinimized, _trayInitialized))
+            {
+                window.Hide();
+                Log.Debug("Main window hidden to system tray after initial Opened event");
+            }
+            else
+            {
+                window.ShowInTaskbar = true;
+                window.WindowState = WindowState.Normal;
+            }
         }
     }
+
+    internal static bool ShouldHideStartupWindow(bool startMinimized, bool trayInitialized) =>
+        startMinimized && trayInitialized;
 
     public void ShowMainWindow()
     {

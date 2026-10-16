@@ -84,6 +84,9 @@ public static class LocalizationCatalog
         ["ThemeDescription"] = "El tema oscuro de alto contraste está optimizado para la interfaz de PrivGvard.",
         ["StartupTitle"] = "Inicio del Sistema",
         ["StartupDescription"] = "Iniciar PrivGvard automáticamente al iniciar sesión en el equipo.",
+        ["AutostartDisabledByUser"] = "Windows ha desactivado el inicio de PrivGvard. Actívalo en Configuración de Windows o en el Administrador de tareas.",
+        ["AutostartDisabledByPolicy"] = "Una directiva de Windows impide que PrivGvard se inicie automáticamente.",
+        ["AutostartMigrationFailed"] = "No se pudo migrar la configuración de inicio de PrivGvard: {0}",
         ["LanguageTitle"] = "Idioma de la interfaz",
         ["LanguageDescription"] = "Selecciona el idioma principal de la aplicación.",
 
@@ -272,6 +275,9 @@ public static class LocalizationCatalog
         ["ThemeDescription"] = "High-contrast dark theme optimized for the PrivGvard interface.",
         ["StartupTitle"] = "System Startup",
         ["StartupDescription"] = "Automatically start PrivGvard when logging into your computer.",
+        ["AutostartDisabledByUser"] = "Windows has disabled PrivGvard startup. Enable it in Windows Settings or Task Manager.",
+        ["AutostartDisabledByPolicy"] = "A Windows policy prevents PrivGvard from starting automatically.",
+        ["AutostartMigrationFailed"] = "PrivGvard startup settings could not be migrated: {0}",
         ["LanguageTitle"] = "Interface Language",
         ["LanguageDescription"] = "Select the primary application language.",
 

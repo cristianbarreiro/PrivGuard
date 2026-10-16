@@ -1,102 +1,64 @@
-# Windows Autostart Integration & Protection Lifecycle
+# Windows Autostart Lifecycle
 
-This document specifies the architecture, sequence, and environment boundaries for PrivGvard's automatic startup integration on Windows.
+This document describes the implemented Windows startup behavior and the acceptance checks that still require an isolated Windows VM.
 
----
+## Distribution-specific mechanism
 
-## 1. Lifecycle Goal & Sequence
+PrivGvard uses exactly one startup mechanism for the distribution currently running:
 
-The goal of Windows autostart in PrivGvard is to ensure that privacy protections configured by the user become active upon Windows logon seamlessly, without requiring manual intervention and without blocking normal Windows boot or login performance:
+| Distribution | Registration | Effective state |
+| --- | --- | --- |
+| Unpackaged Win32 installer or portable build | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\PrivGvard`, with a quoted absolute executable path and `--minimized` | The Run value must match the current verified `PrivGvard.exe`, the file must exist, and Windows must not have disabled the entry in `StartupApproved\Run`. |
+| MSIX | The declared `PrivGvardStartupTask` using `Windows.ApplicationModel.StartupTask` | The state reported by Windows (`Enabled`, `Disabled`, `DisabledByUser`, `DisabledByPolicy`, and policy-enabled states). The manifest passes `--minimized` to the packaged full-trust process. |
+
+The MSIX task is enabled only through `RequestEnableAsync`, which allows Windows to present its own consent UI. The app never removes the current `PrivGvard` `StartupApproved` user-disable override. If the user or policy has disabled startup, the setting remains off and explains where the state is controlled. Disabling uses the distribution's matching API and verifies the effective state afterward.
+
+Win32 registration is rejected when the current path is not fully qualified, does not name a verified `PrivGvard.exe`, is missing, or is a known unstable development output (`bin\Debug`, `bin\Release`, or `publish_out`). A registration to a missing or different executable is not reported as enabled. Registry and StartupTask API exceptions, invalid values, policy blocks, user disablement, and migration conflicts remain distinct statuses.
+
+## Migration and single-instance ordering
+
+After acquiring the Windows single-instance and uninstall-gate mutexes, startup migrates a recognized legacy `PrivLock` Run entry to the current verified Win32 executable, carrying forward its Windows `StartupApproved` user-disable state. It removes the old values only after the replacement is written and checked. Malformed legacy values or registry failures are reported and left for explicit remediation rather than treated as enabled. In MSIX context, startup removes obsolete app-owned Win32 `PrivGvard`/`PrivLock` Run registrations because the package StartupTask is authoritative. A migration error is logged and shown separately from privacy recovery/reconciliation errors; it does not start elevation or mutate privacy state.
+
+The order remains:
 
 ```text
-Windows Logon / Boot
-    ↓
-Windows launches autostart entry: PrivGvard.exe --minimized
-    ↓
-Single-Instance Mutual Exclusion Check (Local\PrivGvard_SingleInstance_Mutex)
-    ↓
-Privileged Operation Barrier (quiescence of any transient elevated worker)
-    ↓
-Startup Recovery (recover any unfinished session from previous crash / unexpected reboot)
-    ↓
-Desired Protection Reconciliation (reapply user's persistent DesiredState against live OS)
-    ↓
-Privacy Protection Becomes Active (verified via native EffectiveStatus & new WAL session)
-    ↓
-Application Initializes UI in Tray Mode (window hidden, tray icon visible, responsive)
+Launch (--minimized from the selected registration)
+  -> acquire single-instance/uninstall-gate mutexes
+  -> migrate only owned obsolete autostart entries
+  -> wait for a prior privileged operation to quiesce
+  -> recover the durable privacy journal
+  -> reconcile desired privacy state
+  -> initialize the UI and tray
 ```
 
-### Architectural Division of Responsibility
-- **Autostart Mechanism**: **Only launches the application process.** Autostart does NOT directly alter device states, manipulate Registry Group Policies, or hold elevated tokens.
-- **Application Lifecycle**: Responsible for single-instance validation, startup recovery, desired state reconciliation, and user interaction via the System Tray.
+A duplicate process exits before autostart migration, recovery, or privacy mutation. `asInvoker`, the authenticated transient privileged worker, and on-demand UAC are unchanged.
 
----
+The app hides at minimized startup and hides on window close only after tray initialization succeeds. If tray initialization fails, startup is shown normally, the main-window close action closes the app rather than hiding it, and the desktop lifetime uses main-window-close behavior. This keeps the app reachable and gives the user a normal way to exit.
 
-## 2. Key Components & Implementation Details
+## Automated evidence and limits
 
-### A. Registry Run & StartupApproved Integration
-- **Registry Location**: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
-- **Value Name**: `PrivGvard`
-- **Value Data**: `"{exePath}" --minimized`
-- **Legacy Cleanup**: When enabling autostart, legacy `PrivLock` values in `Run` and `StartupApproved\Run` are automatically removed to prevent duplicate or conflicting invocations.
-- **Windows Task Manager & Settings Overlay (`StartupApproved\Run`)**:
-  - Windows stores user disable preferences from Task Manager ("Startup" tab) or Windows Settings in `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run` as a 12-byte binary value.
-  - When byte 0 has bit 0 set (`0x03`), Windows disables the autostart entry even if the key in `Run` remains.
-  - `WindowsAutostartProvider.IsAutostartEnabled()` inspects this binary flag to report the effective autostart state accurately.
-  - When the user enables autostart from PrivGvard Settings, `WindowsAutostartProvider` removes any existing `StartupApproved\Run` disable override so the entry becomes immediately active.
+Windows provider tests exercise real reads and writes against unique, isolated per-test HKCU registry keys. Injected registry and StartupTask seams cover failures and the Windows-reported MSIX states. Lifecycle tests that simulate a restart do not log out, reboot Windows, or prove that the OS launches the app after a real login; they are not restart acceptance evidence.
 
-### B. Executable Path Handling
-- Paths are strictly enclosed in double quotes: `"{exePath}" --minimized`. This guarantees safe execution when installed in paths with spaces (e.g., `C:\Program Files\PrivGvard\PrivGvard.exe`).
-- `WindowsAutostartProvider.ExtractExecutablePath(string)` supports both quoted and unquoted command lines.
+## Manual acceptance matrix — pending isolated Windows VM
 
-### C. Failure Handling When Executable Path Changes
-- If an executable is moved, renamed, uninstalled, or deleted (e.g., clean build in a development directory):
-  - `WindowsAutostartProvider.IsAutostartEnabled()` verifies `File.Exists(registeredPath)`.
-  - If the registered path does not exist on disk, it logs a warning and returns `false`.
-  - The UI accurately indicates that autostart is not active, allowing the user to re-enable it with the current valid binary path.
+Run each distribution in a disposable Windows VM with a standard user account. Record Windows version/build, package or installer version, effective UI state, relevant registration state, and screenshots/log excerpts with personal paths redacted. Do not treat a simulated lifecycle test as a substitute for the actual sign-out/sign-in steps below.
 
-### D. Duplicate Startup Prevention
-- `ISingleInstanceGuard` (`WindowsSingleInstanceGuard`) creates a session-scoped mutex: `Local\PrivGvard_SingleInstance_Mutex`.
-- If an autostart launch coincides with a manual user launch (or secondary startup shortcut), `TryAcquireSingleInstance()` immediately returns `false`.
-- The duplicate process terminates with exit code `2` before initializing services, touching the recovery journal, or modifying OS device states.
+| Distribution | Scenario | Acceptance |
+| --- | --- | --- |
+| Win32 installer | Fresh install; enable startup | UI reports enabled only after verified Run registration; exactly one `PrivGvard` Run value contains a quoted installed path plus `--minimized`; no `PrivLock` value remains. |
+| Win32 installer | Sign out and sign in with tray available | One process starts minimized, tray can restore the window, and no duplicate process remains. This is the required real logon test. |
+| Win32 installer | Disable from PrivGvard, then sign out/sign in | Run registration is absent; no PrivGvard startup launch occurs. |
+| Win32 installer | Disable from Windows Startup Apps, then open settings | PrivGvard reports disabled-by-user, leaves the Windows override intact, and does not report effective startup as enabled. |
+| Win32 installer | Attempt enable from a development output, after deleting/moving the registered executable, or with a non-PrivGvard executable | Enable fails with a visible reason; stale paths are not reported enabled. |
+| Win32 installer | Seed only the legacy `PrivLock` app-owned Run and StartupApproved values | Starting the app removes those owned legacy values; no second PrivGvard/PrivLock launch remains. Unrelated Run values are unchanged. |
+| Win32 installer | Upgrade installed version in place | The next startup registration points to the current installed executable, not an older directory. |
+| MSIX | Fresh package; enable startup | Windows consent appears only after the user enables the setting; accepted consent results in `Enabled` after readback and the manifest launches with `--minimized`. |
+| MSIX | Decline consent, or disable in Windows Startup Apps | UI reports the Windows/user-disabled state and explains how to change it; PrivGvard does not silently re-enable the task. |
+| MSIX | Apply a policy that disables startup | UI reports `DisabledByPolicy`; enable does not claim success or create a Run-key fallback. |
+| MSIX | Disable from PrivGvard | StartupTask is disabled and verified; app-owned obsolete Win32 Run and approval values are removed; no parallel registration remains. |
+| MSIX | Update package version with startup enabled | StartupTask continues to target the installed package version; no old `PrivGvard` or `PrivLock` Run value contains an obsolete package path. |
+| Both | Run `--minimized` with a working tray, then with tray initialization unavailable | Working tray allows hiding and restoring. Tray failure keeps the main window visible and its close action exits instead of hiding it. |
+| Both | Launch two processes concurrently | Exactly one acquires the Windows single-instance mutex; only that process reaches recovery/reconciliation. |
+| Both | Exercise startup recovery failure and UAC denial independently | Each failure is reported as recovery/elevation, not as autostart state; the autostart checkbox continues to reflect its actual mechanism. |
 
-### E. `--minimized` Argument & UI Lifecycle
-- When `--minimized` is supplied on the command line:
-  - `Program.Main` logs the background startup mode.
-  - The argument is stripped from the command-line array passed to Avalonia to prevent unknown parameter errors.
-  - In `App.axaml.cs`:
-    - `_mainWindow.ShowInTaskbar = false;`
-    - `_mainWindow.WindowState = WindowState.Minimized;`
-    - On the initial `Opened` event, `window.Hide()` is invoked so no window flashes on the user's desktop.
-- **System Tray Lifecycle**:
-  - The System Tray icon remains visible with tooltip and context menu ("Abrir PrivGvard", "Salir").
-  - Clicking the tray icon or selecting "Abrir" restores the window (`WindowState.Normal`, `ShowInTaskbar = true`, `Activate()`).
-  - Closing the main window (`X` button or Alt+F4) does not exit the process; it hides the window back to the tray.
-  - Selecting "Salir" from the tray triggers `ShutdownCoordinator.RestoreAsync("TrayExit")`, which safely restores live hardware states and clears the runtime session while preserving the persistent `DesiredState`.
-
----
-
-## 3. Environment Boundaries & Build Limitations
-
-PrivGvard behavior differs across build and execution environments:
-
-| Vector | Development Build (`bin\Debug\`) | Release Build (`publish_out\`) | Installed Application (`Program Files`) |
-| :--- | :--- | :--- | :--- |
-| **Path Stability** | **Volatile**: Rebuilt or cleaned by `dotnet clean`/IDE. | **Semi-stable**: Bound to local publish directory. | **Permanent**: Fixed path (e.g. `C:\Program Files\PrivGvard\PrivGvard.exe`). |
-| **Autostart Registration Warning** | Logged as warning in `WindowsAutostartProvider`. | Logged as warning if under `\bin\Release\`. | Clean registration without path warnings. |
-| **Persistence Across Rebuilds** | If the `.exe` is deleted by a rebuild, `IsAutostartEnabled()` detects missing file and returns `false`. | Remains valid as long as directory is preserved. | Fully resilient across reboots and normal user workflows. |
-| **Privileged Worker Invocation** | Uses current `.exe` path via `Environment.ProcessPath`. | Uses current `.exe` path via `Environment.ProcessPath`. | Uses verified application binary path. |
-| **Uninstall Integration** | No uninstaller registered; manual registry cleanup. | No uninstaller registered; manual registry cleanup. | Registered in Windows Programs & Features; safe uninstall wrapper unblocks devices before removal. |
-| **MSIX Package Context** | Standard Win32 execution. | Standard Win32 execution. | Supported via `PackageIdentityHelper` if packaged. |
-
----
-
-## 4. Architectural Non-Goals & Invariants
-
-To maintain system integrity, security, and user trust, PrivGvard explicitly adheres to the following rules:
-
-1. **No Windows Services**: PrivGvard does NOT install a permanent Windows Service running in session 0.
-2. **No Task Scheduler Workarounds**: PrivGvard uses the standard, user-transparent `HKCU\...\Run` registry key. It does not create scheduled tasks to bypass UAC prompts.
-3. **No SYSTEM Privileges**: The application always runs with standard user rights (`asInvoker`). Elevation occurs strictly on-demand via an authenticated ephemeral worker (`--privileged-worker`) when hardware PnP nodes or HKLM policies are modified.
-4. **No Kernel Drivers**: All protections rely entirely on standard, documented OS interfaces (`CfgMgr32.dll`, Core Audio endpoints, AppPrivacy Group Policies).
-5. **No Blocked Boot**: The autostart entry never blocks Windows startup; the application initializes asynchronously in the user's desktop session.
+**Status:** the manual matrix above has not been executed in a VM. No claim is made that either installer or MSIX startup after a real sign-out/sign-in or reboot has been validated.

@@ -86,7 +86,7 @@ public sealed class WindowsRealLifecycleIntegrationTests : IDisposable
 
         // 1. Initial execution: User configures Autostart and protects Camera
         var app1 = env.CreateInstance();
-        var autostartResult = env.AutostartProvider.EnableAutostart();
+        var autostartResult = await env.AutostartProvider.EnableAutostartAsync();
         Assert.True(autostartResult.Success);
 
         var enableResult = await app1.ProtectionService.EnableStandardProtectionAsync(BlockTarget.Camera);
@@ -105,7 +105,7 @@ public sealed class WindowsRealLifecycleIntegrationTests : IDisposable
         // DesiredState and Autostart survived shutdown in real disk files
         var desiredOnDisk = env.StateStore.Load();
         Assert.Equal(StandardProtectionState.Active, desiredOnDisk.CameraStandard);
-        Assert.True(env.AutostartProvider.IsAutostartEnabled());
+        Assert.True((await env.AutostartProvider.GetAutostartStatusAsync()).IsEnabled);
 
         // 3. Windows boots: Autostart launches PrivGvard (App 2) with --minimized
         var appBoot = env.CreateInstance();
@@ -136,7 +136,7 @@ public sealed class WindowsRealLifecycleIntegrationTests : IDisposable
         var env = CreateEnvironment();
 
         var app1 = env.CreateInstance();
-        env.AutostartProvider.EnableAutostart();
+        Assert.True((await env.AutostartProvider.EnableAutostartAsync()).Success);
 
         var enable = await app1.ProtectionService.EnableStandardProtectionAsync(BlockTarget.Microphone);
         Assert.True(enable.Success);
@@ -164,7 +164,7 @@ public sealed class WindowsRealLifecycleIntegrationTests : IDisposable
         var env = CreateEnvironment();
 
         var app1 = env.CreateInstance();
-        env.AutostartProvider.EnableAutostart();
+        Assert.True((await env.AutostartProvider.EnableAutostartAsync()).Success);
 
         var enable = await app1.ProtectionService.EnableStandardProtectionAsync(BlockTarget.Both);
         Assert.True(enable.Success);
