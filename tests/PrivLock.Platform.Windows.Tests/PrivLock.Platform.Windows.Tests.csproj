@@ -19,4 +19,8 @@
     <ProjectReference Include="..\..\src\PrivLock.Desktop\PrivLock.Desktop.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\installer\setup.iss" Link="setup.iss" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

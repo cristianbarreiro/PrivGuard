@@ -9,7 +9,7 @@ namespace PrivLock.Platform.Windows.System;
 public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsSingleInstanceGuard>();
-    private const string MutexName = @"Global\PrivLock_SingleInstance";
+    internal const string MutexName = @"Global\PrivLock_SingleInstance";
     private const string UninstallGateMutexName = @"Global\PrivLock_UninstallGate";
 
     private Mutex? _mutex;

@@ -9,6 +9,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using PrivLock.Application.Services;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Platform.Abstractions;
 using PrivLock.UI.ViewModels;
 using PrivLock.UI.Views;
 using Serilog;
@@ -23,6 +24,7 @@ public partial class App : Avalonia.Application
     private readonly ShutdownCoordinator? _shutdownCoordinator;
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly LocalizationService? _localizationService;
+    private readonly IUninstallRequestListener? _uninstallRequestListener;
     private readonly AutostartStateService? _autostartStateService;
     private TrayIcon? _trayIcon;
     private Window? _mainWindow;
@@ -44,6 +46,7 @@ public partial class App : Avalonia.Application
         SettingsViewModel? settingsViewModel = null,
         LocalizationService? localizationService = null,
         bool startMinimized = false,
+        IUninstallRequestListener? uninstallRequestListener = null,
         AutostartStateService? autostartStateService = null)
     {
         _mainViewModel = mainViewModel;
@@ -52,6 +55,7 @@ public partial class App : Avalonia.Application
         _localizationService = localizationService;
         _autostartStateService = autostartStateService;
         _startMinimized = startMinimized;
+        _uninstallRequestListener = uninstallRequestListener;
 
         if (_localizationService != null)
         {
@@ -149,6 +153,16 @@ public partial class App : Avalonia.Application
                 _mainViewModel?.Dispose();
                 _settingsViewModel?.Dispose();
             };
+
+            if (_uninstallRequestListener != null)
+            {
+                _uninstallRequestListener.UninstallRequested += (_, _) =>
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        Log.Information("Windows requested a safe PrivGvard shutdown for uninstall");
+                        _ = RequestShutdownAsync(desktop, "WindowsUninstallRequest", allowIncomplete: false);
+                    });
+            }
 
         }
 
