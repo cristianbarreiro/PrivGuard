@@ -25,6 +25,7 @@ public partial class App : Avalonia.Application
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly LocalizationService? _localizationService;
     private readonly IUninstallRequestListener? _uninstallRequestListener;
+    private readonly AutostartStateService? _autostartStateService;
     private TrayIcon? _trayIcon;
     private Window? _mainWindow;
     private NativeMenuItem? _trayOpenItem;
@@ -45,12 +46,14 @@ public partial class App : Avalonia.Application
         SettingsViewModel? settingsViewModel = null,
         LocalizationService? localizationService = null,
         bool startMinimized = false,
-        IUninstallRequestListener? uninstallRequestListener = null)
+        IUninstallRequestListener? uninstallRequestListener = null,
+        AutostartStateService? autostartStateService = null)
     {
         _mainViewModel = mainViewModel;
         _shutdownCoordinator = shutdownCoordinator;
         _settingsViewModel = settingsViewModel;
         _localizationService = localizationService;
+        _autostartStateService = autostartStateService;
         _startMinimized = startMinimized;
         _uninstallRequestListener = uninstallRequestListener;
 
@@ -86,6 +89,11 @@ public partial class App : Avalonia.Application
             var mainWindow = new MainWindow(_settingsViewModel)
             {
                 DataContext = _mainViewModel
+            };
+            mainWindow.Activated += (_, _) =>
+            {
+                if (_autostartStateService != null)
+                    _ = _autostartStateService.RefreshAsync();
             };
             mainWindow.UserCloseRequested += (_, _) =>
                 _ = RequestShutdownAsync(desktop, "WindowClose", allowIncomplete: false);
@@ -138,7 +146,13 @@ public partial class App : Avalonia.Application
                 e.Cancel = false;
             };
 
-            desktop.Exit += (_, _) => _trayIcon?.Dispose();
+            desktop.Exit += (_, _) =>
+            {
+                _trayIcon?.Dispose();
+                _autostartStateService?.StopAsync().GetAwaiter().GetResult();
+                _mainViewModel?.Dispose();
+                _settingsViewModel?.Dispose();
+            };
 
             if (_uninstallRequestListener != null)
             {

@@ -111,6 +111,7 @@ public static class Program
         ServiceProvider? serviceProvider = null;
         ISingleInstanceGuard? singleInstanceGuard = null;
         IUninstallRequestListener? uninstallRequestListener = null;
+        AutostartStateService? autostartStateService = null;
         OperationResult? autostartMigrationResult = null;
         try
         {
@@ -341,6 +342,8 @@ public static class Program
 
             var mainViewModel = serviceProvider.GetRequiredService<MainViewModel>();
             var settingsViewModel = serviceProvider.GetRequiredService<SettingsViewModel>();
+            autostartStateService = serviceProvider.GetRequiredService<AutostartStateService>();
+            autostartStateService.StartAsync().GetAwaiter().GetResult();
             var startupMessages = new List<string>();
             if (!startupRecovery.SafeToExit || startupRecovery.ConflictCount > 0)
             {
@@ -376,7 +379,8 @@ public static class Program
                     settingsViewModel,
                     localizationService,
                     startMinimized,
-                    uninstallRequestListener)
+                    uninstallRequestListener,
+                    autostartStateService)
                 .StartWithClassicDesktopLifetime(avaloniaArgs);
 
             var finalRestoreFinished = _shutdownCoordinator.TryRestoreWithin(
@@ -418,6 +422,7 @@ public static class Program
         {
             // Keep both DI services and the single-instance lease alive through fatal recovery.
             // Releasing either earlier permits a new process to race the old process's cleanup.
+            autostartStateService?.StopAsync().GetAwaiter().GetResult();
             singleInstanceGuard?.Release();
             serviceProvider?.Dispose();
         }
@@ -471,14 +476,16 @@ public static class Program
         SettingsViewModel? settingsViewModel = null,
         LocalizationService? localizationService = null,
         bool startMinimized = false,
-        IUninstallRequestListener? uninstallRequestListener = null) =>
+        IUninstallRequestListener? uninstallRequestListener = null,
+        AutostartStateService? autostartStateService = null) =>
         AppBuilder.Configure<App>(() => new App(
                 viewModel,
                 shutdownCoordinator,
                 settingsViewModel,
                 localizationService,
                 startMinimized,
-                uninstallRequestListener))
+                uninstallRequestListener,
+                autostartStateService))
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace();
@@ -520,6 +527,8 @@ public static class Program
         services.AddSingleton<PrivacyRecoveryService>();
         services.AddSingleton<ShutdownCoordinator>();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<IAutostartChangeObserver, NoOpAutostartChangeObserver>();
+        services.AddSingleton<AutostartStateService>();
         services.AddSingleton<LocalizationService>();
 
         // 4. UI ViewModels
@@ -542,6 +551,7 @@ public static class Program
         services.AddSingleton<IElevationProvider, Platform.Windows.Elevation.WindowsElevationProvider>();
         services.AddSingleton<IPlatformCapabilityProvider, Platform.Windows.WindowsCapabilityProvider>();
         services.AddSingleton<IAutostartProvider, Platform.Windows.System.WindowsAutostartProvider>();
+        services.AddSingleton<IAutostartChangeObserver, Platform.Windows.System.WindowsAutostartChangeObserver>();
         services.AddSingleton<IGlobalHotkeyProvider, Platform.Windows.System.WindowsHotkeyProvider>();
         services.AddSingleton<ISingleInstanceGuard, Platform.Windows.System.WindowsSingleInstanceGuard>();
         services.AddSingleton<IUninstallRequestListener, Platform.Windows.System.WindowsUninstallRequestListener>();
