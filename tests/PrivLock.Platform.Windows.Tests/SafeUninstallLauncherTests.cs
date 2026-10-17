@@ -15,7 +15,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
 
     public SafeUninstallLauncherTests()
     {
-        _trustedRoot = Path.Combine(Path.GetTempPath(), $"PrivLockUninstallTests_{Guid.NewGuid():N}");
+        _trustedRoot = Path.Combine(Path.GetTempPath(), $"PrivLock Uninstall Tests_{Guid.NewGuid():N}");
         _installDirectory = Path.Combine(_trustedRoot, "PrivLock");
         Directory.CreateDirectory(_installDirectory);
         _applicationPath = Path.Combine(
@@ -23,7 +23,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
             SafeUninstallLauncher.ExpectedApplicationFileName);
         _uninstallerPath = Path.Combine(
             _installDirectory,
-            SafeUninstallLauncher.ExpectedUninstallerFileName);
+            SafeUninstallLauncher.DefaultInnoUninstallerFileName);
         File.WriteAllBytes(_applicationPath, [0x4D, 0x5A]);
         File.WriteAllBytes(_uninstallerPath, [0x4D, 0x5A]);
     }
@@ -47,7 +47,8 @@ public sealed class SafeUninstallLauncherTests : IDisposable
         Assert.Equal(_installDirectory, startInfo.WorkingDirectory);
         Assert.Equal("runas", startInfo.Verb);
         Assert.True(startInfo.UseShellExecute);
-        Assert.Equal([SafeUninstallLauncher.HandoffArgumentPrefix + HandoffToken], startInfo.ArgumentList);
+        Assert.Equal(SafeUninstallLauncher.HandoffArgumentPrefix + HandoffToken, startInfo.Arguments);
+        Assert.Empty(startInfo.ArgumentList);
     }
 
     [Fact]
@@ -91,13 +92,9 @@ public sealed class SafeUninstallLauncherTests : IDisposable
         Assert.True(valid, error);
         var startInfo = SafeUninstallLauncher.CreateStartInfo(plan!, HandoffToken);
         Assert.Equal(
-            [
-                SafeUninstallLauncher.HandoffArgumentPrefix + HandoffToken,
-                "/VERYSILENT",
-                "/SUPPRESSMSGBOXES",
-                "/NORESTART"
-            ],
-            startInfo.ArgumentList);
+            $"{SafeUninstallLauncher.HandoffArgumentPrefix}{HandoffToken} /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+            startInfo.Arguments);
+        Assert.Empty(startInfo.ArgumentList);
     }
 
     [Theory]
@@ -118,7 +115,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
         Directory.CreateDirectory(otherDirectory);
         var otherUninstaller = Path.Combine(
             otherDirectory,
-            SafeUninstallLauncher.ExpectedUninstallerFileName);
+            SafeUninstallLauncher.DefaultInnoUninstallerFileName);
         File.WriteAllBytes(otherUninstaller, [0x4D, 0x5A]);
 
         var valid = SafeUninstallLauncher.TryCreatePlan(
@@ -133,7 +130,8 @@ public sealed class SafeUninstallLauncherTests : IDisposable
 
     [Theory]
     [InlineData("other.exe")]
-    [InlineData("unins001.exe")]
+    [InlineData("unins01.exe")]
+    [InlineData("uninsABC.exe")]
     [InlineData("unins000.exe.cmd")]
     public void Request_RejectsUnexpectedUninstallerName(string fileName)
     {
@@ -148,6 +146,24 @@ public sealed class SafeUninstallLauncherTests : IDisposable
             out _);
 
         Assert.False(valid);
+    }
+
+    [Fact]
+    public void Request_AcceptsDynamicallyNumberedInnoUninstaller()
+    {
+        var numberedUninstaller = Path.Combine(_installDirectory, "unins001.exe");
+        File.WriteAllBytes(numberedUninstaller, [0x4D, 0x5A]);
+
+        var valid = SafeUninstallLauncher.TryCreatePlan(
+            [SafeUninstallLauncher.Command, numberedUninstaller],
+            _applicationPath,
+            _trustedRoot,
+            out var plan,
+            out var error);
+
+        Assert.True(valid, error);
+        Assert.NotNull(plan);
+        Assert.Equal(numberedUninstaller, plan!.UninstallerPath);
     }
 
     [Fact]
@@ -228,7 +244,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
                 SafeUninstallLauncher.ExpectedApplicationFileName);
             var externalUninstaller = Path.Combine(
                 externalDirectory,
-                SafeUninstallLauncher.ExpectedUninstallerFileName);
+                SafeUninstallLauncher.DefaultInnoUninstallerFileName);
             File.WriteAllBytes(externalApp, [0x4D, 0x5A]);
             File.WriteAllBytes(externalUninstaller, [0x4D, 0x5A]);
 
@@ -358,11 +374,12 @@ public sealed class SafeUninstallLauncherTests : IDisposable
     public void TryLaunch_GateReleaseFails_ReturnsLaunchFailed()
     {
         var plan = new SafeUninstallPlan(_uninstallerPath, Quiet: false);
+        Process? startedProcess = null;
 
         var result = SafeUninstallLauncher.TryLaunch(
             plan,
             releaseUninstallGate: () => false,
-            processStarter: _ => Process.Start(new ProcessStartInfo
+            processStarter: _ => startedProcess = Process.Start(new ProcessStartInfo
             {
                 FileName = "cmd.exe",
                 Arguments = "/c exit 0",
@@ -372,6 +389,8 @@ public sealed class SafeUninstallLauncherTests : IDisposable
 
         Assert.Equal(SafeUninstallStatus.LaunchFailed, result.Status);
         Assert.False(result.Success);
+        Assert.NotNull(startedProcess);
+        Assert.Throws<InvalidOperationException>(() => _ = startedProcess!.HasExited);
     }
 
     [Fact]
@@ -409,7 +428,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
             releaseUninstallGate: () => { gateReleased = true; return true; },
             processStarter: startInfo =>
             {
-                var tokenArg = startInfo.ArgumentList.First(a => a.StartsWith(SafeUninstallLauncher.HandoffArgumentPrefix));
+                var tokenArg = startInfo.Arguments.Split(' ').Single(a => a.StartsWith(SafeUninstallLauncher.HandoffArgumentPrefix));
                 var token = tokenArg[SafeUninstallLauncher.HandoffArgumentPrefix.Length..];
                 var eventName = SafeUninstallLauncher.HandoffEventPrefix + token;
 
@@ -444,7 +463,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
     [Fact]
     public void TryLaunch_HandoffConfirmed_AfterInitialProcessExitedWithCodeZero()
     {
-        // This reproduces the exact Inno Setup behavior where unins000.exe (Phase 1)
+        // This reproduces the exact Inno Setup behavior where unins???.exe (Phase 1)
         // spawns Phase 2 in %TEMP% and exits immediately with code 0.
         var plan = new SafeUninstallPlan(_uninstallerPath, Quiet: false);
         var gateReleased = false;
@@ -454,7 +473,7 @@ public sealed class SafeUninstallLauncherTests : IDisposable
             releaseUninstallGate: () => { gateReleased = true; return true; },
             processStarter: startInfo =>
             {
-                var tokenArg = startInfo.ArgumentList.First(a => a.StartsWith(SafeUninstallLauncher.HandoffArgumentPrefix));
+                var tokenArg = startInfo.Arguments.Split(' ').Single(a => a.StartsWith(SafeUninstallLauncher.HandoffArgumentPrefix));
                 var token = tokenArg[SafeUninstallLauncher.HandoffArgumentPrefix.Length..];
                 var eventName = SafeUninstallLauncher.HandoffEventPrefix + token;
 
@@ -517,4 +536,3 @@ public sealed class SafeUninstallLauncherTests : IDisposable
             Directory.Delete(_trustedRoot, recursive: true);
     }
 }
-

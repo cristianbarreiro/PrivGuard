@@ -14,6 +14,7 @@ public enum SafeUninstallStatus
     ValidationFailed,
     RestoreFailed,
     WorkerNotStopped,
+    AutostartCleanupFailed,
     LaunchFailed,
     UserCancelled,
     UninstallerExitedPrematurely,
@@ -43,7 +44,8 @@ internal static class SafeUninstallLauncher
     internal const string HandoffEventPrefix = @"Global\PrivLock_UninstallReady_";
     internal const string ExpectedApplicationFileName = "PrivGvard.exe";
     internal const string LegacyExpectedApplicationFileName = "PrivLock.exe";
-    internal const string ExpectedUninstallerFileName = "unins000.exe";
+    // Inno selects a numbered unins???.exe name; this is only the default fixture name.
+    internal const string DefaultInnoUninstallerFileName = "unins000.exe";
     internal static readonly TimeSpan AdmissionTimeout = TimeSpan.FromSeconds(30);
 
     internal static bool IsRequested(IReadOnlyList<string> args) =>
@@ -118,10 +120,7 @@ internal static class SafeUninstallLauncher
         var appFileName = Path.GetFileName(applicationPath);
         if ((!string.Equals(appFileName, ExpectedApplicationFileName, StringComparison.OrdinalIgnoreCase) &&
              !string.Equals(appFileName, LegacyExpectedApplicationFileName, StringComparison.OrdinalIgnoreCase)) ||
-            !string.Equals(
-                Path.GetFileName(uninstallerPath),
-                ExpectedUninstallerFileName,
-                StringComparison.OrdinalIgnoreCase))
+            !IsInnoUninstallerFileName(Path.GetFileName(uninstallerPath)))
         {
             error = "Safe uninstall rejected an unexpected executable name.";
             return false;
@@ -178,14 +177,18 @@ internal static class SafeUninstallLauncher
             UseShellExecute = true,
             WindowStyle = ProcessWindowStyle.Normal
         };
-        startInfo.ArgumentList.Add(HandoffArgumentPrefix + handoffToken);
+        var arguments = new List<string> { HandoffArgumentPrefix + handoffToken };
         if (plan.Quiet)
         {
-            startInfo.ArgumentList.Add("/VERYSILENT");
-            startInfo.ArgumentList.Add("/SUPPRESSMSGBOXES");
-            startInfo.ArgumentList.Add("/NORESTART");
+            arguments.Add("/VERYSILENT");
+            arguments.Add("/SUPPRESSMSGBOXES");
+            arguments.Add("/NORESTART");
         }
 
+        // ShellExecuteEx consumes ProcessStartInfo.Arguments. ArgumentList is only used by the
+        // CreateProcess path, so using it with Verb=runas drops the admission token and deadlocks
+        // the launcher against Inno's wait for the main-instance mutex.
+        startInfo.Arguments = string.Join(" ", arguments);
         return startInfo;
     }
 
@@ -264,19 +267,19 @@ internal static class SafeUninstallLauncher
                 return new SafeUninstallResult(SafeUninstallStatus.LaunchFailed, msg);
             }
 
-            // Coordination: Now that the uninstaller process has been successfully started,
-            // release the uninstall gate so that Inno Setup can acquire it during InitializeUninstall.
-            // If starting the process had failed (e.g. UAC cancel), the gate would remain safely owned.
-            if (!releaseUninstallGate())
-            {
-                var msg = "Could not release the PrivGvard uninstall gate for handoff.";
-                Log.Error(msg);
-                return new SafeUninstallResult(SafeUninstallStatus.LaunchFailed, msg);
-            }
-            Log.Information("Released PrivGvard uninstall gate for handoff to uninstaller.");
-
             using (process)
             {
+                // Coordination: Now that the uninstaller process has been successfully started,
+                // release the uninstall gate so that Inno Setup can acquire it during InitializeUninstall.
+                // If starting the process had failed (e.g. UAC cancel), the gate remains safely owned.
+                if (!releaseUninstallGate())
+                {
+                    var msg = "Could not release the PrivGvard uninstall gate for handoff.";
+                    Log.Error(msg);
+                    return new SafeUninstallResult(SafeUninstallStatus.LaunchFailed, msg);
+                }
+                Log.Information("Released PrivGvard uninstall gate for handoff to uninstaller.");
+
                 var stopwatch = Stopwatch.StartNew();
                 var processExitedLogged = false;
 
@@ -293,7 +296,7 @@ internal static class SafeUninstallLauncher
                     }
 
                     // 2. Check if the launched process has exited.
-                    // Note: Inno Setup unins000.exe (Phase 1) typically spawns a clone in %TEMP% (Phase 2)
+                    // Note: Inno Setup unins???.exe (Phase 1) typically spawns a clone in %TEMP% (Phase 2)
                     // and exits with ExitCode 0 after spawning. That is NORMAL behavior.
                     // Only an exit with a NON-ZERO code indicates a premature failure before handoff.
                     if (!processExitedLogged && process.HasExited)
@@ -382,9 +385,9 @@ internal static class SafeUninstallLauncher
         {
             _ = MessageBoxW(IntPtr.Zero, message, "PrivGvard", 0x00000010 /* MB_ICONERROR */ | 0x00000000 /* MB_OK */);
         }
-        catch
+        catch (Exception ex)
         {
-            // Best-effort UI notification
+            Log.Warning(ex, "Could not display uninstall error feedback");
         }
     }
 
@@ -394,6 +397,20 @@ internal static class SafeUninstallLauncher
     internal static bool IsValidHandoffToken(string? token) =>
         token is { Length: 32 } && token.All(static character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F');
+
+    internal static bool IsInnoUninstallerFileName(string? fileName)
+    {
+        if (fileName is not { Length: 12 } ||
+            !fileName.StartsWith("unins", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(fileName[8..], ".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return fileName[5] is >= '0' and <= '9' &&
+               fileName[6] is >= '0' and <= '9' &&
+               fileName[7] is >= '0' and <= '9';
+    }
 
     private static bool TryNormalizePath(string? value, out string normalized)
     {
@@ -448,4 +465,3 @@ internal static class SafeUninstallLauncher
         return current == null;
     }
 }
-

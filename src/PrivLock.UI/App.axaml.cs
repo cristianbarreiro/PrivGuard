@@ -9,6 +9,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using PrivLock.Application.Services;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Platform.Abstractions;
 using PrivLock.UI.ViewModels;
 using PrivLock.UI.Views;
 using Serilog;
@@ -23,6 +24,7 @@ public partial class App : Avalonia.Application
     private readonly ShutdownCoordinator? _shutdownCoordinator;
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly LocalizationService? _localizationService;
+    private readonly IUninstallRequestListener? _uninstallRequestListener;
     private TrayIcon? _trayIcon;
     private Window? _mainWindow;
     private NativeMenuItem? _trayOpenItem;
@@ -42,13 +44,15 @@ public partial class App : Avalonia.Application
         ShutdownCoordinator shutdownCoordinator,
         SettingsViewModel? settingsViewModel = null,
         LocalizationService? localizationService = null,
-        bool startMinimized = false)
+        bool startMinimized = false,
+        IUninstallRequestListener? uninstallRequestListener = null)
     {
         _mainViewModel = mainViewModel;
         _shutdownCoordinator = shutdownCoordinator;
         _settingsViewModel = settingsViewModel;
         _localizationService = localizationService;
         _startMinimized = startMinimized;
+        _uninstallRequestListener = uninstallRequestListener;
 
         if (_localizationService != null)
         {
@@ -135,6 +139,16 @@ public partial class App : Avalonia.Application
             };
 
             desktop.Exit += (_, _) => _trayIcon?.Dispose();
+
+            if (_uninstallRequestListener != null)
+            {
+                _uninstallRequestListener.UninstallRequested += (_, _) =>
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        Log.Information("Windows requested a safe PrivGvard shutdown for uninstall");
+                        _ = RequestShutdownAsync(desktop, "WindowsUninstallRequest", allowIncomplete: false);
+                    });
+            }
 
         }
 

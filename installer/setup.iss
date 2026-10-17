@@ -12,6 +12,7 @@
 #define UninstallGateMutex "Global\PrivLock_UninstallGate"
 #define HandoffArgumentPrefix "/PRIVLOCK_HANDOFF="
 #define HandoffEventPrefix "Global\PrivLock_UninstallReady_"
+#define UninstallHandoffTimeoutMilliseconds 30000
 #define OwnershipRegistryKey "SOFTWARE\PrivLock\PrivilegedOwnership\v2"
 #define ProfileListRegistryKey "SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 #define RecoveryRelativePath "AppData\Local\PrivGvard\Recovery\"
@@ -573,6 +574,36 @@ begin
   end;
 end;
 
+function WaitForApplicationInstanceRelease: Boolean;
+var
+  InstanceMutexHandle: THandle;
+  WaitResult: LongWord;
+begin
+  Result := False;
+  InstanceMutexHandle := CreateMutexW(0, False, 'Global\PrivLock_SingleInstance');
+  if InstanceMutexHandle = 0 then
+  begin
+    Log('PrivGvard uninstall could not open the application instance mutex.');
+    exit;
+  end;
+
+  WaitResult := WaitForSingleObject(InstanceMutexHandle, {#UninstallHandoffTimeoutMilliseconds});
+  if (WaitResult = WAIT_OBJECT_0) or (WaitResult = WAIT_ABANDONED) then
+  begin
+    Result := ReleaseMutex(InstanceMutexHandle);
+    if not Result then
+      Log('PrivGvard uninstall acquired but could not release the application instance mutex.');
+  end
+  else
+    Log('PrivGvard uninstall could not confirm application shutdown before the handoff expired.');
+
+  if not CloseHandle(InstanceMutexHandle) then
+  begin
+    Log('PrivGvard uninstall could not close the application instance mutex handle.');
+    Result := False;
+  end;
+end;
+
 function SignalWrapperAdmission: Boolean;
 var
   Index: Integer;
@@ -663,7 +694,7 @@ begin
   end;
 end;
 
-// Every invocation, including a direct unins000.exe launch, independently proves that no process,
+// Every invocation, including a direct unins???.exe launch, independently proves that no process,
 // user-profile session, or machine ownership claim still needs the installed recovery binary.
 function InitializeUninstall: Boolean;
 begin
@@ -690,27 +721,17 @@ begin
     exit;
   end;
 
-  Result := True;
-end;
-
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var
-  SingleInstanceMutex: THandle;
-  WaitResult: LongWord;
-begin
-  if CurUninstallStep = usUninstall then
+  // The wrapper exits after receiving the admission event. Prove its main-instance mutex is
+  // released before the Inno UI or file-removal phase can proceed.
+  if not WaitForApplicationInstanceRelease then
   begin
-    // Ensure the safe-uninstall wrapper process has fully exited and released
-    // PrivGvard.exe before Inno begins file deletions.
-    SingleInstanceMutex := CreateMutexW(0, False, 'Global\PrivLock_SingleInstance');
-    if SingleInstanceMutex <> 0 then
-    begin
-      WaitResult := WaitForSingleObject(SingleInstanceMutex, 10000);
-      if (WaitResult = WAIT_OBJECT_0) or (WaitResult = WAIT_ABANDONED) then
-        ReleaseMutex(SingleInstanceMutex);
-      CloseHandle(SingleInstanceMutex);
-    end;
+    MsgBox('PrivGvard could not confirm a safe application shutdown. The uninstall was cancelled; close PrivGvard normally and try again.',
+      mbCriticalError, MB_OK);
+    ReleaseUninstallGate;
+    exit;
   end;
+
+  Result := True;
 end;
 
 procedure DeinitializeUninstall;

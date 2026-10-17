@@ -46,4 +46,6 @@ Use an isolated Windows machine/VM with disposable camera/microphone devices and
 | Direct/wrapped uninstall with active state in another profile | Removal denied until recovery; malformed/unreadable state fails closed. |
 | Installer update and visual tray/window smoke | Validate manually before release; installer compilation alone is insufficient. |
 
+For the Windows uninstall process chain, including the distinction between the registered safety wrapper and the Inno uninstaller, see [windows-uninstall-validation.md](windows-uninstall-validation.md).
+
 Unit tests use simulated native state and storage failures; real IPC peer PID checks use local test pipes. They do not establish hardware/UAC/logout behavior.

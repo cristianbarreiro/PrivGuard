@@ -110,6 +110,7 @@ public static class Program
 
         ServiceProvider? serviceProvider = null;
         ISingleInstanceGuard? singleInstanceGuard = null;
+        IUninstallRequestListener? uninstallRequestListener = null;
         OperationResult? autostartMigrationResult = null;
         try
         {
@@ -122,9 +123,39 @@ public static class Program
             singleInstanceGuard = serviceProvider.GetRequiredService<ISingleInstanceGuard>();
             if (!singleInstanceGuard.TryAcquireSingleInstance())
             {
-                Log.Warning("Another instance of PrivGvard is already running. Exiting without changing system state.");
-                Log.CloseAndFlush();
-                return 2;
+                var acquiredForUninstall = false;
+                string? handoffError = null;
+                if (safeUninstallPlan != null && OperatingSystem.IsWindows())
+                {
+                    acquiredForUninstall =
+                        Platform.Windows.System.WindowsUninstallRequestListener.TryRequestRunningInstanceAndAcquire(
+                            singleInstanceGuard,
+                            SafeUninstallLauncher.AdmissionTimeout,
+                            out handoffError);
+                }
+
+                if (!acquiredForUninstall)
+                {
+                    var duplicateMessage = safeUninstallPlan == null
+                        ? "Another instance of PrivGvard is already running. Exiting without changing system state."
+                        : handoffError ?? "PrivGvard could not safely close the running instance for uninstallation.";
+                    Log.Warning("{Message}", duplicateMessage);
+                    if (safeUninstallPlan != null)
+                        SafeUninstallLauncher.ShowErrorFeedback(duplicateMessage, safeUninstallPlan.Quiet);
+                    Log.CloseAndFlush();
+                    return safeUninstallPlan == null ? 2 : 1;
+                }
+
+                Log.Information("The running PrivGvard instance completed safe shutdown for Windows uninstall.");
+            }
+
+            if (safeUninstallPlan == null &&
+                args.All(a => !a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) &&
+                              !a.Equals("-u", StringComparison.OrdinalIgnoreCase)) &&
+                OperatingSystem.IsWindows())
+            {
+                uninstallRequestListener = serviceProvider.GetRequiredService<IUninstallRequestListener>();
+                uninstallRequestListener.Start();
             }
 
             // Migrate only PrivGvard-owned autostart entries after single-instance admission and
@@ -184,17 +215,38 @@ public static class Program
                         ? "CommandLineUnblockAndExit"
                         : "SafeUninstallWrapper";
                     var restore = _shutdownCoordinator.RestoreAsync(restoreReason).GetAwaiter().GetResult();
+                    var autostartCleanupError = (string?)null;
                     if (restore.SafeToExit)
                     {
                         try
                         {
                             var autostartResult = settingsService.SetAutostartAsync(false).GetAwaiter().GetResult();
                             if (!autostartResult.Success)
-                                Log.Warning("Autostart could not be disabled during uninstall: {Error}", autostartResult.ErrorMessage);
+                            {
+                                if (safeUninstallPlan != null)
+                                {
+                                    Log.Error("Safe uninstall autostart cleanup failed: {Error}", autostartResult.ErrorMessage);
+                                    autostartCleanupError = autostartResult.ErrorMessage ??
+                                        "PrivGvard could not verify removal of its Windows startup registration.";
+                                }
+                                else
+                                {
+                                    Log.Warning("Autostart could not be disabled during command-line recovery: {Error}",
+                                        autostartResult.ErrorMessage);
+                                }
+                            }
                         }
                         catch (Exception ex)
                         {
-                            Log.Warning(ex, "Autostart disable failed during uninstall; continuing with the coordinated restore result");
+                            if (safeUninstallPlan != null)
+                            {
+                                autostartCleanupError = "PrivGvard could not remove its Windows startup registration.";
+                                Log.Error(ex, "Safe uninstall stopped because autostart cleanup failed");
+                            }
+                            else
+                            {
+                                Log.Warning(ex, "Autostart disable failed during command-line recovery");
+                            }
                         }
                     }
 
@@ -225,6 +277,14 @@ public static class Program
                             uninstallResult = new SafeUninstallResult(
                                 SafeUninstallStatus.WorkerNotStopped,
                                 "PrivGvard could not prove elevated worker quiescence prior to uninstallation.");
+                            Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
+                            SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
+                        }
+                        else if (autostartCleanupError != null)
+                        {
+                            uninstallResult = new SafeUninstallResult(
+                                SafeUninstallStatus.AutostartCleanupFailed,
+                                autostartCleanupError);
                             Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
                             SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
                         }
@@ -310,7 +370,13 @@ public static class Program
             // Strip --minimized from args before passing to Avalonia to avoid unknown-argument warnings
             var avaloniaArgs = args.Where(a => !a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)).ToArray();
 
-            var exitCode = BuildAvaloniaApp(mainViewModel, _shutdownCoordinator, settingsViewModel, localizationService, startMinimized)
+            var exitCode = BuildAvaloniaApp(
+                    mainViewModel,
+                    _shutdownCoordinator,
+                    settingsViewModel,
+                    localizationService,
+                    startMinimized,
+                    uninstallRequestListener)
                 .StartWithClassicDesktopLifetime(avaloniaArgs);
 
             var finalRestoreFinished = _shutdownCoordinator.TryRestoreWithin(
@@ -338,6 +404,12 @@ public static class Program
             Log.Fatal(ex, "Unhandled exception during application lifecycle: {ReportPath}", reportPath);
             if (Volatile.Read(ref _privilegedBarrierFailed) == 0)
                 _shutdownCoordinator?.TryRestoreWithin("Program.Main.Catch", TimeSpan.FromSeconds(10), out _);
+            if (safeUninstallPlan != null)
+            {
+                SafeUninstallLauncher.ShowErrorFeedback(
+                    "PrivGvard could not safely prepare for uninstall. No files were removed; review the application log and try again.",
+                    safeUninstallPlan.Quiet);
+            }
             _shutdownCoordinator = null;
             Log.CloseAndFlush();
             return 1;
@@ -398,8 +470,15 @@ public static class Program
         ShutdownCoordinator shutdownCoordinator,
         SettingsViewModel? settingsViewModel = null,
         LocalizationService? localizationService = null,
-        bool startMinimized = false) =>
-        AppBuilder.Configure<App>(() => new App(viewModel, shutdownCoordinator, settingsViewModel, localizationService, startMinimized))
+        bool startMinimized = false,
+        IUninstallRequestListener? uninstallRequestListener = null) =>
+        AppBuilder.Configure<App>(() => new App(
+                viewModel,
+                shutdownCoordinator,
+                settingsViewModel,
+                localizationService,
+                startMinimized,
+                uninstallRequestListener))
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace();
@@ -465,6 +544,7 @@ public static class Program
         services.AddSingleton<IAutostartProvider, Platform.Windows.System.WindowsAutostartProvider>();
         services.AddSingleton<IGlobalHotkeyProvider, Platform.Windows.System.WindowsHotkeyProvider>();
         services.AddSingleton<ISingleInstanceGuard, Platform.Windows.System.WindowsSingleInstanceGuard>();
+        services.AddSingleton<IUninstallRequestListener, Platform.Windows.System.WindowsUninstallRequestListener>();
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("linux")]
