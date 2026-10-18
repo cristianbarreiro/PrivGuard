@@ -224,6 +224,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             var result = await _autostartStateService.SetAutostartAsync(requestedState);
+            // Reconcile the optimistic checkbox change even when Windows reports the same
+            // effective state as before (for example, StartupApproved is DisabledByUser).
+            OnAutostartStatusChanged(_autostartStateService.Status);
             if (!result.Success)
             {
                 Log.Warning("Failed to update autostart from settings: {Error}", result.ErrorMessage);

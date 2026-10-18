@@ -99,6 +99,44 @@ public sealed class AutostartViewModelSyncTests
         await sharedState.StopAsync();
     }
 
+    [Fact]
+    public async Task FailedEnableReconcilesOptimisticCheckboxWithWindowsDisabledByUserState()
+    {
+        var stateStore = new TestStateStore();
+        var autostartProvider = new FakeAutostartProvider
+        {
+            EffectiveStatus = new AutostartStatus(
+                AutostartState.DisabledByUser,
+                "Windows disabled startup.")
+        };
+        var protectionService = new ProtectionService(
+            null!,
+            null!,
+            new TestCapabilityProvider(),
+            stateStore);
+        var localizationService = new LocalizationService(stateStore);
+        localizationService.Initialize();
+        var sharedState = new AutostartStateService(
+            new SettingsService(autostartProvider, stateStore),
+            new NoOpAutostartChangeObserver());
+        await sharedState.StartAsync();
+
+        var settingsViewModel = new SettingsViewModel(sharedState, localizationService, protectionService);
+        settingsViewModel.Initialize();
+        Assert.False(settingsViewModel.IsAutostartEnabled);
+
+        // Avalonia updates the two-state checkbox binding before invoking its command.
+        settingsViewModel.IsAutostartEnabled = true;
+        await settingsViewModel.ToggleAutostartCommand.ExecuteAsync(true);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(settingsViewModel.IsAutostartEnabled);
+        Assert.Contains("Windows", settingsViewModel.AutostartStatusMessage);
+
+        settingsViewModel.Dispose();
+        await sharedState.StopAsync();
+    }
+
     private sealed class TestStateStore : IStateStore
     {
         public DesiredState State { get; private set; } = new();
@@ -117,7 +155,9 @@ public sealed class AutostartViewModelSyncTests
             Task.FromResult(EffectiveStatus);
 
         public Task<OperationResult> EnableAutostartAsync() =>
-            Task.FromResult(OperationResult.Ok());
+            Task.FromResult(EffectiveStatus.State == AutostartState.DisabledByUser
+                ? OperationResult.Fail(EffectiveStatus.Message ?? "Windows disabled startup.")
+                : OperationResult.Ok());
 
         public Task<OperationResult> DisableAutostartAsync() =>
             Task.FromResult(OperationResult.Ok());
