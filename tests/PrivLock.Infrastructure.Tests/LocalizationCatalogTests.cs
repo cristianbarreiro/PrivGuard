@@ -22,6 +22,39 @@ public class LocalizationCatalogTests
     }
 
     [Fact]
+    public void HelpDocumentationKeys_ArePresentInSpanishAndEnglish()
+    {
+        var dictEs = LocalizationCatalog.GetAll("es");
+        var dictEn = LocalizationCatalog.GetAll("en");
+        var helpKeys = new[]
+        {
+            "HelpHowItWorksDesc", "HelpCameraDesc", "HelpMicDesc", "HelpAdvancedDesc",
+            "HelpUnifiedDesc", "HelpFaq1Q", "HelpFaq1A",
+            "HelpFaq2Q", "HelpFaq2A", "HelpFaq3Q", "HelpFaq3A", "HelpFaq4Q", "HelpFaq4A"
+        };
+
+        foreach (var key in helpKeys)
+        {
+            Assert.True(dictEs.TryGetValue(key, out var spanish), $"Missing Spanish help key: {key}");
+            Assert.True(dictEn.TryGetValue(key, out var english), $"Missing English help key: {key}");
+            Assert.False(string.IsNullOrWhiteSpace(spanish), $"Empty Spanish help value: {key}");
+            Assert.False(string.IsNullOrWhiteSpace(english), $"Empty English help value: {key}");
+        }
+    }
+
+    [Theory]
+    [InlineData("es", "HelpFaq1A", "estado deseado")]
+    [InlineData("en", "HelpFaq1A", "desired state")]
+    [InlineData("es", "HelpFaq3A", "bandeja")]
+    [InlineData("en", "HelpFaq3A", "system tray")]
+    public void HelpDocumentation_DescribesRecoveryAndWindowLifecycle(string lang, string key, string expectedText)
+    {
+        var result = LocalizationCatalog.Get(key, lang);
+
+        Assert.Contains(expectedText, result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void GetAll_ReturnsCompleteDictionary()
     {
         var dictEs = LocalizationCatalog.GetAll("es");

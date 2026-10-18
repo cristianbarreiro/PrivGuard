@@ -110,18 +110,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string HelpTitle => _localizationService.GetString("HelpTitle", "Ayuda y Documentación");
     public string HelpSubtitle => _localizationService.GetString("HelpSubtitle", "Guía de referencia rápida y funcionamiento de PrivGvard");
     public string HelpHowItWorksTitle => _localizationService.GetString("HelpHowItWorksTitle", "Cómo funciona PrivGvard");
-    public string HelpHowItWorksDesc => _localizationService.GetString("HelpHowItWorksDesc", "PrivGvard aplica protección a nivel de software y hardware para garantizar que ninguna aplicación o proceso pueda acceder a tu cámara o micrófono sin tu consentimiento explícito.");
+    public string HelpHowItWorksDesc => _localizationService.GetString("HelpHowItWorksDesc", "En Windows, PrivGvard combina controles de privacidad del sistema con administración de dispositivos. El resultado depende del modo elegido, el hardware, el controlador, los permisos y la configuración; la aplicación verifica el estado efectivo cuando el sistema lo permite.");
     public string HelpCameraTitle => _localizationService.GetString("HelpCameraTitle", "Protección de Cámara");
-    public string HelpCameraDesc => _localizationService.GetString("HelpCameraDesc", "Deshabilita las directivas de acceso y los dispositivos de captura de video para impedir cualquier transmisión visual.");
+    public string HelpCameraDesc => _localizationService.GetString("HelpCameraDesc", "Según el modo y el dispositivo, puede aplicar la directiva de privacidad de cámara de Windows y administrar nodos de dispositivo compatibles. Esto no desconecta físicamente la cámara y no todos los modelos o controladores admiten cada medida.");
     public string HelpMicTitle => _localizationService.GetString("HelpMicTitle", "Protección de Micrófono");
-    public string HelpMicDesc => _localizationService.GetString("HelpMicDesc", "Silencia y bloquea los puntos de conexión de audio para evitar escuchas y grabaciones no autorizadas.");
+    public string HelpMicDesc => _localizationService.GetString("HelpMicDesc", "Según el modo y el dispositivo, puede aplicar la directiva de privacidad de micrófono, administrar dispositivos compatibles y silenciar puntos de conexión de captura de audio. Silenciar un punto de conexión no equivale a desconectarlo físicamente.");
     public string HelpAdvancedTitle => _localizationService.GetString("HelpAdvancedTitle", "Protección Avanzada");
-    public string HelpAdvancedDesc => _localizationService.GetString("HelpAdvancedDesc", "Aplica aislamiento de hardware PnP (Plug and Play) y directivas de grupo del sistema para los dispositivos actualmente bloqueados.");
+    public string HelpAdvancedDesc => _localizationService.GetString("HelpAdvancedDesc", "La protección avanzada puede combinar directivas de privacidad de Windows y administración de dispositivos PnP (Plug and Play). La compatibilidad varía según el dispositivo y el controlador, y algunas operaciones requieren permisos de administrador.");
     public string HelpUnifiedTitle => _localizationService.GetString("HelpUnifiedTitle", "Control Unificado");
-    public string HelpUnifiedDesc => _localizationService.GetString("HelpUnifiedDesc", "Permite bloquear o desbloquear la cámara y el micrófono simultáneamente con un solo interruptor.");
+    public string HelpUnifiedDesc => _localizationService.GetString("HelpUnifiedDesc", "Solicita el cambio para cámara y micrófono con un solo control. Cada uno se procesa y verifica por separado, por lo que pueden quedar con resultados distintos si una operación falla o un dispositivo no es compatible.");
     public string HelpFaqTitle => _localizationService.GetString("HelpFaqTitle", "Preguntas Frecuentes");
     public string HelpFaq1Q => _localizationService.GetString("HelpFaq1Q", "¿Se mantienen los bloqueos tras reiniciar el equipo?");
-    public string HelpFaq1A => _localizationService.GetString("HelpFaq1A", "Sí, PrivGvard cuenta con un diario de recuperación persistente para garantizar la consistencia en cada arranque.");
+    public string HelpFaq1A => _localizationService.GetString("HelpFaq1A", "Al salir normalmente, la aplicación intenta restaurar los cambios que administra. Al iniciar, intenta recuperar operaciones interrumpidas y reconciliar el sistema con el estado deseado guardado. El diario no garantiza protección ininterrumpida durante el reinicio; comprueba el estado después de iniciar sesión.");
+    public string HelpFaq2Q => _localizationService.GetString("HelpFaq2Q", "¿Por qué aparece UAC y qué pasa si cancelo?");
+    public string HelpFaq2A => _localizationService.GetString("HelpFaq2A", "Algunas operaciones de Windows requieren permisos de administrador y solicitan autorización en ese momento. Si cancelas el aviso, esa operación falla y no debe considerarse protección confirmada; revisa el estado y el mensaje de error.");
+    public string HelpFaq3Q => _localizationService.GetString("HelpFaq3Q", "¿Cerrar la ventana es lo mismo que elegir «Salir»?");
+    public string HelpFaq3A => _localizationService.GetString("HelpFaq3A", "Con la bandeja disponible, cerrar la ventana o usar Alt+F4 la oculta y la aplicación sigue en ejecución. «Salir» desde la bandeja inicia el cierre e intenta restaurar los cambios que PrivGvard administra. Si la bandeja no está disponible, cerrar la ventana inicia el cierre coordinado.");
+    public string HelpFaq4Q => _localizationService.GetString("HelpFaq4Q", "¿Qué hago si un dispositivo no es compatible o falla?");
+    public string HelpFaq4A => _localizationService.GetString("HelpFaq4A", "Actualiza el diagnóstico y revisa el estado efectivo, los permisos y el controlador; consulta el mensaje de error. Un estado deseado guardado no confirma que la protección se haya aplicado. Si la compatibilidad figura como no disponible o el estado no se verifica, no lo consideres protegido.");
 
     // Diagnostics
     public string DiagTitle => _localizationService.GetString("DiagTitle", "Diagnóstico del Sistema");
@@ -406,6 +412,12 @@ public sealed partial class SettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(HelpFaqTitle));
             OnPropertyChanged(nameof(HelpFaq1Q));
             OnPropertyChanged(nameof(HelpFaq1A));
+            OnPropertyChanged(nameof(HelpFaq2Q));
+            OnPropertyChanged(nameof(HelpFaq2A));
+            OnPropertyChanged(nameof(HelpFaq3Q));
+            OnPropertyChanged(nameof(HelpFaq3A));
+            OnPropertyChanged(nameof(HelpFaq4Q));
+            OnPropertyChanged(nameof(HelpFaq4A));
 
             OnPropertyChanged(nameof(DiagTitle));
             OnPropertyChanged(nameof(DiagSubtitle));

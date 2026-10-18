@@ -232,6 +232,12 @@
                                 <TextBlock Text="{Binding HelpFaqTitle}" FontSize="12" FontWeight="Bold" Foreground="White" />
                                 <TextBlock Text="{Binding HelpFaq1Q}" FontSize="11" FontWeight="SemiBold" Foreground="#007ACC" Margin="0,2,0,0" />
                                 <TextBlock Text="{Binding HelpFaq1A}" FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding HelpFaq2Q}" FontSize="11" FontWeight="SemiBold" Foreground="#007ACC" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding HelpFaq2A}" FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding HelpFaq3Q}" FontSize="11" FontWeight="SemiBold" Foreground="#007ACC" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding HelpFaq3A}" FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding HelpFaq4Q}" FontSize="11" FontWeight="SemiBold" Foreground="#007ACC" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding HelpFaq4A}" FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
