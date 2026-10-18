@@ -45,11 +45,19 @@ Launch (--minimized from the selected registration)
 
 A duplicate process exits before autostart migration, recovery, or privacy mutation. `asInvoker`, the authenticated transient privileged worker, and on-demand UAC are unchanged.
 
+When a normal interactive launch finds the single-instance mutex already held, it signals the existing Windows process to show and activate its main window instead of silently leaving the user at the desktop. This request is not sent by `--minimized` autostart launches or the command-line recovery/uninstall paths. A `--minimized` desktop instance still runs the activation listener so a later normal launch can show it. If the existing process predates this activation listener or cannot receive the request, the new process still exits without touching recovery state; inspect its log for the activation result.
+
 The app hides at minimized startup and hides on window close only after the active Avalonia backend returns a native tray implementation and tray initialization succeeds. If tray support is unavailable, startup is shown normally and X/Alt+F4 goes through the same coordinated restore flow as the tray Exit command. The window remains open and surfaces the restore error if recovery is not safe, allowing the user to retry or intervene.
+
+The Windows host registers Avalonia's Win32 backend explicitly rather than relying on runtime platform-assembly discovery from the single-file bundle. This prevents a backend-discovery failure at `Dispatcher.MainLoop` after startup recovery has already run.
 
 ## Automated evidence and limits
 
 Windows provider tests exercise registration/migration against unique, isolated per-test HKCU registry keys. Injected provider, observer, and StartupTask seams cover state transitions, debounce/re-arm, cancellation, observer errors, and Windows-reported MSIX states. Test-only `StartupApproved` byte arrays are opaque migration fixtures; they do not establish the real Windows binary format or prove native Task Manager behavior. Lifecycle tests that simulate a restart do not log out, reboot Windows, or prove that the OS launches the app after a real login; they are not restart acceptance evidence.
+
+### Diagnosing an apparent launch-and-close
+
+On Windows, check `%LOCALAPPDATA%\PrivGvard\Logs\PrivGvard-*.log` and the matching `%LOCALAPPDATA%\PrivGvard\CrashReports\crash-*.json` for the launch timestamp. A `Program.Main` report with `System.PlatformNotSupportedException` at `Avalonia.Threading.Dispatcher.MainLoop` identifies desktop-backend startup failure; the subsequent `Restoration finished` / `SafeToExit=true` log confirms whether startup cleanup restored the owned privacy state. A duplicate-instance exit is logged separately and is not an Avalonia shutdown. If neither artifact exists, the minimum next evidence is the exact local launch time and the Windows Event Viewer **Application** entry for `PrivGvard.exe` (source `.NET Runtime` or `Application Error`, including exception code and faulting module). Redact usernames, local paths, and device details before sharing logs.
 
 ## Manual acceptance matrix — pending isolated Windows VM
 
