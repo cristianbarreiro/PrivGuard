@@ -29,6 +29,18 @@ public sealed class SafeUninstallLauncherTests : IDisposable
     }
 
     [Fact]
+    public void ElevatedToken_IsAllowedOnlyForSafeUninstallInvocation()
+    {
+        Assert.True(SafeUninstallLauncher.AllowsElevatedToken(
+            [SafeUninstallLauncher.Command, _uninstallerPath]));
+        Assert.True(SafeUninstallLauncher.AllowsElevatedToken(
+            [SafeUninstallLauncher.Command.ToUpperInvariant(), _uninstallerPath]));
+        Assert.False(SafeUninstallLauncher.AllowsElevatedToken([]));
+        Assert.False(SafeUninstallLauncher.AllowsElevatedToken(["--minimized"]));
+        Assert.False(SafeUninstallLauncher.AllowsElevatedToken(["--privileged-worker"]));
+    }
+
+    [Fact]
     public void ValidRequest_CreatesFixedElevatedInnoLaunchWithoutForwardedInput()
     {
         var args = new[] { SafeUninstallLauncher.Command, _uninstallerPath };

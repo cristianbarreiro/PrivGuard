@@ -16,11 +16,11 @@ If privacy restoration, worker shutdown, autostart cleanup, or handoff fails, th
 
 The current UI has no application-owned uninstall action. There is no second launcher path to duplicate. If one is added later, it must invoke the same validated Windows uninstall request flow rather than starting Inno or duplicating cleanup independently.
 
-## Root cause
+## Root cause and follow-up
 
-`SafeUninstallLauncher.CreateStartInfo` used `UseShellExecute = true` and populated `ArgumentList`. The `runas` launch uses ShellExecute, which consumes `Arguments`; as a result, Inno did not receive `/PRIVLOCK_HANDOFF=...`. Inno proceeded without signaling admission while the wrapper waited and retained `Global\PrivLock_SingleInstance`; the late Inno mutex wait was also only 10 seconds and continued deletion even if the mutex had not been acquired. The two processes could stall against each other, while the wrapper eventually timed out.
+The earlier handoff fixes remain in place: the wrapper passes the admission token through `ProcessStartInfo.Arguments`, Inno signals admission, and an already-running UI can receive a safe shutdown request. The remaining failure was before that flow: `Program.Main` rejected every elevated user-facing process before logging or parsing the uninstall command. The installed machine-wide uninstall command points to the wrapper, and the user's report that Programs and Features asks for UAC before exiting matches this early-rejection path: after consent, the elevated wrapper returned before initializing logs or launching Inno.
 
-A second missing path was that a Windows uninstall request immediately failed single-instance admission when PrivGvard was already open. No inter-process request asked the existing UI to perform its coordinated restore and exit, so Windows never reached Inno. A local named-event request now asks the current session's instance to shut down safely; the caller proceeds only after obtaining the released gates.
+`Program.Main` now permits an elevated token only when the first argument requests `--safe-uninstall`. The existing strict plan validation still runs before services or uninstall work, and normal UI/CLI invocations remain rejected when elevated. The regression test locks down that narrow exception. This is a code-level diagnosis based on the installed command and the silent pre-logging guard; confirm the actual Programs and Features/UAC launch path after installing a rebuilt package in a disposable Windows VM.
 
 ## Automated checks and artifact validation
 

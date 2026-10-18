@@ -52,6 +52,11 @@ internal static class SafeUninstallLauncher
         args.Count > 0 &&
         string.Equals(args[0], Command, StringComparison.OrdinalIgnoreCase);
 
+    // Programs and Features may invoke an HKLM uninstall command after UAC elevation. Permit
+    // that token only for this dedicated wrapper path; the interactive application must stay
+    // unelevated. The command line is fully validated before any uninstall work is performed.
+    internal static bool AllowsElevatedToken(IReadOnlyList<string> args) => IsRequested(args);
+
     internal static bool TryConfirmStandardUserToken(out string? error)
     {
         error = null;

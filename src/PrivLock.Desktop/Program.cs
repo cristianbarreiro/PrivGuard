@@ -33,16 +33,18 @@ public static class Program
             return RejectRemovedPrivilegedDispatcher();
 
         // The user-facing process must always remain unelevated. Privileged work is accepted only
-        // through the authenticated worker branch above.
+        // through the authenticated worker branch above. Windows may invoke the machine-wide
+        // Programs and Features uninstall command elevated, so allow only the dedicated safe
+        // uninstall wrapper through this gate; it validates its installation paths before work.
         if (OperatingSystem.IsWindows() &&
-            !SafeUninstallLauncher.TryConfirmStandardUserToken(out var elevationError))
+            !SafeUninstallLauncher.TryConfirmStandardUserToken(out var elevationError) &&
+            !SafeUninstallLauncher.AllowsElevatedToken(args))
         {
             System.Diagnostics.Trace.TraceError(
                 "Rejected elevated PrivGvard user process: {0}",
                 elevationError ?? "token verification failed");
             return 1;
         }
-
         // 2. Initialize standard logging
         LoggingConfiguration.Initialize();
         Log.Information("=== PrivGvard Desktop Starting ===");
