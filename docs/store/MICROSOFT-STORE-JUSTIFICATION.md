@@ -15,15 +15,15 @@
 
 ## 1. Executive Summary
 
-PrivGvard is a native Windows privacy and security utility that gives users deterministic, verifiable control over their camera and microphone hardware. 
+PrivGvard is a native Windows privacy utility that applies and reports Windows privacy controls for cameras and microphones. The available controls and their results depend on the selected mode, hardware, driver, permissions, and system configuration.
 
-To fulfill its security promise without compromising system integrity, PrivGvard requires three restricted MSIX capabilities:
+The package declares three restricted MSIX capabilities for the Windows integration described below. The exact necessity and behavior of each capability must be assessed against the packaged application and its supported scenarios:
 
 1. `rescap:runFullTrust`
 2. `rescap:allowElevation`
 3. `rescap:unvirtualizedResources`
 
-PrivGvard follows Microsoft's **Principle of Least Privilege**: the main user interface runs strictly as a standard unprivileged user (`asInvoker`). Administrative privileges are requested **strictly on-demand** for short-lived (sub-second) hardware and policy toggles via a transient authenticated helper process, after which elevated rights are immediately released.
+The main user interface runs as a standard user (`asInvoker`). Operations that require administrative access request it through a separate authenticated helper launched with Windows `runas` behavior. The helper may be reused across operations within a scope and is closed when that scope ends; neither operation duration nor helper shutdown is guaranteed to be immediate.
 
 ---
 
@@ -42,23 +42,23 @@ PrivGvard operates two layers of privacy protection:
    - Toggles current user privacy preferences under `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore`.
 
 2. **Secure Layer (Requires Administrator Privileges):**
-   - **Hardware-Level PnP Device Disablement:** PrivGvard calls Windows Configuration Manager (`CfgMgr32.dll` APIs: `CM_Locate_DevNode_W`, `CM_Disable_DevNode`, and `CM_Enable_DevNode`) to place physical camera and microphone devices into the `DN_HAS_PROBLEM / CM_PROB_DISABLED` state. This prevents any kernel-mode driver or user-mode application from streaming sensor data.
-   - **System-Wide Group Policy Enforcement:** PrivGvard writes Windows AppPrivacy Group Policies under `HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy` (`LetAppsAccessCamera = 2`, `LetAppsAccessMicrophone = 2`) to ensure Windows itself blocks application access across all user accounts.
+   - **PnP device management:** For supported devices, PrivGvard calls Windows Configuration Manager (`CfgMgr32.dll` APIs including `CM_Locate_DevNode_W`, `CM_Disable_DevNode`, and `CM_Enable_DevNode`) to request a device-node state change and checks the reported state. This check does not establish that every sensor, driver, or data path is blocked in every configuration.
+   - **Machine-level Windows privacy policy:** PrivGvard can write the camera and microphone AppPrivacy values under `HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy` (`LetAppsAccessCamera` and `LetAppsAccessMicrophone` set to `2`) and reads them back where possible. The effective result depends on Windows, device, and policy configuration; this registry operation is not a guarantee that every sensor or application access path is blocked.
 
-Both `CfgMgr32.dll` device state manipulation and `HKLM` Group Policy modifications are privileged operations in Windows that fail with `ACCESS_DENIED` without Administrator rights.
+These device-management and machine-level registry operations are issued through the elevated helper. Windows permissions, device support, policy configuration, or other system conditions can cause an operation or its verification to fail; the application reports such failures rather than treating the requested state as confirmed.
 
 #### Least-Privilege Architecture (Why Not a Background Service?)
 Rather than installing a permanent background Windows Service running as `NT AUTHORITY\SYSTEM` (which would create an ongoing security attack surface), PrivGvard uses **transient on-demand elevation**:
 
 - The main interactive application (`PrivGvard.exe`) runs as a standard user (`asInvoker`).
 - When the user clicks "Protect" or "Unprotect" in the Secure Layer, PrivGvard launches its own executable with the argument `--privileged-worker` using `ShellExecuteEx` with `Verb="runas"`.
-- The user is presented with the official Windows UAC consent dialog.
+- The helper is launched with Windows `runas` behavior. The elevation or consent experience follows the account and system policy; cancellation or failure is reported as an unsuccessful operation.
 - The standard process and the elevated worker communicate over an in-memory **Named Pipe** secured with:
   - An explicit `PipeSecurity` Access Control List (ACL) granting access only to the current user SID and Administrators.
   - A cryptographically random 256-bit authentication nonce passed via CLI and validated before accepting any command.
   - Bilateral kernel process ID (PID) verification using `GetNamedPipeServerProcessId` / `GetNamedPipeClientProcessId`.
   - A strictly closed whitelist of 7 permitted operations (`apply-policy`, `restore-policy`, `apply-device`, `restore-device`, `verify-policy-ownership`, `verify-device-ownership`, `ping`).
-- As soon as the hardware PnP state or policy is applied (typically under 200 ms), the worker process terminates. PrivGvard retains zero elevated privileges during normal execution.
+- The helper can be reused while its operation scope remains active. When the scope closes, PrivGvard attempts to close the helper and checks whether it stopped; the shutdown path can wait and may attempt termination if needed. The UI process remains `asInvoker`, while the helper has an elevated token only while it is running.
 
 ---
 
@@ -73,46 +73,40 @@ Allows the application to run outside the AppContainer sandbox as a standard Win
 3. **WMI Hardware Detection:** PrivGvard queries `Win32_PnPEntity` via `System.Management` to discover plugged-in camera and microphone hardware and correlate them with PnP device IDs.
 4. **Inter-Process Communication:** The application creates and manages local named pipes (`\\.\pipe\PrivLock_...`) to coordinate the standard UI process and the elevated worker.
 
-None of these hardware management capabilities are available inside an AppContainer sandbox.
+These operations are implemented in the full-trust desktop process because they rely on Win32 system APIs, COM, WMI, and local inter-process communication.
 
 ---
 
 ### 2.3 `rescap:unvirtualizedResources`
 
 #### Purpose
-Disables MSIX registry and file system virtualization for specific application paths, allowing direct access to `%LOCALAPPDATA%\PrivGvard` and machine-level state.
+The package declares `rescap:unvirtualizedResources`. The application stores preferences and its recovery journal beneath the directory returned by `LocalApplicationData`; a separate active-session marker uses the current user's profile path, and the privileged worker stores ownership records under `HKLM`. The declaration alone does not establish the exact virtualization behavior of these paths or that this capability is required for each operation. Those points require validation with an installed MSIX package.
 
-#### Why It Is Necessary
-1. **Crash-Resilient Write-Ahead Logging (Recovery Journal):**
-   PrivGvard maintains a durable, binary/JSON Write-Ahead Log in `%LOCALAPPDATA%\PrivGvard\Recovery\`. If the user's PC loses power, crashes, or reboots while devices are blocked, PrivGvard detects the pending session on next startup and automatically restores hardware devices to their normal functional state. Virtualizing this directory risks state isolation between updates or between different execution contexts (e.g., standard user vs. elevated worker during recovery), which could leave user hardware permanently disabled.
-2. **Settings Persistence Across Package Updates:**
-   User preferences stored in `%LOCALAPPDATA%\PrivGvard\state.json` must persist cleanly across MSIX package updates without being quarantined in an isolated container that is cleared upon package servicing.
-3. **Machine Ownership Attestation:**
-   PrivGvard records an ownership marker in `HKLM\SOFTWARE\PrivLock\PrivilegedOwnership\v2` so that one user cannot tamper with another user's session. This key must be real and unvirtualized in `HKLM`.
-
+#### Data and Recovery Behavior
+1. **Recovery journal:** The application writes a journal and backup under its `LocalApplicationData` directory. On startup, it attempts to recover interrupted, journal-owned operations and then reconcile the operating system with the saved desired state. Recovery and reconciliation can fail because of storage errors, conflicts, unavailable devices, permissions, or other system conditions.
+2. **Normal exit and package removal:** During normal application shutdown, PrivGvard attempts to restore system changes it can confirm it owns. Startup recovery only runs when the application starts and can access its recovery data. The journal does not guarantee restoration during or after MSIX uninstall, nor does it guarantee uninterrupted protection during a restart. The resulting state must be checked after signing in.
+3. **Preferences and ownership records:** The desired settings file is written under the application data directory. The elevated worker separately accesses `HKLM\SOFTWARE\PrivLock\PrivilegedOwnership\v2` for ownership records. Whether the declared capability is needed for these paths, and how the packaged application resolves and retains them across servicing or removal, must be confirmed with an installed-package test.
 ---
 
 ## 3. Threat Mitigation & Security Controls Summary
 
 | Security Concern | PrivGvard Mitigation |
 |---|---|
-| Privilege Escalation | Main UI runs strictly unprivileged (`asInvoker`). Elevation requires explicit user approval on Windows UAC. Worker accepts only whitelisted commands. |
+| Privilege Escalation | Main UI runs asInvoker. Operations requiring administrative access use the helper launched with Windows `runas` behavior; cancellation and permission failures are reported. The worker accepts only whitelisted commands. |
 | Malicious IPC Injection | Named pipe uses random GUID name, restricted ACL, 256-bit nonce authentication, and kernel PID verification. |
-| Hardware Brick / Permanent Lockout | Write-Ahead Log (WAL) journal guarantees clean state recovery even across abrupt crashes, uninstalls, or reboots. |
-| Background Resource Drain | No persistent background service. Elevated worker exits immediately upon task completion. |
-| Privacy & Telemetry | Zero data collection. No network sockets opened. 100% offline, local execution. |
+| Recovery of managed changes | Normal shutdown attempts to restore changes PrivGvard can confirm it owns. Startup attempts recovery and reconciliation; either can fail or encounter conflicts. The journal does not guarantee recovery during or after MSIX uninstall or uninterrupted protection during restart. |
+| Background Resource Drain | The reviewed application uses no persistent Windows service. The elevated helper may be reused within an operation scope and is closed when the scope ends; immediate termination is not guaranteed. |
+| Privacy & Telemetry | The reviewed active application source contains no product telemetry or automatic diagnostics-upload feature, and no application-level network client was identified. This source review does not establish that Windows or every dependency makes no network requests. |
 
 ---
 
 ## 4. Microsoft Store Certification Reviewer Notes
 
-To test PrivGvard's elevated behavior during certification:
+The following steps describe behaviors to inspect in a packaged Windows installation; they are not results of a completed MSIX certification test:
 
-1. Launch PrivGvard from the Start Menu (launches as standard user).
-2. Note that camera and microphone status is displayed accurately.
-3. Toggle the protection switch for Camera or Microphone:
-   - If using the **Standard Layer**, no UAC prompt appears; Core Audio mute is applied instantly.
-   - If using the **Secure Layer**, the Windows UAC consent prompt (`PrivGvard`) will appear requesting permission to modify device hardware state.
-4. Click "Yes" on UAC: The camera/microphone hardware is disabled via PnP and verified via native query.
-5. Click "Unprotect": UAC prompt appears again, and hardware is safely restored.
-6. Verify in Windows Device Manager (`devmgmt.msc`) that the camera device is cleanly disabled/enabled.
+1. Launch PrivGvard from the Start Menu and confirm that the main UI runs as a standard user.
+2. Record the displayed state for the selected device and protection mode. Compare it with the relevant Windows-reported state; a saved desired state alone does not confirm that protection is active.
+3. Enable protection for one camera or microphone and note which controls apply for that mode. Standard controls may update Windows privacy preferences or mute supported microphone capture endpoints. Secure operations that require administrative access launch the helper using Windows `runas` behavior; the prompt and outcome depend on system policy and permissions.
+4. If elevation is accepted, check the operation result and verify the reported state for that specific device or policy. Do not infer that every sensor or driver is blocked from a single successful device-state query.
+5. If elevation is cancelled, permission is denied, a device is unsupported, or verification fails, confirm that the operation is reported as unsuccessful or uncertain and that the displayed effective state is not presented as confirmed protection.
+6. Request restoration and verify the resulting device, endpoint, or policy state. After restart or package update, sign in and check both the application status and the relevant Windows-reported state. Startup recovery is an attempt and does not guarantee restoration during or after MSIX uninstall.
