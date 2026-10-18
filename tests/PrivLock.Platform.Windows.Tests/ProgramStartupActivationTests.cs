@@ -1,3 +1,4 @@
+using Avalonia;
 using PrivLock.Desktop;
 using Xunit;
 
@@ -5,6 +6,18 @@ namespace PrivLock.Platform.Windows.Tests;
 
 public sealed class ProgramStartupActivationTests
 {
+    [Fact]
+    public void WindowsAvaloniaConfigurationRegistersWindowingAndRenderingSubsystems()
+    {
+        var builder = AppBuilder.Configure(() => new StartupTestApplication());
+
+        Program.ConfigureAvaloniaPlatform(builder);
+
+        Assert.NotNull(builder.RuntimePlatformServicesInitializer);
+        Assert.NotNull(builder.WindowingSubsystemInitializer);
+        Assert.NotNull(builder.RenderingSubsystemInitializer);
+    }
+
     [Fact]
     public void MinimizedLaunchDoesNotForwardActivationButKeepsTheListenerForLaterNormalLaunches()
     {
@@ -32,5 +45,9 @@ public sealed class ProgramStartupActivationTests
 
         Assert.False(Program.ShouldRequestExistingInstanceActivation(args, safeUninstallRequested: true));
         Assert.False(Program.ShouldStartDesktopUi(args, safeUninstallRequested: true));
+    }
+
+    private sealed class StartupTestApplication : Avalonia.Application
+    {
     }
 }

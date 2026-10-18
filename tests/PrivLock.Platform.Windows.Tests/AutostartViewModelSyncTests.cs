@@ -35,6 +35,8 @@ public sealed class AutostartViewModelSyncTests
             sharedState,
             localizationService,
             protectionService);
+        mainViewModel.Initialize();
+        settingsViewModel.Initialize();
 
         autostartProvider.EffectiveStatus = new AutostartStatus(AutostartState.Enabled);
         await sharedState.RefreshAsync();
@@ -54,6 +56,43 @@ public sealed class AutostartViewModelSyncTests
         Assert.False(settingsViewModel.IsAutostartStatusKnown);
         Assert.False(settingsViewModel.IsAutostartToggleEnabled);
         Assert.Contains("Registry access denied", settingsViewModel.AutostartStatusMessage);
+
+        settingsViewModel.Dispose();
+        mainViewModel.Dispose();
+        await sharedState.StopAsync();
+    }
+
+    [Fact]
+    public async Task ViewModelConstructorsDoNotSubscribeToStartupEventsBeforeAvaloniaSetup()
+    {
+        var stateStore = new TestStateStore();
+        var autostartProvider = new FakeAutostartProvider();
+        var protectionService = new ProtectionService(
+            null!,
+            null!,
+            new TestCapabilityProvider(),
+            stateStore);
+        var localizationService = new LocalizationService(stateStore);
+        localizationService.Initialize();
+        var sharedState = new AutostartStateService(
+            new SettingsService(autostartProvider, stateStore),
+            new NoOpAutostartChangeObserver());
+        await sharedState.StartAsync();
+
+        var mainViewModel = new MainViewModel(protectionService, sharedState, localizationService);
+        var settingsViewModel = new SettingsViewModel(sharedState, localizationService, protectionService);
+
+        autostartProvider.EffectiveStatus = new AutostartStatus(AutostartState.Enabled);
+        await sharedState.RefreshAsync();
+
+        Assert.False(mainViewModel.IsAutostartEnabled);
+        Assert.False(settingsViewModel.IsAutostartEnabled);
+
+        mainViewModel.Initialize();
+        settingsViewModel.Initialize();
+
+        Assert.True(mainViewModel.IsAutostartEnabled);
+        Assert.True(settingsViewModel.IsAutostartEnabled);
 
         settingsViewModel.Dispose();
         mainViewModel.Dispose();

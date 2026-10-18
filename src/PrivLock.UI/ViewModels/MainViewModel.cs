@@ -18,6 +18,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool _isUpdating;
     private bool _disposed;
+    private bool _initialized;
 
     [ObservableProperty]
     private string _appTitle = "PrivGvard";
@@ -213,16 +214,29 @@ public sealed partial class MainViewModel : ObservableObject
         _autostartStateService = autostartStateService;
         _localizationService = localizationService;
 
-        _protectionService.StateChanged += OnProtectionStateChanged;
-        _autostartStateService.StatusChanged += OnAutostartStatusChanged;
-        _localizationService.LanguageChanged += OnLanguageChanged;
-
         _isSpanishSelected = _localizationService.CurrentLanguage == "es";
         _isEnglishSelected = !_isSpanishSelected;
         ApplyAutostartStatus(_autostartStateService.Status);
 
         UpdatePlatformAndCapabilities();
+    }
 
+    /// <summary>
+    /// Starts UI-bound observation only after Avalonia has initialized its platform dispatcher.
+    /// </summary>
+    public void Initialize()
+    {
+        if (_initialized || _disposed)
+            return;
+
+        _initialized = true;
+        _protectionService.StateChanged += OnProtectionStateChanged;
+        _autostartStateService.StatusChanged += OnAutostartStatusChanged;
+        _localizationService.LanguageChanged += OnLanguageChanged;
+
+        IsSpanishSelected = _localizationService.CurrentLanguage == "es";
+        IsEnglishSelected = !IsSpanishSelected;
+        ApplyAutostartStatus(_autostartStateService.Status);
         _ = RefreshStateAsync();
     }
 

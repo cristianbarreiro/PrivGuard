@@ -395,8 +395,9 @@ public static class Program
                     autostartMigrationResult.ErrorMessage ??
                     localizationService.GetString("ErrorAutostart", "Windows startup migration failed.")));
             }
-            if (startupMessages.Count > 0)
-                mainViewModel.ReportExternalError(string.Join(Environment.NewLine, startupMessages));
+            var startupErrorMessage = startupMessages.Count > 0
+                ? string.Join(Environment.NewLine, startupMessages)
+                : null;
 
             // Strip --minimized from args before passing to Avalonia to avoid unknown-argument warnings
             var avaloniaArgs = args.Where(a => !a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -409,7 +410,8 @@ public static class Program
                     startMinimized,
                     uninstallRequestListener,
                     autostartStateService,
-                    activationListener)
+                    activationListener,
+                    startupErrorMessage)
                 .StartWithClassicDesktopLifetime(avaloniaArgs);
 
             var finalRestoreFinished = _shutdownCoordinator.TryRestoreWithin(
@@ -522,7 +524,8 @@ public static class Program
         bool startMinimized = false,
         IUninstallRequestListener? uninstallRequestListener = null,
         AutostartStateService? autostartStateService = null,
-        IApplicationActivationListener? activationListener = null)
+        IApplicationActivationListener? activationListener = null,
+        string? startupErrorMessage = null)
     {
         var appBuilder = AppBuilder.Configure<App>(() => new App(
                 viewModel,
@@ -533,12 +536,23 @@ public static class Program
                 uninstallRequestListener,
                 autostartStateService,
                 activationListener))
-            .WithInterFont();
+            .WithInterFont()
+            .AfterSetup(_ =>
+            {
+                viewModel.Initialize();
+                settingsViewModel?.Initialize();
 
-        return OperatingSystem.IsWindows()
-            ? appBuilder.UseWin32().LogToTrace()
-            : appBuilder.UsePlatformDetect().LogToTrace();
+                if (!string.IsNullOrWhiteSpace(startupErrorMessage))
+                    viewModel.ReportExternalError(startupErrorMessage);
+            });
+
+        return ConfigureAvaloniaPlatform(appBuilder);
     }
+
+    internal static AppBuilder ConfigureAvaloniaPlatform(AppBuilder appBuilder) =>
+        OperatingSystem.IsWindows()
+            ? appBuilder.UseWin32().UseSkia().LogToTrace()
+            : appBuilder.UsePlatformDetect().LogToTrace();
 
     private static void ConfigureServices(IServiceCollection services)
     {

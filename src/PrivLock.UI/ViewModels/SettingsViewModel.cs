@@ -17,6 +17,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly LocalizationService _localizationService;
     private readonly ProtectionService _protectionService;
     private bool _disposed;
+    private bool _initialized;
 
     [ObservableProperty]
     private SettingsSection _selectedSection = SettingsSection.General;
@@ -155,9 +156,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _localizationService = localizationService;
         _protectionService = protectionService;
 
-        _localizationService.LanguageChanged += OnLanguageChanged;
-        _protectionService.StateChanged += OnProtectionStateChanged;
-        _autostartStateService.StatusChanged += OnAutostartStatusChanged;
         ApplyAutostartStatus(_autostartStateService.Status);
 
         _isSpanishSelected = _localizationService.CurrentLanguage == "es";
@@ -166,7 +164,24 @@ public sealed partial class SettingsViewModel : ObservableObject
         var entryAssembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
         var ver = entryAssembly.GetName().Version;
         AppVersion = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "1.0.0";
+    }
 
+    /// <summary>
+    /// Starts UI-bound observation only after Avalonia has initialized its platform dispatcher.
+    /// </summary>
+    public void Initialize()
+    {
+        if (_initialized || _disposed)
+            return;
+
+        _initialized = true;
+        _localizationService.LanguageChanged += OnLanguageChanged;
+        _protectionService.StateChanged += OnProtectionStateChanged;
+        _autostartStateService.StatusChanged += OnAutostartStatusChanged;
+
+        IsSpanishSelected = _localizationService.CurrentLanguage == "es";
+        IsEnglishSelected = !IsSpanishSelected;
+        ApplyAutostartStatus(_autostartStateService.Status);
         _ = RefreshDiagnosticsAsync();
     }
 
