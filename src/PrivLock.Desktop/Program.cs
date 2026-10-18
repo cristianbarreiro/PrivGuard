@@ -110,6 +110,7 @@ public static class Program
 
         ServiceProvider? serviceProvider = null;
         ISingleInstanceGuard? singleInstanceGuard = null;
+        IApplicationActivationListener? activationListener = null;
         IUninstallRequestListener? uninstallRequestListener = null;
         AutostartStateService? autostartStateService = null;
         OperationResult? autostartMigrationResult = null;
@@ -119,6 +120,9 @@ public static class Program
             var services = new ServiceCollection();
             ConfigureServices(services);
             serviceProvider = services.BuildServiceProvider();
+
+            if (OperatingSystem.IsWindows())
+                activationListener = serviceProvider.GetRequiredService<IApplicationActivationListener>();
 
             // 5. Acquire single-instance ownership before recovery or CLI cleanup touches shared state.
             singleInstanceGuard = serviceProvider.GetRequiredService<ISingleInstanceGuard>();
@@ -137,6 +141,27 @@ public static class Program
 
                 if (!acquiredForUninstall)
                 {
+                    if (ShouldRequestExistingInstanceActivation(args, safeUninstallPlan != null) &&
+                        OperatingSystem.IsWindows())
+                    {
+                        string? activationError = null;
+                        var activationRequested =
+                            activationListener?.TryRequestExistingInstanceActivation(out activationError) == true;
+                        if (activationRequested)
+                        {
+                            Log.Information("Requested the running PrivGvard instance to show its main window.");
+                        }
+                        else if (activationError != null)
+                        {
+                            Log.Warning("Could not request activation of the running PrivGvard instance: {Error}",
+                                activationError);
+                        }
+                        else
+                        {
+                            Log.Information("No running PrivGvard window activation listener was available.");
+                        }
+                    }
+
                     var duplicateMessage = safeUninstallPlan == null
                         ? "Another instance of PrivGvard is already running. Exiting without changing system state."
                         : handoffError ?? "PrivGvard could not safely close the running instance for uninstallation.";
@@ -150,9 +175,12 @@ public static class Program
                 Log.Information("The running PrivGvard instance completed safe shutdown for Windows uninstall.");
             }
 
-            if (safeUninstallPlan == null &&
-                args.All(a => !a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) &&
-                              !a.Equals("-u", StringComparison.OrdinalIgnoreCase)) &&
+            if (ShouldStartDesktopUi(args, safeUninstallPlan != null))
+            {
+                activationListener?.Start();
+            }
+
+            if (ShouldStartDesktopUi(args, safeUninstallPlan != null) &&
                 OperatingSystem.IsWindows())
             {
                 uninstallRequestListener = serviceProvider.GetRequiredService<IUninstallRequestListener>();
@@ -380,7 +408,8 @@ public static class Program
                     localizationService,
                     startMinimized,
                     uninstallRequestListener,
-                    autostartStateService)
+                    autostartStateService,
+                    activationListener)
                 .StartWithClassicDesktopLifetime(avaloniaArgs);
 
             var finalRestoreFinished = _shutdownCoordinator.TryRestoreWithin(
@@ -470,6 +499,21 @@ public static class Program
         return 1;
     }
 
+    internal static bool ShouldRequestExistingInstanceActivation(
+        IReadOnlyList<string> args,
+        bool safeUninstallRequested) =>
+        !safeUninstallRequested &&
+        args.All(a => !a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)) &&
+        args.All(a => !a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) &&
+                      !a.Equals("-u", StringComparison.OrdinalIgnoreCase));
+
+    internal static bool ShouldStartDesktopUi(
+        IReadOnlyList<string> args,
+        bool safeUninstallRequested) =>
+        !safeUninstallRequested &&
+        args.All(a => !a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) &&
+                      !a.Equals("-u", StringComparison.OrdinalIgnoreCase));
+
     public static AppBuilder BuildAvaloniaApp(
         MainViewModel viewModel,
         ShutdownCoordinator shutdownCoordinator,
@@ -477,18 +521,24 @@ public static class Program
         LocalizationService? localizationService = null,
         bool startMinimized = false,
         IUninstallRequestListener? uninstallRequestListener = null,
-        AutostartStateService? autostartStateService = null) =>
-        AppBuilder.Configure<App>(() => new App(
+        AutostartStateService? autostartStateService = null,
+        IApplicationActivationListener? activationListener = null)
+    {
+        var appBuilder = AppBuilder.Configure<App>(() => new App(
                 viewModel,
                 shutdownCoordinator,
                 settingsViewModel,
                 localizationService,
                 startMinimized,
                 uninstallRequestListener,
-                autostartStateService))
-            .UsePlatformDetect()
-            .WithInterFont()
-            .LogToTrace();
+                autostartStateService,
+                activationListener))
+            .WithInterFont();
+
+        return OperatingSystem.IsWindows()
+            ? appBuilder.UseWin32().LogToTrace()
+            : appBuilder.UsePlatformDetect().LogToTrace();
+    }
 
     private static void ConfigureServices(IServiceCollection services)
     {
@@ -555,6 +605,7 @@ public static class Program
         services.AddSingleton<IGlobalHotkeyProvider, Platform.Windows.System.WindowsHotkeyProvider>();
         services.AddSingleton<ISingleInstanceGuard, Platform.Windows.System.WindowsSingleInstanceGuard>();
         services.AddSingleton<IUninstallRequestListener, Platform.Windows.System.WindowsUninstallRequestListener>();
+        services.AddSingleton<IApplicationActivationListener, Platform.Windows.System.WindowsApplicationActivationListener>();
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("linux")]

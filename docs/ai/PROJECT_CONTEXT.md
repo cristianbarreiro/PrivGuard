@@ -98,6 +98,7 @@ PrivGvard features an integrated desktop and notification-area lifecycle:
    - The process remains running in the background with its System Tray icon active.
 2. **System Tray Icon**:
    - Left-click or double-click: calls `ShowMainWindow()` (`Show()`, `WindowState = Normal`, `Activate()`, `BringIntoView()`).
+   - A normal Windows launch while an instance is already running forwards an activation request so the existing window is shown instead of silently exiting.
    - Right-click context menu: localized options dynamically bound via `LocalizationCatalog`:
      - **Abrir PrivGvard** / **Open PrivGvard**: restores the main window.
      - **Salir** / **Exit**: initiates clean application shutdown.

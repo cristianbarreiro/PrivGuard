@@ -25,6 +25,7 @@ public partial class App : Avalonia.Application
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly LocalizationService? _localizationService;
     private readonly IUninstallRequestListener? _uninstallRequestListener;
+    private readonly IApplicationActivationListener? _activationListener;
     private readonly AutostartStateService? _autostartStateService;
     private TrayIcon? _trayIcon;
     private Window? _mainWindow;
@@ -47,7 +48,8 @@ public partial class App : Avalonia.Application
         LocalizationService? localizationService = null,
         bool startMinimized = false,
         IUninstallRequestListener? uninstallRequestListener = null,
-        AutostartStateService? autostartStateService = null)
+        AutostartStateService? autostartStateService = null,
+        IApplicationActivationListener? activationListener = null)
     {
         _mainViewModel = mainViewModel;
         _shutdownCoordinator = shutdownCoordinator;
@@ -56,6 +58,7 @@ public partial class App : Avalonia.Application
         _autostartStateService = autostartStateService;
         _startMinimized = startMinimized;
         _uninstallRequestListener = uninstallRequestListener;
+        _activationListener = activationListener;
 
         if (_localizationService != null)
         {
@@ -162,6 +165,12 @@ public partial class App : Avalonia.Application
                         Log.Information("Windows requested a safe PrivGvard shutdown for uninstall");
                         _ = RequestShutdownAsync(desktop, "WindowsUninstallRequest", allowIncomplete: false);
                     });
+            }
+
+            if (_activationListener != null)
+            {
+                _activationListener.ActivationRequested += (_, _) =>
+                    Dispatcher.UIThread.Post(ShowMainWindowCore);
             }
 
         }
@@ -319,25 +328,27 @@ public partial class App : Avalonia.Application
 
     public void ShowMainWindow()
     {
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(ShowMainWindowCore);
+    }
+
+    private void ShowMainWindowCore()
+    {
+        if (_mainWindow == null) return;
+
+        _mainWindow.ShowInTaskbar = true;
+
+        if (!_mainWindow.IsVisible)
         {
-            if (_mainWindow == null) return;
+            _mainWindow.Show();
+        }
 
-            _mainWindow.ShowInTaskbar = true;
+        if (_mainWindow.WindowState == WindowState.Minimized)
+        {
+            _mainWindow.WindowState = WindowState.Normal;
+        }
 
-            if (!_mainWindow.IsVisible)
-            {
-                _mainWindow.Show();
-            }
-
-            if (_mainWindow.WindowState == WindowState.Minimized)
-            {
-                _mainWindow.WindowState = WindowState.Normal;
-            }
-
-            _mainWindow.Activate();
-            _mainWindow.BringIntoView();
-        });
+        _mainWindow.Activate();
+        _mainWindow.BringIntoView();
     }
 
     private static async Task ObserveOperatingSystemShutdownRestoreAsync(
