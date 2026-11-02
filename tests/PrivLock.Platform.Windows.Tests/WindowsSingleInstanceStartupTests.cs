@@ -8,6 +8,8 @@ public sealed class WindowsSingleInstanceStartupTests
     [Fact]
     public async Task ConcurrentLaunches_OnlyAdmittedProcessCanEnterRecoveryOrMutatePrivacyState()
     {
+        var testMutex = $@"Local\PrivLock_SingleInstance_Test_{Guid.NewGuid():N}";
+        var testGate = $@"Local\PrivLock_UninstallGate_Test_{Guid.NewGuid():N}";
         using var ready = new CountdownEvent(2);
         using var acquisitionCompleted = new CountdownEvent(2);
         using var start = new ManualResetEventSlim();
@@ -16,7 +18,7 @@ public sealed class WindowsSingleInstanceStartupTests
 
         var launches = Enumerable.Range(0, 2).Select(_ => Task.Run(() =>
         {
-            using var guard = new WindowsSingleInstanceGuard();
+            using var guard = new WindowsSingleInstanceGuard(testMutex, testGate);
             ready.Signal();
             start.Wait();
             var admitted = guard.TryAcquireSingleInstance();

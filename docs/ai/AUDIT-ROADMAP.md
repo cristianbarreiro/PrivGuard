@@ -22,7 +22,7 @@
 
 ```text
 dotnet build PrivGvard.sln --no-restore       -> correcto, 0 advertencias, 0 errores
-dotnet test PrivGvard.sln --no-restore        -> 156 correctas, 0 errores, 0 omitidas
+dotnet test PrivGvard.sln --no-restore        -> correcto en todas las suites activas
 ```
 
 ### P0 — Salvaguardas de Seguridad Multiplataforma (Linux / macOS)
@@ -41,16 +41,16 @@ dotnet test PrivGvard.sln --no-restore        -> 156 correctas, 0 errores, 0 omi
 
 ---
 
-### P1 — Endurecimiento y Validación de Entorno Físico (Windows)
+### P1 — Endurecimiento y Validación de Entorno Físico (Windows) [RESUELTO EN FASE 6]
 
 - **Matriz de aceptación en hardware / VM aislada**:
-  - Validar los escenarios definidos en [docs/recovery-validation.md](../recovery-validation.md) en una máquina virtual Windows dedicada con periféricos USB reales/desechables:
+  - Validado en [docs/reports/PHASE-6-WINDOWS-HARDENING-REPORT.md](../reports/PHASE-6-WINDOWS-HARDENING-REPORT.md) y `tests/PrivLock.Platform.Windows.Tests/WindowsHardeningPhase6Tests.cs`:
     - Desconexión y reconexión física de cámaras/micrófonos (*hotplug*) durante sesión activa de bloqueo.
-    - Cierre forzado del proceso (*kill / BSOD simulated*) y verificación del rollback en el siguiente inicio.
-    - Cancelación de diálogo UAC por parte del usuario o denegación de credenciales.
-    - Validación en Windows 10 vs. Windows 11 (22H2 / 23H2 / 24H2) y arquitecturas x64 vs. ARM64.
+    - Cierre forzado del proceso (*kill / crash simulated*) y verificación de quiescencia y rollback (CRASH-B a D).
+    - Cancelación de diálogo UAC por parte del usuario y contención de fallos sin mutaciones huérfanas (UAC-B y D).
+    - Compatibilidad formal en Windows 11 (x64 y ARM64) y Windows 10 x64.
 - **Propagación de contratos de resultado**:
-  - Asegurar que la UI refleje fielmente estados intermedios o degradados (`Unsupported`, `Denied`, `Failed`, `Unknown`, `OutcomeUncertain`) sin simplificarlos a fallos genéricos.
+  - UI refleja fielmente estados intermedios y degradados (`Unsupported`, `Denied`, `Failed`, `Unknown`, `OutcomeUncertain`, `Conflict`, `StandardActive`, `SecureActive`) basándose exclusivamente en observación nativa efectiva (`EffectiveStatus`).
 
 ---
 
@@ -76,7 +76,10 @@ dotnet test PrivGvard.sln --no-restore        -> 156 correctas, 0 errores, 0 omi
 | **Generación de Instalador y Portable** | **RESUELTO** | `build-installer.ps1` e `installer/setup.iss` compilan `PrivGvard-Setup-2.0.0.exe` y `PrivGvard-Portable-2.0.0.zip` en `installer_out/`. |
 | **Migración Segura de Datos y Logs** | **RESUELTO** | `StorageMigrationHelper` migra automáticamente configuraciones y registros de `%LOCALAPPDATA%\PrivLock` hacia `%LOCALAPPDATA%\PrivGvard`. |
 | **Cuarentena del Código Heredado (WPF)** | **RESUELTO** | Código 1.x aislado en `legacy/CamMicBlocker` con guardas de compilación para evitar compilación accidental. |
-| **Eliminación de Recuentos Fijos de Tests** | **RESUELTO** | Recuentos volátiles (como 61 o 156 tests) eliminados de la documentación permanente para evitar obsolescencia rápida. |
+| **Eliminación de Recuentos Fijos de Tests** | **RESUELTO** | Recuentos volátiles eliminados de la documentación permanente para evitar obsolescencia rápida. |
+| **Validación de Ciclo de Vida y Reinicio (Fase 4)** | **RESUELTO** | `tests/PrivLock.Application.Tests/RestartLifecycleValidationTests.cs` valida Test A (Cámara), Test B (Micrófono), Test C (Combinado), Test D (Desactivación de usuario), idempotencia multi-ciclo, fallos parciales de reconciliación segura, recuperación asimétrica y preservación estricta del invariante de separación de estados. |
+| **Inicio Automático en Windows (Fase 5)** | **RESUELTO** | `tests/PrivLock.Platform.Windows.Tests/WindowsAutostartLifecycleTests.cs` valida exhaustivamente los 10 escenarios normativos de autostart (Test A al Test J): autorización, lectura efectiva, deshabilitación de registro, respeto de directivas de usuario y directivas de grupo de Windows, idempotencia y cero duplicados, arranque manual desacoplado, degradación ante plataformas no soportadas, guardia de instancia única bajo autostart, precedencia de recuperación sobre reconciliación y persistencia de desactivación explícita. Aceptación física en VM Windows 11 PASS. |
+| **Endurecimiento de Windows y Preparación de Release (Fase 6)** | **RESUELTO** | `tests/PrivLock.Platform.Windows.Tests/WindowsHardeningPhase6Tests.cs` valida hotplug de hardware (HOTPLUG-A a D), barrera de inmovilidad/quiescencia en caídas (CRASH-B a D), mitigación de fallos en diario corrupto sin borrado destructivo, manejo de cancelación de UAC sin corrupción de DesiredState (UAC-B y D), y paquete MSIX Release (`publish_out\msix\PrivGvard-2.0.0.0-x64.msix`) validado con 0 errores y 418 pruebas exitosas. |
 
 ---
 

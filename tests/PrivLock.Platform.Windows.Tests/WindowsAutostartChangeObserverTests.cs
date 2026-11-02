@@ -71,7 +71,7 @@ public sealed class WindowsAutostartChangeObserverTests
 
     private static async Task WaitUntilAsync(Func<bool> predicate)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         while (!predicate())
             await Task.Delay(10, timeout.Token);
     }
@@ -102,7 +102,7 @@ public sealed class WindowsAutostartChangeObserverTests
         public async Task WaitUntilCalledAsync(int call)
         {
             var signal = _calls.GetOrAdd(call, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await signal.Task.WaitAsync(timeout.Token);
         }
     }

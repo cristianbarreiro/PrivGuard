@@ -284,24 +284,24 @@ internal static class PrivacyRecoveryTestData
         ProtectionLayer layer = ProtectionLayer.Standard,
         BlockTarget target = BlockTarget.Camera,
         bool safelyRestorable = true) => new()
-    {
-        ResourceId = $"device:{id}",
-        OperationId = "Op-Test",
-        Layer = layer,
-        Target = target,
-        CapturedAtUtc = CapturedAt,
-        LastUpdatedAtUtc = CapturedAt,
-        JournalState = journalState,
-        ModifiedByPrivLock = modifiedByPrivLock,
-        InstanceId = id,
-        FriendlyName = id,
-        DeviceClass = target == BlockTarget.Camera ? "Camera" : "AudioEndpoint",
-        IsPresentAtCapture = true,
-        OriginalEnabledState = originalEnabled,
-        OriginalProblemCode = originalEnabled ? 0u : 22u,
-        ProtectedEnabledState = protectedEnabled,
-        IsSafelyRestorable = safelyRestorable
-    };
+        {
+            ResourceId = $"device:{id}",
+            OperationId = "Op-Test",
+            Layer = layer,
+            Target = target,
+            CapturedAtUtc = CapturedAt,
+            LastUpdatedAtUtc = CapturedAt,
+            JournalState = journalState,
+            ModifiedByPrivLock = modifiedByPrivLock,
+            InstanceId = id,
+            FriendlyName = id,
+            DeviceClass = target == BlockTarget.Camera ? "Camera" : "AudioEndpoint",
+            IsPresentAtCapture = true,
+            OriginalEnabledState = originalEnabled,
+            OriginalProblemCode = originalEnabled ? 0u : 22u,
+            ProtectedEnabledState = protectedEnabled,
+            IsSafelyRestorable = safelyRestorable
+        };
 
     public static OriginalPolicyState Policy(
         string id,
@@ -311,45 +311,45 @@ internal static class PrivacyRecoveryTestData
         PrivacyResourceJournalState journalState = PrivacyResourceJournalState.Applied,
         ProtectionLayer layer = ProtectionLayer.Secure,
         BlockTarget target = BlockTarget.Camera) => new()
-    {
-        ResourceId = $"registry:{id}",
-        OperationId = "Op-Test",
-        Layer = layer,
-        Target = target,
-        CapturedAtUtc = CapturedAt,
-        LastUpdatedAtUtc = CapturedAt,
-        JournalState = journalState,
-        ModifiedByPrivLock = true,
-        RegistryHive = layer == ProtectionLayer.Secure
+        {
+            ResourceId = $"registry:{id}",
+            OperationId = "Op-Test",
+            Layer = layer,
+            Target = target,
+            CapturedAtUtc = CapturedAt,
+            LastUpdatedAtUtc = CapturedAt,
+            JournalState = journalState,
+            ModifiedByPrivLock = true,
+            RegistryHive = layer == ProtectionLayer.Secure
             ? PrivacyRegistryHive.LocalMachine
             : PrivacyRegistryHive.CurrentUser,
-        RegistryView = PrivacyRegistryView.Default,
-        RegistryPath = $@"Software\PrivLock.Tests\{id}",
-        ValueName = "PrivacyValue",
-        ValueExisted = valueExisted,
-        OriginalValueKind = valueExisted ? originalKind : PrivacyRegistryValueKind.None,
-        OriginalValue = valueExisted ? originalValue : null,
-        ProtectedValueExists = true,
-        ProtectedValueKind = PrivacyRegistryValueKind.DWord,
-        ProtectedValue = "2"
-    };
+            RegistryView = PrivacyRegistryView.Default,
+            RegistryPath = $@"Software\PrivLock.Tests\{id}",
+            ValueName = "PrivacyValue",
+            ValueExisted = valueExisted,
+            OriginalValueKind = valueExisted ? originalKind : PrivacyRegistryValueKind.None,
+            OriginalValue = valueExisted ? originalValue : null,
+            ProtectedValueExists = true,
+            ProtectedValueKind = PrivacyRegistryValueKind.DWord,
+            ProtectedValue = "2"
+        };
 
     public static OriginalAudioEndpointState AudioEndpoint(
         string id,
         PrivacyResourceJournalState journalState = PrivacyResourceJournalState.Applied) => new()
-    {
-        ResourceId = $"audio-mute:{id}",
-        OperationId = "Op-Test",
-        Layer = ProtectionLayer.Standard,
-        Target = BlockTarget.Microphone,
-        CapturedAtUtc = CapturedAt,
-        LastUpdatedAtUtc = CapturedAt,
-        JournalState = journalState,
-        ModifiedByPrivLock = true,
-        EndpointId = id,
-        OriginalMutedState = false,
-        ProtectedMutedState = true
-    };
+        {
+            ResourceId = $"audio-mute:{id}",
+            OperationId = "Op-Test",
+            Layer = ProtectionLayer.Standard,
+            Target = BlockTarget.Microphone,
+            CapturedAtUtc = CapturedAt,
+            LastUpdatedAtUtc = CapturedAt,
+            JournalState = journalState,
+            ModifiedByPrivLock = true,
+            EndpointId = id,
+            OriginalMutedState = false,
+            ProtectedMutedState = true
+        };
 
     public static PrivacySession ActiveSession(params PrivacyResourceState[] resources) => new()
     {

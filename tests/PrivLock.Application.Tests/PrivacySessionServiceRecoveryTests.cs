@@ -857,11 +857,11 @@ public sealed class PrivacySessionServiceRecoveryTests
         string id,
         bool success,
         bool outcomeUncertain = false) => new()
-    {
-        DeviceId = id,
-        FriendlyName = id,
-        Success = success,
-        OutcomeUncertain = outcomeUncertain,
-        ErrorMessage = success ? null : "native failure"
-    };
+        {
+            DeviceId = id,
+            FriendlyName = id,
+            Success = success,
+            OutcomeUncertain = outcomeUncertain,
+            ErrorMessage = success ? null : "native failure"
+        };
 }

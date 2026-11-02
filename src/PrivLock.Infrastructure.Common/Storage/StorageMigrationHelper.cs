@@ -45,53 +45,53 @@ public static class StorageMigrationHelper
 
             Directory.CreateDirectory(targetDir);
 
-                // 1. Migrate settings state.json
-                var legacyState = Path.Combine(legacyDir, "state.json");
-                var targetState = Path.Combine(targetDir, "state.json");
-                if (File.Exists(legacyState) && !File.Exists(targetState))
-                {
-                    File.Copy(legacyState, targetState, overwrite: false);
-                    Log.Information("Migrated legacy state.json from {Legacy} to {Target}", legacyState, targetState);
-                }
-
-                // 2. Migrate Recovery sessions and active marker
-                var legacyRecovery = Path.Combine(legacyDir, "Recovery");
-                var targetRecovery = Path.Combine(targetDir, "Recovery");
-                if (Directory.Exists(legacyRecovery))
-                {
-                    Directory.CreateDirectory(targetRecovery);
-                    foreach (var file in Directory.GetFiles(legacyRecovery))
-                    {
-                        var fileName = Path.GetFileName(file);
-                        var targetFile = Path.Combine(targetRecovery, fileName);
-                        if (!File.Exists(targetFile))
-                        {
-                            File.Copy(file, targetFile, overwrite: false);
-                            Log.Information("Migrated recovery file {File} to {Target}", fileName, targetFile);
-                        }
-                    }
-                }
-
-                // 3. Migrate CrashReports if any
-                var legacyCrash = Path.Combine(legacyDir, "CrashReports");
-                var targetCrash = Path.Combine(targetDir, "CrashReports");
-                if (Directory.Exists(legacyCrash))
-                {
-                    Directory.CreateDirectory(targetCrash);
-                    foreach (var file in Directory.GetFiles(legacyCrash))
-                    {
-                        var fileName = Path.GetFileName(file);
-                        var targetFile = Path.Combine(targetCrash, fileName);
-                        if (!File.Exists(targetFile))
-                        {
-                            File.Copy(file, targetFile, overwrite: false);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
+            // 1. Migrate settings state.json
+            var legacyState = Path.Combine(legacyDir, "state.json");
+            var targetState = Path.Combine(targetDir, "state.json");
+            if (File.Exists(legacyState) && !File.Exists(targetState))
             {
-                Log.Warning(ex, "Non-fatal error during legacy PrivLock to PrivGvard storage migration");
+                File.Copy(legacyState, targetState, overwrite: false);
+                Log.Information("Migrated legacy state.json from {Legacy} to {Target}", legacyState, targetState);
             }
+
+            // 2. Migrate Recovery sessions and active marker
+            var legacyRecovery = Path.Combine(legacyDir, "Recovery");
+            var targetRecovery = Path.Combine(targetDir, "Recovery");
+            if (Directory.Exists(legacyRecovery))
+            {
+                Directory.CreateDirectory(targetRecovery);
+                foreach (var file in Directory.GetFiles(legacyRecovery))
+                {
+                    var fileName = Path.GetFileName(file);
+                    var targetFile = Path.Combine(targetRecovery, fileName);
+                    if (!File.Exists(targetFile))
+                    {
+                        File.Copy(file, targetFile, overwrite: false);
+                        Log.Information("Migrated recovery file {File} to {Target}", fileName, targetFile);
+                    }
+                }
+            }
+
+            // 3. Migrate CrashReports if any
+            var legacyCrash = Path.Combine(legacyDir, "CrashReports");
+            var targetCrash = Path.Combine(targetDir, "CrashReports");
+            if (Directory.Exists(legacyCrash))
+            {
+                Directory.CreateDirectory(targetCrash);
+                foreach (var file in Directory.GetFiles(legacyCrash))
+                {
+                    var fileName = Path.GetFileName(file);
+                    var targetFile = Path.Combine(targetCrash, fileName);
+                    if (!File.Exists(targetFile))
+                    {
+                        File.Copy(file, targetFile, overwrite: false);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Non-fatal error during legacy PrivLock to PrivGvard storage migration");
+        }
     }
 }

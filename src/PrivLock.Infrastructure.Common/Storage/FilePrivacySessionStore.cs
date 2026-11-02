@@ -448,15 +448,21 @@ public sealed class FilePrivacySessionStore : IPrivacySessionStore
             return true;
 
         return resource is
-            { JournalState: PrivacyResourceJournalState.ApplyPending,
-              ModifiedByPrivLock: false,
-              OwnershipUncertain: true } or
-            { JournalState: PrivacyResourceJournalState.RestorePending,
-              ModifiedByPrivLock: false,
-              OwnershipUncertain: true } or
-            { JournalState: PrivacyResourceJournalState.Applied,
-              ModifiedByPrivLock: true,
-              OwnershipUncertain: false };
+        {
+            JournalState: PrivacyResourceJournalState.ApplyPending,
+            ModifiedByPrivLock: false,
+            OwnershipUncertain: true
+        } or
+        {
+            JournalState: PrivacyResourceJournalState.RestorePending,
+            ModifiedByPrivLock: false,
+            OwnershipUncertain: true
+        } or
+        {
+            JournalState: PrivacyResourceJournalState.Applied,
+            ModifiedByPrivLock: true,
+            OwnershipUncertain: false
+        };
     }
 
     private static bool IsAllowedPrivacyDeviceClass(string deviceClass, BlockTarget target) =>

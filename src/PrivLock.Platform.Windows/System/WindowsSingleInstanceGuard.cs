@@ -10,12 +10,25 @@ public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsSingleInstanceGuard>();
     internal const string MutexName = @"Global\PrivLock_SingleInstance";
+    private readonly string _mutexName;
+    private readonly string _uninstallGateMutexName;
     private const string UninstallGateMutexName = @"Global\PrivLock_UninstallGate";
 
     private Mutex? _mutex;
     private Mutex? _uninstallGate;
     private bool _hasAcquired;
     private bool _hasUninstallGate;
+
+    public WindowsSingleInstanceGuard()
+        : this(MutexName, UninstallGateMutexName)
+    {
+    }
+
+    internal WindowsSingleInstanceGuard(string mutexName, string uninstallGateMutexName = UninstallGateMutexName)
+    {
+        _mutexName = mutexName;
+        _uninstallGateMutexName = uninstallGateMutexName;
+    }
 
     public bool TryAcquireSingleInstance()
     {
@@ -24,7 +37,7 @@ public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
             if (_mutex != null || _uninstallGate != null)
                 return _hasAcquired && _hasUninstallGate;
 
-            _uninstallGate = new Mutex(initiallyOwned: false, UninstallGateMutexName);
+            _uninstallGate = new Mutex(initiallyOwned: false, _uninstallGateMutexName);
             _hasUninstallGate = TryAcquire(_uninstallGate);
             if (!_hasUninstallGate)
             {
@@ -33,7 +46,7 @@ public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
                 return false;
             }
 
-            _mutex = new Mutex(initiallyOwned: false, MutexName);
+            _mutex = new Mutex(initiallyOwned: false, _mutexName);
             _hasAcquired = TryAcquire(_mutex);
 
             if (!_hasAcquired)
