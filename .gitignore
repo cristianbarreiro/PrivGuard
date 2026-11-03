@@ -10,6 +10,10 @@ publish/
 publish_out/
 installer_out/
 publish_dist/
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
 
 # User-specific files
 *.rsuser
