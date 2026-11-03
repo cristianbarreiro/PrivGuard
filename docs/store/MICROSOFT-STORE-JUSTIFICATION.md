@@ -1,21 +1,21 @@
-# PrivGvard — Microsoft Store Restricted Capabilities Justification
+﻿# PrivGuard — Microsoft Store Restricted Capabilities Justification
 
-**Document Version:** 1.0.0  
-**Date:** September 2026  
-**Application Name:** PrivGvard  
-**Package Identity (Name):** `cdevstudios.PrivGvard`  
-**Publisher:** `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD`  
-**Publisher Display Name:** `cdev studios`  
-**Package Family Name (PFN):** `cdevstudios.PrivGvard_tv7b4yqg10sw2`  
-**Microsoft Store ID:** `9N079FF8XLVN`  
-**Target Platform:** Windows 10 (Build 19041+) and Windows 11 (x64, ARM64)  
-**Submission Contact:** `reportapp@microsoft.com` / Partner Center Restricted Capabilities Review  
+**Document Version:** 1.0.0
+**Date:** September 2026
+**Application Name:** PrivGvard
+**Package Identity (Name):** `cdevstudios.PrivGuard`
+**Publisher:** `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD`
+**Publisher Display Name:** `cdev studios`
+**Package Family Name (PFN):** `cdevstudios.PrivGuard_tv7b4yqg10sw2`
+**Microsoft Store ID:** `9NQ56N45XH5N`
+**Target Platform:** Windows 10 (Build 19041+) and Windows 11 (x64, ARM64)
+**Submission Contact:** `reportapp@microsoft.com` / Partner Center Restricted Capabilities Review
 
 ---
 
 ## 1. Executive Summary
 
-PrivGvard is a native Windows privacy utility that applies and reports Windows privacy controls for cameras and microphones. The available controls and their results depend on the selected mode, hardware, driver, permissions, and system configuration.
+PrivGuard is a native Windows privacy utility that applies and reports Windows privacy controls for cameras and microphones. The available controls and their results depend on the selected mode, hardware, driver, permissions, and system configuration.
 
 The package declares three restricted MSIX capabilities for the Windows integration described below. The exact necessity and behavior of each capability must be assessed against the packaged application and its supported scenarios:
 
@@ -35,23 +35,23 @@ The main user interface runs as a standard user (`asInvoker`). Operations that r
 Allows the application to launch an on-demand, elevated helper process (`PrivGvard.exe --privileged-worker`) via the standard Windows UAC dialog (`Verb="runas"`).
 
 #### Why It Is Necessary
-PrivGvard operates two layers of privacy protection:
+PrivGuard operates two layers of privacy protection:
 
 1. **Standard Layer (No Elevation):**
    - Mutes Core Audio recording endpoints via Windows Core Audio COM APIs (`IMMDeviceEnumerator`, `IAudioEndpointVolume`).
    - Toggles current user privacy preferences under `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore`.
 
 2. **Secure Layer (Requires Administrator Privileges):**
-   - **PnP device management:** For supported devices, PrivGvard calls Windows Configuration Manager (`CfgMgr32.dll` APIs including `CM_Locate_DevNode_W`, `CM_Disable_DevNode`, and `CM_Enable_DevNode`) to request a device-node state change and checks the reported state. This check does not establish that every sensor, driver, or data path is blocked in every configuration.
-   - **Machine-level Windows privacy policy:** PrivGvard can write the camera and microphone AppPrivacy values under `HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy` (`LetAppsAccessCamera` and `LetAppsAccessMicrophone` set to `2`) and reads them back where possible. The effective result depends on Windows, device, and policy configuration; this registry operation is not a guarantee that every sensor or application access path is blocked.
+   - **PnP device management:** For supported devices, PrivGuard calls Windows Configuration Manager (`CfgMgr32.dll` APIs including `CM_Locate_DevNode_W`, `CM_Disable_DevNode`, and `CM_Enable_DevNode`) to request a device-node state change and checks the reported state. This check does not establish that every sensor, driver, or data path is blocked in every configuration.
+   - **Machine-level Windows privacy policy:** PrivGuard can write the camera and microphone AppPrivacy values under `HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy` (`LetAppsAccessCamera` and `LetAppsAccessMicrophone` set to `2`) and reads them back where possible. The effective result depends on Windows, device, and policy configuration; this registry operation is not a guarantee that every sensor or application access path is blocked.
 
 These device-management and machine-level registry operations are issued through the elevated helper. Windows permissions, device support, policy configuration, or other system conditions can cause an operation or its verification to fail; the application reports such failures rather than treating the requested state as confirmed.
 
 #### Least-Privilege Architecture (Why Not a Background Service?)
-Rather than installing a permanent background Windows Service running as `NT AUTHORITY\SYSTEM` (which would create an ongoing security attack surface), PrivGvard uses **transient on-demand elevation**:
+Rather than installing a permanent background Windows Service running as `NT AUTHORITY\SYSTEM` (which would create an ongoing security attack surface), PrivGuard uses **transient on-demand elevation**:
 
 - The main interactive application (`PrivGvard.exe`) runs as a standard user (`asInvoker`).
-- When the user clicks "Protect" or "Unprotect" in the Secure Layer, PrivGvard launches its own executable with the argument `--privileged-worker` using `ShellExecuteEx` with `Verb="runas"`.
+- When the user clicks "Protect" or "Unprotect" in the Secure Layer, PrivGuard launches its own executable with the argument `--privileged-worker` using `ShellExecuteEx` with `Verb="runas"`.
 - The helper is launched with Windows `runas` behavior. The elevation or consent experience follows the account and system policy; cancellation or failure is reported as an unsuccessful operation.
 - The standard process and the elevated worker communicate over an in-memory **Named Pipe** secured with:
   - An explicit `PipeSecurity` Access Control List (ACL) granting access only to the current user SID and Administrators.

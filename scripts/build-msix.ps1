@@ -19,7 +19,7 @@
     Four-part version (Major.Minor.Build.Revision). Defaults to reading PackageVersion from Directory.Build.props.
 
 .PARAMETER PackageName
-    Package identity name. If omitted, defaults to Identity/Name in packaging/Package.appxmanifest (cdevstudios.PrivGvard).
+    Package identity name. If omitted, defaults to Identity/Name in packaging/Package.appxmanifest (cdevstudios.PrivGuard).
 
 .PARAMETER Publisher
     Publisher distinguished name (e.g. "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD" or a local dev certificate subject).
@@ -31,7 +31,7 @@
 
 .PARAMETER ValidateStoreIdentity
     Switch to strictly validate that the package identity matches Microsoft Store Partner Center requirements:
-    Name="cdevstudios.PrivGvard", Publisher="CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD", PublisherDisplayName="cdev studios".
+    Name="cdevstudios.PrivGuard", Publisher="CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD", PublisherDisplayName="cdev studios".
     Packaging fails immediately if any value differs.
 
 .PARAMETER CreateBundle
@@ -142,7 +142,7 @@ if ([string]::IsNullOrWhiteSpace($PublisherDisplayName)) {
 }
 
 # Canonical Microsoft Store Partner Center identity constants
-$StoreRequiredName = "cdevstudios.PrivGvard"
+$StoreRequiredName = "cdevstudios.PrivGuard"
 $StoreRequiredPublisher = "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD"
 $StoreRequiredPublisherDisplayName = "cdev studios"
 
@@ -331,7 +331,7 @@ function Test-MsixPackageArchive {
         }
 
         if ($EnforceStore) {
-            if ($actualName -ne "cdevstudios.PrivGvard" -or
+            if ($actualName -ne "cdevstudios.PrivGuard" -or
                 $actualPublisher -ne "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD" -or
                 $actualPublisherDisplayName -ne "cdev studios") {
                 throw "Package verification failed in ${PackagePath} - Package does not meet Store requirements."
@@ -538,7 +538,8 @@ foreach ($arch in $architecturesToBuild) {
 
     # Pack MSIX
     Write-Host "`n [3/3] Packaging MSIX container for $arch..." -ForegroundColor Yellow
-    $packageFileName = "PrivGvard-$PackageVersion-$arch.msix"
+    $productShortName = if ($PackageName -match "cdevstudios\.(.+)") { $Matches[1] } else { $PackageName }
+    $packageFileName = "$productShortName-$PackageVersion-$arch.msix"
     $packageFilePath = Join-Path $OutputDir $packageFileName
 
     if (Test-Path -LiteralPath $packageFilePath) {
@@ -584,7 +585,7 @@ if ($CreateBundle -and $builtPackages.Count -gt 0) {
         Copy-Item -LiteralPath $pkg -Destination $bundleStagingDir -Force
     }
 
-    $bundleFileName = "PrivGvard-$PackageVersion.msixbundle"
+    $bundleFileName = "$productShortName-$PackageVersion.msixbundle"
     $bundleFilePath = Join-Path $OutputDir $bundleFileName
 
     if (Test-Path -LiteralPath $bundleFilePath) {

@@ -1,18 +1,19 @@
-# PrivGvard 2.0 — Microsoft Store Publishing Plan
+﻿# PrivGuard 2.0 — Microsoft Store Publishing Plan
 
-**Document Version:** 1.0.0  
-**Effective Date:** November 2026  
-**Product:** PrivGvard (v2.0.0.0)  
-**Target Platform:** Windows 10 (10.0.19041.0+) and Windows 11 (x64, ARM64)  
-**Release Artifact:** `release/store/PrivGvard-2.0.0.0-x64.msix` (SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)  
-**Package Family Name (PFN):** `cdevstudios.PrivGvard_tv7b4yqg10sw2`  
+**Document Version:** 1.0.0
+**Effective Date:** November 2026
+**Product:** PrivGvard (v2.0.0.0)
+**Target Platform:** Windows 10 (10.0.19041.0+) and Windows 11 (x64, ARM64)
+**Release Artifact:** `release/store/PrivGuard-2.0.0.0-x64.msix` (SHA-256: `AC2E826463C7FC618EE24F6E80D7F97177EC04D3A9440768181A00B12B1C5119`)
+* **Historical Package:** `release/store/PrivGvard-2.0.0.0-x64.msix` (SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)
+**Package Family Name (PFN):** `cdevstudios.PrivGuard_tv7b4yqg10sw2`
 **Current Milestone:** `READY FOR SUBMISSION` (Awaiting explicit user authorization for Stage C)
 
 ---
 
 ## 1. Executive Strategy & Publishing Roadmap
 
-This plan establishes the operational, technical, legal, and certification procedures required to publish **PrivGvard 2.0** on the **Microsoft Store**.
+This plan establishes the operational, technical, legal, and certification procedures required to publish **PrivGuard 2.0** on the **Microsoft Store**.
 
 The publishing process is organized into three sequential stages:
 - **Etapa A — Store Readiness Audit:** Technical, architectural, security, and policy compliance verification.
@@ -39,10 +40,10 @@ The official Microsoft Store Partner Center identity constants configured in the
 
 | Attribute | Partner Center Value | Configured Manifest Value | Match Status |
 |---|---|---|:---:|
-| **Package Name** | `cdevstudios.PrivGvard` | `cdevstudios.PrivGvard` | **EXACT** |
+| **Package Name** | `cdevstudios.PrivGuard` | `cdevstudios.PrivGuard` | **EXACT** |
 | **Publisher ID** | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` | **EXACT** |
 | **Publisher Display Name** | `cdev studios` | `cdev studios` | **EXACT** |
-| **Package Family Name** | `cdevstudios.PrivGvard_tv7b4yqg10sw2` | Derived automatically from Name + Publisher ID | **EXACT** |
+| **Package Family Name** | `cdevstudios.PrivGuard_tv7b4yqg10sw2` | Derived automatically from Name + Publisher ID | **EXACT** |
 | **Application ID** | `PrivGvardApp` | `PrivGvardApp` | **EXACT** |
 | **Version** | `2.0.0.0` | `2.0.0.0` | **EXACT** |
 | **Entry Point** | `Windows.FullTrustApplication` | `Windows.FullTrustApplication` (`PrivGvard.exe`) | **EXACT** |
@@ -74,7 +75,7 @@ Publishing requires an active **Microsoft Partner Center Windows Developer Accou
    - Configured with qualifiers for scales 100, 125, 150, 200, 400 and target sizes 16 to 256.
    - Bilingual indexing (`en-us`, `es-es`).
 3. **Packaging (`MakeAppx.exe`):**
-   - Package output: `release/store/PrivGvard-2.0.0.0-x64.msix`
+   - Package output: `release/store/PrivGuard-2.0.0.0-x64.msix`
    - Validated against `-ValidateStoreIdentity` in `scripts/build-msix.ps1`.
 4. **Visual Assets Directory:**
    - Staged in `release/store/` with compliant dimensions for Store Listing, Start Menu, Taskbar, and Splash Screen.

@@ -1,4 +1,4 @@
-# PrivGvard 2.0 — Partner Center Submission Checklist
+﻿# PrivGuard 2.0 — Partner Center Submission Checklist
 
 This document guides the developer through the manual steps in **Microsoft Partner Center** (`https://partner.microsoft.com/dashboard/products/windows/overview`).
 
@@ -13,10 +13,10 @@ This document guides the developer through the manual steps in **Microsoft Partn
 2. Navigate to **Apps and games** > **Windows & Xbox** > **Overview**.
 3. Click **New product** > **MSIX or PWA app**.
 4. **App Name Reservation:**
-   - Enter `PrivGvard`.
+   - Enter `PrivGuard`.
    - Click **Check availability**.
    - If available, click **Reserve product name**.
-   - *(Note: If `PrivGvard` is already reserved under your account, select it directly from your product list).*
+   - *(Note: If `PrivGuard` is already reserved under your account, select it directly from your product list).*
 
 ---
 
@@ -24,10 +24,10 @@ This document guides the developer through the manual steps in **Microsoft Partn
 
 1. In the app sidebar, go to **Product management** > **Product Identity**.
 2. Compare the values with the local configuration in `packaging/Package.appxmanifest`:
-   - **Package Name:** `cdevstudios.PrivGvard`
+   - **Package Name:** `cdevstudios.PrivGuard`
    - **Publisher ID:** `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD`
    - **Publisher display name:** `cdev studios`
-   - **Package Family Name (PFN):** `cdevstudios.PrivGvard_tv7b4yqg10sw2`
+   - **Package Family Name (PFN):** `cdevstudios.PrivGuard_tv7b4yqg10sw2`
 3. If your Partner Center account has a different Publisher ID, re-run `scripts/build-msix.ps1` providing your official Publisher ID:
    ```powershell
    .\scripts\build-msix.ps1 -Architecture x64 -Publisher "CN=<YourPublisherID>" -PublisherDisplayName "<YourDisplayName>" -OutputDir "release\store"
@@ -72,8 +72,9 @@ Click **Start your submission** (or edit current draft submission).
 
 ### 3.4 Packages
 1. Drag and drop the Store Release MSIX package:
-   `release\store\PrivGvard-2.0.0.0-x64.msix`
-   *(SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)*
+   `release\store\PrivGuard-2.0.0.0-x64.msix`
+   *(SHA-256: `AC2E826463C7FC618EE24F6E80D7F97177EC04D3A9440768181A00B12B1C5119`)*
+   *(Historical package: `release\store\PrivGvard-2.0.0.0-x64.msix`, SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)*
 2. Wait for the upload and validation to complete.
 3. Verify that Partner Center displays:
    - Version: `2.0.0.0`
@@ -85,7 +86,7 @@ Click **Start your submission** (or edit current draft submission).
 
 #### English (United States) — Default
 - Copy text from [docs/store/STORE-LISTING-CONTENT.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/STORE-LISTING-CONTENT.md) Section 2:
-  - Product title: `PrivGvard`
+  - Product title: `PrivGuard`
   - Subtitle / Short description
   - Full description
   - Features (bullet points)
@@ -101,7 +102,7 @@ Click **Start your submission** (or edit current draft submission).
 #### Spanish (Spain) — Add Language
 1. Click **Add language** > Select **Spanish (Spain)**.
 2. Copy text from [docs/store/STORE-LISTING-CONTENT.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/STORE-LISTING-CONTENT.md) Section 3:
-  - Título: `PrivGvard`
+  - Título: `PrivGuard`
   - Subtítulo
   - Descripción completa
   - Características principales
@@ -132,6 +133,6 @@ Confirm all sections show a green checkmark or completed status:
 
 ## Step 5: Stop & Request User Authorization (Boundary for Stage C)
 
-**DO NOT CLICK "Submit for certification".**  
+**DO NOT CLICK "Submit for certification".**
 Notify the user that the Partner Center submission draft is 100% prepared and ready for review.
 When the user grants explicit authorization, proceed to Stage C.

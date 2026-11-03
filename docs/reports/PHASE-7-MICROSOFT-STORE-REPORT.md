@@ -1,18 +1,18 @@
-# PrivGvard 2.0 — Phase 7: Microsoft Store Submission & Publishing Report
+﻿# PrivGuard 2.0 — Phase 7: Microsoft Store Submission & Publishing Report
 
-**Document Date:** November 2, 2026  
-**Product:** PrivGvard (v2.0.0.0)  
-**Binary Identity:** `PrivGvard.exe`  
-**Package Identity:** `cdevstudios.PrivGvard_2.0.0.0_x64__tv7b4yqg10sw2`  
-**Target Solution:** `PrivGvard.sln`  
-**Phase Status:** **STAGE A & B COMPLETE — MILESTONE: READY FOR SUBMISSION**  
+**Document Date:** November 2, 2026
+**Product:** PrivGuard (v2.0.0.0)
+**Binary Identity:** `PrivGvard.exe`
+**Package Identity:** `cdevstudios.PrivGuard_2.0.0.0_x64__tv7b4yqg10sw2 (Store ID: 9NQ56N45XH5N)`
+**Target Solution:** `PrivGvard.sln`
+**Phase Status:** **STAGE A & B COMPLETE — MILESTONE: READY FOR SUBMISSION**
 **Stage C (Submission for Certification & Live Publishing):** Awaiting explicit user authorization as required by the Phase 7 safety contract.
 
 ---
 
 ## 1. Executive Summary
 
-Phase 7 ("Microsoft Store Submission & Publishing") represents the final milestone in the PrivGvard 2.0 roadmap. Its objective is to prepare, audit, stage, certify, and publish PrivGvard on the official **Microsoft Store**.
+Phase 7 ("Microsoft Store Submission & Publishing") represents the final milestone in the PrivGuard 2.0 roadmap. Its objective is to prepare, audit, stage, certify, and publish PrivGuard on the official **Microsoft Store**.
 
 In strict accordance with the mandatory three-stage execution model and safety contract:
 - **Etapa A (Store Readiness Audit):** **COMPLETED & PASSED.** All technical, security, architectural, and Store policy requirements (Microsoft Store Policies v7.20) were audited. Zero Critical and zero High compliance risks identified.
@@ -27,19 +27,20 @@ The official Microsoft Store submission package was generated using the automate
 
 | Property | Manifest & Package Value | Partner Center Expected | Compliance |
 |---|---|---|:---:|
-| **Package Name** | `cdevstudios.PrivGvard` | `cdevstudios.PrivGvard` | **MATCH** |
+| **Package Name** | `cdevstudios.PrivGuard` | `cdevstudios.PrivGuard` | **MATCH** |
 | **Publisher** | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` | **MATCH** |
 | **Publisher Display Name** | `cdev studios` | `cdev studios` | **MATCH** |
-| **Package Family Name (PFN)**| `cdevstudios.PrivGvard_tv7b4yqg10sw2` | `cdevstudios.PrivGvard_tv7b4yqg10sw2` | **MATCH** |
+| **Package Family Name (PFN)**| `cdevstudios.PrivGuard_tv7b4yqg10sw2` | `cdevstudios.PrivGuard_tv7b4yqg10sw2` | **MATCH** |
 | **Version** | `2.0.0.0` | `2.0.0.0` | **MATCH** |
 | **Target Architecture** | `x64` | `x64` | **MATCH** |
 | **MinVersion Tested** | `10.0.19041.0` (Windows 10 2004) | `10.0.19041.0` | **MATCH** |
 | **MaxVersion Tested** | `10.0.26100.0` (Windows 11 24H2) | `10.0.26100.0` | **MATCH** |
 
 ### Artifact Checksum & Dimensions
-- **File Path:** `release\store\PrivGvard-2.0.0.0-x64.msix`
-- **File Size:** 58,524,157 bytes (~55.81 MB)
-- **SHA-256 Hash:** `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`
+- **File Path:** `release\store\PrivGuard-2.0.0.0-x64.msix`
+- **File Size:** 58,524,366 bytes (~55.81 MB)
+- **SHA-256 Hash:** `AC2E826463C7FC618EE24F6E80D7F97177EC04D3A9440768181A00B12B1C5119`
+- **Historical Package:** `release\store\PrivGuard-2.0.0.0-x64.msix` (58,524,157 bytes, SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`
 - **MakePri Indexing:** Successfully indexed 7 scales (100% to 400%), target sizes (16 to 256), and qualifiers (`LIGHTUNPLATED`, `UNPLATED`).
 - **MakeAppx Packaging:** Passed with 0 errors.
 
@@ -81,7 +82,7 @@ All mandatory deliverables have been authored, verified, and staged in the repos
    - [`docs/store/REVIEWER-CERTIFICATION-NOTES.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/REVIEWER-CERTIFICATION-NOTES.md)
 8. **Release Visual Assets & Staged MSIX:**
    - Directory: [`release/store/`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/release/store/)
-   - Staged files: `PrivGvard-2.0.0.0-x64.msix`, `StoreLogo.png`, `Square150x150Logo.png`, `Square44x44Logo.png`, `Wide310x150Logo.png`, `SplashScreen.png`, `mainwindow_dark.png`, `protection_overview.png`, `tray_menu.png`.
+   - Staged files: `PrivGuard-2.0.0.0-x64.msix`, `StoreLogo.png`, `Square150x150Logo.png`, `Square44x44Logo.png`, `Wide310x150Logo.png`, `SplashScreen.png`, `mainwindow_dark.png`, `protection_overview.png`, `tray_menu.png`.
 
 ---
 
@@ -93,7 +94,7 @@ The local engineering phase is 100% complete. All artifacts, listings, complianc
 ### Next Action for Developer:
 To submit the application for official Microsoft Store certification:
 1. Follow the step-by-step checklist in [`docs/store/PARTNER-CENTER-CHECKLIST.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/PARTNER-CENTER-CHECKLIST.md).
-2. Upload `release/store/PrivGvard-2.0.0.0-x64.msix`.
+2. Upload `release/store/PrivGuard-2.0.0.0-x64.msix`.
 3. Paste the contents of `REVIEWER-CERTIFICATION-NOTES.md` and `MICROSOFT-STORE-JUSTIFICATION.md` into the certification notes and restricted capabilities justification fields.
 4. When ready, click **Submit for certification** in Partner Center.
 5. Track the submission status through `In certification` until approved (`Certified` and `Published`).

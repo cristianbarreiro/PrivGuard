@@ -8,11 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>PrivLock.Desktop</RootNamespace>
     <AssemblyName>PrivGvard</AssemblyName>
-    <Product>PrivGvard</Product>
-    <Title>PrivGvard</Title>
-    <Description>PrivGvard - Camera &amp; Microphone Privacy Guard</Description>
-    <Company>cdev Studio</Company>
-    <Copyright>© 2026 cdev Studio. All rights reserved.</Copyright>
+    <Product>PrivGuard</Product>
+    <Title>PrivGuard</Title>
+    <Description>PrivGuard - Camera &amp; Microphone Privacy Guard</Description>
+    <Company>cdev studios</Company>
+    <Copyright>© 2026 cdev studios. All rights reserved.</Copyright>
     <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
     <ApplicationIcon Condition="$([MSBuild]::IsOSPlatform('Windows'))">Assets\app.ico</ApplicationIcon>
     <!-- Keep Avalonia's runtime content available to the explicitly registered Win32 backend

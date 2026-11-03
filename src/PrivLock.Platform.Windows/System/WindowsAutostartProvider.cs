@@ -861,8 +861,10 @@ public sealed class WindowsAutostartProvider : IAutostartProvider
         try
         {
             var version = FileVersionInfo.GetVersionInfo(path);
-            return string.Equals(version.ProductName, "PrivGvard", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(version.OriginalFilename, "PrivGvard.exe", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(version.ProductName, "PrivGuard", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(version.ProductName, "PrivGvard", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(version.OriginalFilename, "PrivGvard.exe", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(version.OriginalFilename, "PrivGuard.exe", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {

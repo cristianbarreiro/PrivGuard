@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using PrivLock.Application.Services;
 using PrivLock.Domain.Capabilities;
 using PrivLock.Domain.Models;
@@ -34,7 +34,7 @@ public sealed class WindowsAutostartLifecycleTests : IDisposable
     public WindowsAutostartLifecycleTests()
     {
         var testId = Guid.NewGuid().ToString("N");
-        _testDirectory = Path.Combine(Path.GetTempPath(), $"PrivGvardAutostartLifecycle_{testId}");
+        _testDirectory = Path.Combine(Path.GetTempPath(), $"PrivGuardAutostartLifecycle_{testId}");
         Directory.CreateDirectory(_testDirectory);
 
         _dummyExePath = Path.Combine(_testDirectory, "PrivGvard.exe");
@@ -149,7 +149,7 @@ public sealed class WindowsAutostartLifecycleTests : IDisposable
         // UI diagnosis reflects the real Windows restriction
         Assert.False(vm.IsAutostartEnabled);
         Assert.True(vm.HasAutostartStatusMessage);
-        Assert.Contains("Windows has disabled PrivGvard startup", vm.AutostartStatusMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Windows has disabled PrivGuard startup", vm.AutostartStatusMessage, StringComparison.OrdinalIgnoreCase);
 
         await autostartState.StopAsync();
     }
@@ -213,7 +213,7 @@ public sealed class WindowsAutostartLifecycleTests : IDisposable
         Assert.True(result2.Success);
         Assert.True(migrateResult.Success);
 
-        // Invariant: Exactly 1 Run entry, exactly 1 PrivGvard registration, zero duplicate entries
+        // Invariant: Exactly 1 Run entry, exactly 1 PrivGuard registration, zero duplicate entries
         Assert.Single(registry.RunValues);
         Assert.True(registry.RunValues.ContainsKey("PrivGvard"));
         Assert.Equal($"\"{_dummyExePath}\" --minimized", registry.RunValues["PrivGvard"]);
@@ -370,7 +370,7 @@ public sealed class WindowsAutostartLifecycleTests : IDisposable
         var protection = new ProtectionService(dummyDeps, dummyDeps, dummyDeps, stateStore, sessions);
         var recoveryService = new PrivacyRecoveryService(protection);
 
-        // Step 1: Autostart launches PrivGvard (--minimized)
+        // Step 1: Autostart launches PrivGuard (--minimized)
         // Step 2: Recovery runs FIRST
         var recovery = await recoveryService.RecoverAtStartupAsync();
         Assert.True(recovery.SafeToExit);
@@ -422,7 +422,7 @@ public sealed class WindowsAutostartLifecycleTests : IDisposable
         var migrationResult = await nextProvider.MigrateLegacyEntriesAsync();
         Assert.True(migrationResult.Success);
 
-        // Invariant: PrivGvard respects the user's explicit disable and does NOT re-register
+        // Invariant: PrivGuard respects the user's explicit disable and does NOT re-register
         var readback = await nextProvider.GetAutostartStatusAsync();
         Assert.Equal(AutostartState.Disabled, readback.State);
         Assert.False(readback.IsEnabled);

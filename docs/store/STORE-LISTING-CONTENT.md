@@ -1,18 +1,18 @@
-# PrivGvard 2.0 — Microsoft Store Listing Content (Ficha Comercial)
+﻿# PrivGuard 2.0 — Microsoft Store Listing Content (Ficha Comercial)
 
-**Application Title:** PrivGvard  
-**Subtitle:** Camera & Microphone Privacy Guard for Windows  
-**Subtítulo (ES):** Bloqueador y Administrador de Privacidad de Cámara y Micrófono  
-**Default Language:** English (United States) — `en-us`  
-**Additional Language:** Spanish (Spain) — `es-es`  
-**Category:** Utilities & tools  
-**Subcategory:** Security & privacy  
+**Application Title:** PrivGuard
+**Subtitle:** Camera & Microphone Privacy Guard for Windows
+**Subtítulo (ES):** Bloqueador y Administrador de Privacidad de Cámara y Micrófono
+**Default Language:** English (United States) — `en-us`
+**Additional Language:** Spanish (Spain) — `es-es`
+**Category:** Utilities & tools
+**Subcategory:** Security & privacy
 
 ---
 
 ## 1. Store Product Title & Subtitle
 
-- **Product Title:** `PrivGvard`
+- **Product Title:** `PrivGuard`
 - **Short Description / Subtitle (EN):** Protect your webcam and microphone from unauthorized access with native Windows controls.
 - **Short Description / Subtitle (ES):** Protege tu cámara y micrófono de accesos no autorizados mediante controles nativos de Windows.
 
@@ -21,16 +21,16 @@
 ## 2. English Listing Content (`en-us`)
 
 ### Description
-> PrivGvard is a lightweight, local-first privacy utility designed to give you clear control over your camera and microphone on Windows 10 and Windows 11.
+> PrivGuard is a lightweight, local-first privacy utility designed to give you clear control over your camera and microphone on Windows 10 and Windows 11.
 >
-> Many desktop and background applications can access your webcam or microphone without your knowledge. PrivGvard safeguards your privacy by managing native Windows software policies and hardware device states, ensuring that sensors remain blocked when you need privacy and can be safely restored when you are ready to make a call.
+> Many desktop and background applications can access your webcam or microphone without your knowledge. PrivGuard safeguards your privacy by managing native Windows software policies and hardware device states, ensuring that sensors remain blocked when you need privacy and can be safely restored when you are ready to make a call.
 >
 > **Dual-Layer Protection Architecture:**
 > - **Standard Protection (No Admin Rights Needed):** Disables camera consent permissions for apps and mutes active microphone capture endpoints using official Windows Core Audio and Capability Access Manager APIs. Perfect for day-to-day privacy without elevation prompts.
 > - **Secure Protection (Enhanced Hardware Lock):** Leverages Windows Configuration Manager (PnP) to disable device hardware nodes at the driver level and enforces system-wide Windows AppPrivacy Group Policies. Requests standard Windows User Account Control (UAC) elevation strictly on-demand.
 >
 > **Durable Recovery & Reliability:**
-> PrivGvard features an atomic Write-Ahead Log (WAL) session journal. When you close the application or restart your PC, PrivGvard automatically and cleanly restores your devices to their original state. If a crash or power loss occurs, the startup reconciler safely restores hardware without leaving devices stranded.
+> PrivGuard features an atomic Write-Ahead Log (WAL) session journal. When you close the application or restart your PC, PrivGuard automatically and cleanly restores your devices to their original state. If a crash or power loss occurs, the startup reconciler safely restores hardware without leaving devices stranded.
 >
 > **Designed for Windows:**
 > - Modern Fluent Dark interface with high contrast.
@@ -61,16 +61,16 @@
 ## 3. Spanish Listing Content (`es-es`)
 
 ### Descripción
-> PrivGvard es una utilidad de privacidad nativa y de procesamiento local diseñada para darte control absoluto sobre tu cámara y micrófono en Windows 10 y Windows 11.
+> PrivGuard es una utilidad de privacidad nativa y de procesamiento local diseñada para darte control absoluto sobre tu cámara y micrófono en Windows 10 y Windows 11.
 >
-> Diversas aplicaciones y procesos en segundo plano pueden acceder a tu webcam o micrófono sin tu consentimiento explícito. PrivGvard protege tu privacidad administrando directivas de software y estados de dispositivos nativos de Windows, garantizando que los sensores permanezcan bloqueados cuando necesitas privacidad y se restauren de forma segura cuando desees utilizarlos.
+> Diversas aplicaciones y procesos en segundo plano pueden acceder a tu webcam o micrófono sin tu consentimiento explícito. PrivGuard protege tu privacidad administrando directivas de software y estados de dispositivos nativos de Windows, garantizando que los sensores permanezcan bloqueados cuando necesitas privacidad y se restauren de forma segura cuando desees utilizarlos.
 >
 > **Arquitectura de Protección en Dos Capas:**
 > - **Protección Estándar (Sin Permisos de Administrador):** Bloquea los permisos de consentimiento de cámara para aplicaciones y silencia los puntos de captura de audio activos mediante las APIs oficiales de Windows Core Audio y Capability Access Manager. Ideal para privacidad diaria sin avisos de elevación.
 > - **Protección Segura (Aislamiento Reforzado):** Emplea el Administrador de Configuración de Windows (PnP) para deshabilitar los nodos de hardware a nivel de controlador y aplica directivas de grupo de Windows (AppPrivacy). Solicita elevación UAC estándar exclusivamente bajo demanda.
 >
 > **Recuperación y Resiliencia Atómica:**
-> PrivGvard incorpora un diario de sesión Write-Ahead Log (WAL). Al cerrar la aplicación o apagar el equipo, PrivGvard restaura automáticamente tus periféricos a su estado original exacto. Ante caídas imprevistas o cortes de energía, el reconciliador de arranque restaura el hardware de forma segura.
+> PrivGuard incorpora un diario de sesión Write-Ahead Log (WAL). Al cerrar la aplicación o apagar el equipo, PrivGuard restaura automáticamente tus periféricos a su estado original exacto. Ante caídas imprevistas o cortes de energía, el reconciliador de arranque restaura el hardware de forma segura.
 >
 > **Optimizado para Windows:**
 > - Interfaz Fluent Dark moderna de alto contraste.

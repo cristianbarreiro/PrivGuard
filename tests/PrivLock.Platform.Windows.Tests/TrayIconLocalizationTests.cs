@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -126,24 +126,24 @@ public class TrayIconLocalizationTests
         Assert.NotNull(exitItem);
 
         // 1. Spanish (Initial)
-        Assert.Equal("Abrir PrivGvard", openItem.Header);
+        Assert.Equal("Abrir PrivGuard", openItem.Header);
         Assert.Equal("Salir", exitItem.Header);
-        Assert.Equal("PrivGvard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
+        Assert.Equal("PrivGuard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
 
         // 2. Switch to English
         localizationService.SetLanguage("en");
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("Open PrivGvard", openItem.Header);
+        Assert.Equal("Open PrivGuard", openItem.Header);
         Assert.Equal("Exit", exitItem.Header);
-        Assert.Equal("PrivGvard - Camera & Microphone Blocker", trayIcon.ToolTipText);
+        Assert.Equal("PrivGuard - Camera & Microphone Blocker", trayIcon.ToolTipText);
 
         // 3. Switch back to Spanish
         localizationService.SetLanguage("es");
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("Abrir PrivGvard", openItem.Header);
+        Assert.Equal("Abrir PrivGuard", openItem.Header);
         Assert.Equal("Salir", exitItem.Header);
-        Assert.Equal("PrivGvard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
+        Assert.Equal("PrivGuard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
     }
 }

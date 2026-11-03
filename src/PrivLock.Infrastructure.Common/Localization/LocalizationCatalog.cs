@@ -8,7 +8,7 @@ public static class LocalizationCatalog
 {
     public static readonly IReadOnlyDictionary<string, string> StringsEs = new Dictionary<string, string>
     {
-        ["AppTitle"] = "PrivGvard",
+        ["AppTitle"] = "PrivGuard",
         ["AppSubtitle"] = "Bloqueador de Cámara y Micrófono",
 
         // Sections
@@ -75,27 +75,27 @@ public static class LocalizationCatalog
         ["SettingsNavGeneral"] = "Ajustes",
         ["SettingsNavHelp"] = "Ayuda y Documentación",
         ["SettingsNavDiagnostics"] = "Diagnóstico del Sistema",
-        ["SettingsNavAbout"] = "Acerca de PrivGvard",
+        ["SettingsNavAbout"] = "Acerca de PrivGuard",
 
         // Section: General Settings
         ["AppearanceTitle"] = "Apariencia",
         ["ThemeLabel"] = "Tema de la interfaz",
         ["ThemeDark"] = "Oscuro (Predeterminado)",
-        ["ThemeDescription"] = "El tema oscuro de alto contraste está optimizado para la interfaz de PrivGvard.",
+        ["ThemeDescription"] = "El tema oscuro de alto contraste está optimizado para la interfaz de PrivGuard.",
         ["StartupTitle"] = "Inicio del Sistema",
-        ["StartupDescription"] = "Iniciar PrivGvard automáticamente al iniciar sesión en el equipo.",
+        ["StartupDescription"] = "Iniciar PrivGuard automáticamente al iniciar sesión en el equipo.",
         ["AutostartStateUnknown"] = "No se pudo verificar el estado real del inicio automático.",
-        ["AutostartDisabledByUser"] = "Windows ha desactivado el inicio de PrivGvard. Actívalo en Configuración de Windows o en el Administrador de tareas.",
-        ["AutostartDisabledByPolicy"] = "Una directiva de Windows impide que PrivGvard se inicie automáticamente.",
-        ["AutostartMigrationFailed"] = "No se pudo migrar la configuración de inicio de PrivGvard: {0}",
+        ["AutostartDisabledByUser"] = "Windows ha desactivado el inicio de PrivGuard. Actívalo en Configuración de Windows o en el Administrador de tareas.",
+        ["AutostartDisabledByPolicy"] = "Una directiva de Windows impide que PrivGuard se inicie automáticamente.",
+        ["AutostartMigrationFailed"] = "No se pudo migrar la configuración de inicio de PrivGuard: {0}",
         ["LanguageTitle"] = "Idioma de la interfaz",
         ["LanguageDescription"] = "Selecciona el idioma principal de la aplicación.",
 
         // Section: Help & Documentation
         ["HelpTitle"] = "Ayuda y Documentación",
-        ["HelpSubtitle"] = "Guía de referencia rápida y funcionamiento de PrivGvard",
-        ["HelpHowItWorksTitle"] = "Cómo funciona PrivGvard",
-        ["HelpHowItWorksDesc"] = "En Windows, PrivGvard combina controles de privacidad del sistema con administración de dispositivos. El resultado depende del modo elegido, el hardware, el controlador, los permisos y la configuración; la aplicación verifica el estado efectivo cuando el sistema lo permite.",
+        ["HelpSubtitle"] = "Guía de referencia rápida y funcionamiento de PrivGuard",
+        ["HelpHowItWorksTitle"] = "Cómo funciona PrivGuard",
+        ["HelpHowItWorksDesc"] = "En Windows, PrivGuard combina controles de privacidad del sistema con administración de dispositivos. El resultado depende del modo elegido, el hardware, el controlador, los permisos y la configuración; la aplicación verifica el estado efectivo cuando el sistema lo permite.",
         ["HelpCameraTitle"] = "Protección de Cámara",
         ["HelpCameraDesc"] = "Según el modo y el dispositivo, puede aplicar la directiva de privacidad de cámara de Windows y administrar nodos de dispositivo compatibles. Esto no desconecta físicamente la cámara y no todos los modelos o controladores admiten cada medida.",
         ["HelpMicTitle"] = "Protección de Micrófono",
@@ -110,7 +110,7 @@ public static class LocalizationCatalog
         ["HelpFaq2Q"] = "¿Por qué aparece UAC y qué pasa si cancelo?",
         ["HelpFaq2A"] = "Algunas operaciones de Windows requieren permisos de administrador y solicitan autorización en ese momento. Si cancelas el aviso, esa operación falla y no debe considerarse protección confirmada; revisa el estado y el mensaje de error.",
         ["HelpFaq3Q"] = "¿Cerrar la ventana es lo mismo que elegir «Salir»?",
-        ["HelpFaq3A"] = "Con la bandeja disponible, cerrar la ventana o usar Alt+F4 la oculta y la aplicación sigue en ejecución. «Salir» desde la bandeja inicia el cierre e intenta restaurar los cambios que PrivGvard administra. Si la bandeja no está disponible, cerrar la ventana inicia el cierre coordinado.",
+        ["HelpFaq3A"] = "Con la bandeja disponible, cerrar la ventana o usar Alt+F4 la oculta y la aplicación sigue en ejecución. «Salir» desde la bandeja inicia el cierre e intenta restaurar los cambios que PrivGuard administra. Si la bandeja no está disponible, cerrar la ventana inicia el cierre coordinado.",
         ["HelpFaq4Q"] = "¿Qué hago si un dispositivo no es compatible o falla?",
         ["HelpFaq4A"] = "Actualiza el diagnóstico y revisa el estado efectivo, los permisos y el controlador; consulta el mensaje de error. Un estado deseado guardado no confirma que la protección se haya aplicado. Si la compatibilidad figura como no disponible o el estado no se verifica, no lo consideres protegido.",
 
@@ -128,7 +128,7 @@ public static class LocalizationCatalog
         ["DiagRefreshButton"] = "Actualizar Diagnóstico",
 
         // Section: About
-        ["AboutTitle"] = "Acerca de PrivGvard",
+        ["AboutTitle"] = "Acerca de PrivGuard",
         ["AboutVersionLabel"] = "Versión",
         ["AboutDeveloperLabel"] = "Desarrollador",
         ["AboutDeveloperValue"] = "cdev Studio",
@@ -178,15 +178,15 @@ public static class LocalizationCatalog
         ["MenuGeneral"] = "⚙️  Ajustes",
         ["MenuHelp"] = "📖  Ayuda y Documentación",
         ["MenuDiagnostics"] = "🛡️  Diagnóstico del Sistema",
-        ["MenuAbout"] = "ℹ️  Acerca de PrivGvard",
+        ["MenuAbout"] = "ℹ️  Acerca de PrivGuard",
 
         // System Tray Menu & Tooltip
-        ["TrayOpen"] = "Abrir PrivGvard",
-        ["Tray.Open"] = "Abrir PrivGvard",
+        ["TrayOpen"] = "Abrir PrivGuard",
+        ["Tray.Open"] = "Abrir PrivGuard",
         ["TrayExit"] = "Salir",
         ["Tray.Exit"] = "Salir",
-        ["Tray.ToolTip"] = "PrivGvard - Bloqueador de Cámara y Micrófono",
-        ["AppSubtitleLong"] = "PrivGvard - Bloqueador de Cámara y Micrófono",
+        ["Tray.ToolTip"] = "PrivGuard - Bloqueador de Cámara y Micrófono",
+        ["AppSubtitleLong"] = "PrivGuard - Bloqueador de Cámara y Micrófono",
 
         // Common Error Fallbacks
         ["ErrorUpdateCamera"] = "No se pudo actualizar la protección de la cámara",
@@ -200,13 +200,13 @@ public static class LocalizationCatalog
         ["ErrorAutostart"] = "No se pudo actualizar la configuración de inicio automático",
         ["StartupRecoveryFailed"] = "No se pudo restaurar completamente una sesión de privacidad anterior.",
         ["StartupReconcileFailed"] = "No se pudo aplicar la protección deseada al iniciar el sistema.",
-        ["ErrorShutdownRestore"] = "PrivGvard no pudo restaurar con seguridad todos los cambios. Se canceló la salida.",
+        ["ErrorShutdownRestore"] = "PrivGuard no pudo restaurar con seguridad todos los cambios. Se canceló la salida.",
         ["ErrorShutdownFailed"] = "Falló la restauración de cierre: {0}"
     };
 
     public static readonly IReadOnlyDictionary<string, string> StringsEn = new Dictionary<string, string>
     {
-        ["AppTitle"] = "PrivGvard",
+        ["AppTitle"] = "PrivGuard",
         ["AppSubtitle"] = "Camera & Microphone Blocker",
 
         // Sections
@@ -273,27 +273,27 @@ public static class LocalizationCatalog
         ["SettingsNavGeneral"] = "General",
         ["SettingsNavHelp"] = "Help & Documentation",
         ["SettingsNavDiagnostics"] = "System Diagnostics",
-        ["SettingsNavAbout"] = "About PrivGvard",
+        ["SettingsNavAbout"] = "About PrivGuard",
 
         // Section: General Settings
         ["AppearanceTitle"] = "Appearance",
         ["ThemeLabel"] = "Interface Theme",
         ["ThemeDark"] = "Dark (Default)",
-        ["ThemeDescription"] = "High-contrast dark theme optimized for the PrivGvard interface.",
+        ["ThemeDescription"] = "High-contrast dark theme optimized for the PrivGuard interface.",
         ["StartupTitle"] = "System Startup",
-        ["StartupDescription"] = "Automatically start PrivGvard when logging into your computer.",
+        ["StartupDescription"] = "Automatically start PrivGuard when logging into your computer.",
         ["AutostartStateUnknown"] = "The effective Windows startup state could not be verified.",
-        ["AutostartDisabledByUser"] = "Windows has disabled PrivGvard startup. Enable it in Windows Settings or Task Manager.",
-        ["AutostartDisabledByPolicy"] = "A Windows policy prevents PrivGvard from starting automatically.",
-        ["AutostartMigrationFailed"] = "PrivGvard startup settings could not be migrated: {0}",
+        ["AutostartDisabledByUser"] = "Windows has disabled PrivGuard startup. Enable it in Windows Settings or Task Manager.",
+        ["AutostartDisabledByPolicy"] = "A Windows policy prevents PrivGuard from starting automatically.",
+        ["AutostartMigrationFailed"] = "PrivGuard startup settings could not be migrated: {0}",
         ["LanguageTitle"] = "Interface Language",
         ["LanguageDescription"] = "Select the primary application language.",
 
         // Section: Help & Documentation
         ["HelpTitle"] = "Help & Documentation",
-        ["HelpSubtitle"] = "Quick reference and operational guide for PrivGvard",
-        ["HelpHowItWorksTitle"] = "How PrivGvard Works",
-        ["HelpHowItWorksDesc"] = "On Windows, PrivGvard combines system privacy controls with device management. Results depend on the selected mode, hardware, driver, permissions, and configuration; the app verifies effective state when the system allows it.",
+        ["HelpSubtitle"] = "Quick reference and operational guide for PrivGuard",
+        ["HelpHowItWorksTitle"] = "How PrivGuard Works",
+        ["HelpHowItWorksDesc"] = "On Windows, PrivGuard combines system privacy controls with device management. Results depend on the selected mode, hardware, driver, permissions, and configuration; the app verifies effective state when the system allows it.",
         ["HelpCameraTitle"] = "Camera Protection",
         ["HelpCameraDesc"] = "Depending on the mode and device, it can apply the Windows camera privacy policy and manage compatible device nodes. This does not physically disconnect the camera, and not every model or driver supports each measure.",
         ["HelpMicTitle"] = "Microphone Protection",
@@ -308,7 +308,7 @@ public static class LocalizationCatalog
         ["HelpFaq2Q"] = "Why does UAC appear, and what if I cancel?",
         ["HelpFaq2A"] = "Some Windows operations require administrator permissions and request authorization at that time. If you cancel the prompt, that operation fails and must not be treated as confirmed protection; check the status and error message.",
         ["HelpFaq3Q"] = "Is closing the window the same as choosing “Exit”?",
-        ["HelpFaq3A"] = "When the system tray is available, closing the window or pressing Alt+F4 hides it while the app keeps running. “Exit” from the tray menu starts shutdown and attempts to restore changes managed by PrivGvard. If the tray is unavailable, closing the window starts coordinated shutdown.",
+        ["HelpFaq3A"] = "When the system tray is available, closing the window or pressing Alt+F4 hides it while the app keeps running. “Exit” from the tray menu starts shutdown and attempts to restore changes managed by PrivGuard. If the tray is unavailable, closing the window starts coordinated shutdown.",
         ["HelpFaq4Q"] = "What should I do if a device is unsupported or an operation fails?",
         ["HelpFaq4A"] = "Refresh diagnostics and check the effective status, permissions, and driver; review the error message. A saved desired state does not confirm that protection was applied. If compatibility is unavailable or the state cannot be verified, do not treat the device as protected.",
 
@@ -326,7 +326,7 @@ public static class LocalizationCatalog
         ["DiagRefreshButton"] = "Refresh Diagnostics",
 
         // Section: About
-        ["AboutTitle"] = "About PrivGvard",
+        ["AboutTitle"] = "About PrivGuard",
         ["AboutVersionLabel"] = "Version",
         ["AboutDeveloperLabel"] = "Developer",
         ["AboutDeveloperValue"] = "cdev Studio",
@@ -376,15 +376,15 @@ public static class LocalizationCatalog
         ["MenuGeneral"] = "⚙️  General Settings",
         ["MenuHelp"] = "📖  Help & Documentation",
         ["MenuDiagnostics"] = "🛡️  System Diagnostics",
-        ["MenuAbout"] = "ℹ️  About PrivGvard",
+        ["MenuAbout"] = "ℹ️  About PrivGuard",
 
         // System Tray Menu & Tooltip
-        ["TrayOpen"] = "Open PrivGvard",
-        ["Tray.Open"] = "Open PrivGvard",
+        ["TrayOpen"] = "Open PrivGuard",
+        ["Tray.Open"] = "Open PrivGuard",
         ["TrayExit"] = "Exit",
         ["Tray.Exit"] = "Exit",
-        ["Tray.ToolTip"] = "PrivGvard - Camera & Microphone Blocker",
-        ["AppSubtitleLong"] = "PrivGvard - Camera & Microphone Blocker",
+        ["Tray.ToolTip"] = "PrivGuard - Camera & Microphone Blocker",
+        ["AppSubtitleLong"] = "PrivGuard - Camera & Microphone Blocker",
 
         // Common Error Fallbacks
         ["ErrorUpdateCamera"] = "Failed to update Camera protection",
@@ -398,7 +398,7 @@ public static class LocalizationCatalog
         ["ErrorAutostart"] = "Failed to update autostart setting",
         ["StartupRecoveryFailed"] = "A previous privacy session could not be fully restored.",
         ["StartupReconcileFailed"] = "Desired privacy protection could not be applied at startup.",
-        ["ErrorShutdownRestore"] = "PrivGvard could not safely restore every owned change. Exit was cancelled.",
+        ["ErrorShutdownRestore"] = "PrivGuard could not safely restore every owned change. Exit was cancelled.",
         ["ErrorShutdownFailed"] = "Shutdown restoration failed: {0}"
     };
 

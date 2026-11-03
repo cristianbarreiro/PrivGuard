@@ -1,4 +1,4 @@
-using PrivLock.Infrastructure.Common.Localization;
+﻿using PrivLock.Infrastructure.Common.Localization;
 using Xunit;
 
 namespace PrivLock.Infrastructure.Tests;
@@ -82,16 +82,16 @@ public class LocalizationCatalogTests
     [InlineData("en", "DeviceEnabled", "Enabled")]
     [InlineData("es", "DeviceDisabled", "Deshabilitado")]
     [InlineData("en", "DeviceDisabled", "Disabled")]
-    [InlineData("es", "TrayOpen", "Abrir PrivGvard")]
-    [InlineData("en", "TrayOpen", "Open PrivGvard")]
+    [InlineData("es", "TrayOpen", "Abrir PrivGuard")]
+    [InlineData("en", "TrayOpen", "Open PrivGuard")]
     [InlineData("es", "TrayExit", "Salir")]
     [InlineData("en", "TrayExit", "Exit")]
-    [InlineData("es", "Tray.Open", "Abrir PrivGvard")]
-    [InlineData("en", "Tray.Open", "Open PrivGvard")]
+    [InlineData("es", "Tray.Open", "Abrir PrivGuard")]
+    [InlineData("en", "Tray.Open", "Open PrivGuard")]
     [InlineData("es", "Tray.Exit", "Salir")]
     [InlineData("en", "Tray.Exit", "Exit")]
-    [InlineData("es", "Tray.ToolTip", "PrivGvard - Bloqueador de Cámara y Micrófono")]
-    [InlineData("en", "Tray.ToolTip", "PrivGvard - Camera & Microphone Blocker")]
+    [InlineData("es", "Tray.ToolTip", "PrivGuard - Bloqueador de Cámara y Micrófono")]
+    [InlineData("en", "Tray.ToolTip", "PrivGuard - Camera & Microphone Blocker")]
     public void Get_RequiredSemanticKeys_ReturnCorrectTranslation(string lang, string key, string expected)
     {
         var result = LocalizationCatalog.Get(key, lang);
@@ -99,10 +99,10 @@ public class LocalizationCatalogTests
     }
 
     [Theory]
-    [InlineData("es", "TrayOpen", "Abrir PrivGvard")]
-    [InlineData("en", "TrayOpen", "Open PrivGvard")]
-    [InlineData("es", "Tray.Open", "Abrir PrivGvard")]
-    [InlineData("en", "Tray.Open", "Open PrivGvard")]
+    [InlineData("es", "TrayOpen", "Abrir PrivGuard")]
+    [InlineData("en", "TrayOpen", "Open PrivGuard")]
+    [InlineData("es", "Tray.Open", "Abrir PrivGuard")]
+    [InlineData("en", "Tray.Open", "Open PrivGuard")]
     [InlineData("es", "TrayExit", "Salir")]
     [InlineData("en", "TrayExit", "Exit")]
     [InlineData("es", "Tray.Exit", "Salir")]
