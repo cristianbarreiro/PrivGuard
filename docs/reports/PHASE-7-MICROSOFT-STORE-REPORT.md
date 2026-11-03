@@ -5,7 +5,7 @@
 **Binary Identity:** `PrivGvard.exe`
 **Package Identity:** `cdevstudios.PrivGuard_2.0.0.0_x64__tv7b4yqg10sw2 (Store ID: 9NQ56N45XH5N)`
 **Target Solution:** `PrivGvard.sln`
-**Phase Status:** **STAGE A & B COMPLETE — MILESTONE: READY FOR SUBMISSION**
+**Phase Status:** **STAGE A & B COMPLETE — CONDITIONAL HOLD (Awaiting Microsoft Pre-Approval for allowElevation / unvirtualizedResources)**
 **Stage C (Submission for Certification & Live Publishing):** Awaiting explicit user authorization as required by the Phase 7 safety contract.
 
 ---
@@ -55,7 +55,7 @@ The official Microsoft Store submission package was generated using the automate
 | **10.3** | Product Testability | **PASS** | Comprehensive tester instructions in [REVIEWER-CERTIFICATION-NOTES.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/REVIEWER-CERTIFICATION-NOTES.md); works in standard VMs. |
 | **10.4** | Usability & Quality | **PASS** | Fluent Dark Avalonia 11 UI, DPI-aware (100%-400%), window close minimizes to System Tray; clean shutdown coordination. |
 | **10.5** | Personal Data & Privacy | **PASS** | 100% offline, zero telemetry, zero media capture; HTTPS Privacy Policy published at [PRIVACY-POLICY.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/PRIVACY-POLICY.md). |
-| **10.6** | Capabilities & Declarations | **PASS** | `runFullTrust`, `allowElevation`, and `unvirtualizedResources` fully documented and justified in [MICROSOFT-STORE-JUSTIFICATION.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/MICROSOFT-STORE-JUSTIFICATION.md). |
+| **10.6** | Capabilities & Declarations | **PENDING MICROSOFT APPROVAL** | `runFullTrust` documented; `allowElevation` and `unvirtualizedResources` require explicit Microsoft Store Policy 10.6 pre-approval before submission. Pre-approval email drafted in [MICROSOFT-ALLOWELEVATION-PREAPPROVAL.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/MICROSOFT-ALLOWELEVATION-PREAPPROVAL.md). |
 | **10.7** | Localization | **PASS** | Native English (`en-us`) and Spanish (`es-es`) catalogs in `LocalizationCatalog.cs` and store listings. |
 | **10.14**| Account & Publisher Requirements | **PASS** | Identity verified against Partner Center Publisher ID. |
 | **11.11**| Age Ratings | **PASS** | IARC assessment completed: Suitable for All Ages (PEGI 3, ESRB Everyone, USK 0). |

@@ -87,7 +87,7 @@ Publishing requires an active **Microsoft Partner Center Windows Developer Accou
 PrivGvard declares three restricted capabilities (`rescap`) in `Package.appxmanifest`:
 1. `rescap:runFullTrust`: Required for Win32 desktop APIs (Core Audio COM, CfgMgr32, WMI).
 2. `rescap:allowElevation`: Required for launching the transient helper (`PrivGvard.exe --privileged-worker`) with `Verb="runas"` upon explicit user trigger for Secure Protection.
-3. `rescap:unvirtualizedResources`: Required to ensure Windows registry policies (`HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy`) and PnP state affect real operating system settings rather than virtualized AppContainer registries.
+3. `rescap:unvirtualizedResources`: Required to ensure standard (un-elevated) camera consent updates write directly to real user registry keys (`HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam`) rather than being trapped in the package virtual hive (`SystemAppData\Helium\User.dat`).
 
 A comprehensive technical justification document is prepared in [docs/store/MICROSOFT-STORE-JUSTIFICATION.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/MICROSOFT-STORE-JUSTIFICATION.md) and [docs/store/REVIEWER-CERTIFICATION-NOTES.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/REVIEWER-CERTIFICATION-NOTES.md) for Microsoft certification testers.
 

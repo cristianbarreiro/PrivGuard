@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using PrivLock.Infrastructure.Common.Storage;
 using Serilog;
 
 namespace PrivLock.Infrastructure.Common.Logging;
@@ -44,8 +45,7 @@ public static class CrashReporter
             try
             {
                 var crashDir = customCrashDir ?? Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "PrivGvard", "CrashReports");
+                    StorageMigrationHelper.GetDefaultDataDirectory(), "CrashReports");
 
                 Directory.CreateDirectory(crashDir);
 

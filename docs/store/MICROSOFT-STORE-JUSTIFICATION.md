@@ -1,4 +1,4 @@
-﻿# PrivGuard — Microsoft Store Restricted Capabilities Justification
+﻿# PrivGuard â€” Microsoft Store Restricted Capabilities Justification
 
 **Document Version:** 1.0.0
 **Date:** September 2026

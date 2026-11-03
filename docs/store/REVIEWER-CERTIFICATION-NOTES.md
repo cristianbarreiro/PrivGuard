@@ -1,4 +1,4 @@
-﻿# PrivGuard 2.0 — Microsoft Store Certification Reviewer Notes
+﻿# PrivGuard 2.0 â€” Microsoft Store Certification Reviewer Notes
 
 **Application Name:** PrivGuard
 **Package Identity:** `cdevstudios.PrivGuard`
@@ -14,7 +14,7 @@
 
 Thank you for reviewing **PrivGuard 2.0**.
 
-PrivGuard is a local-first, local-first Windows privacy utility designed to give users transparent, reliable control over their camera and microphone privacy. It features a modern Avalonia 11 Fluent Dark interface, runs with standard user rights (`asInvoker`), and uses native Windows platform APIs to apply and verify privacy protections.
+PrivGuard is a local-first Windows privacy utility designed to give users transparent, reliable control over their camera and microphone privacy. It features a modern Avalonia 11 Fluent Dark interface, runs with standard user rights (`asInvoker`), and uses native Windows platform APIs to apply and verify privacy protections.
 
 This document provides clear instructions to easily test the application's features, explains why restricted capabilities are declared, and outlines our least-privilege security model.
 
@@ -79,7 +79,7 @@ PrivGuard declares three restricted capabilities in `Package.appxmanifest` under
 |---|---|
 | `runFullTrust` | **Required Win32 Desktop APIs:** PrivGuard is a packaged desktop application (.NET 10 / Win32) that communicates with native system subsystems: Core Audio COM interfaces (`IMMDeviceEnumerator`, `IAudioEndpointVolume`), Windows Configuration Manager (`CfgMgr32.dll`), and WMI (`Win32_PnPEntity`). It does not run untrusted scripts or download external code. |
 | `allowElevation` | **On-Demand Transient Helper (`--privileged-worker`):** To avoid running the entire application as administrator or installing a permanent background Windows Service, PrivGuard uses standard user rights (`asInvoker`) for 99% of its lifecycle. When the user explicitly requests Secure Protection, it uses `allowElevation` to launch its own binary with verb `runas` to toggle PnP hardware states and write HKLM Group Policies. The helper authenticates over a named pipe with a 256-bit nonce and kernel PID verification, and terminates upon completion. |
-| `unvirtualizedResources` | **System-Wide Privacy Enforcement:** The purpose of PrivGuard is to protect the user across all Windows applications (browsers, video conferencing, native apps). Registry writes to `HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy` must be written to the real system registry so that Windows enforces camera/microphone access denials for all applications, rather than being virtualized inside an isolated container. |
+| `unvirtualizedResources` | **Real User Registry Access for ConsentStore (`HKCU`):** Standard protection updates user privacy settings in `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam` so that Windows and third-party apps respect the user's camera block without requiring elevation. Under default MSIX virtualization, writes to HKCU are redirected to a private package hive (`SystemAppData\Helium\User.dat`), preventing the setting from taking effect globally. Declaring this capability ensures un-elevated user privacy toggles write directly to the real user registry. |
 
 ---
 
