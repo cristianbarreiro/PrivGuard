@@ -1,13 +1,13 @@
-﻿# PrivGuard 2.0 — Microsoft Store Publishing Plan
+# PrivGuard 2.0 — Microsoft Store Publishing Plan
 
 **Document Version:** 1.0.0
 **Effective Date:** November 2026
-**Product:** PrivGvard (v2.0.0.0)
-**Target Platform:** Windows 10 (10.0.19041.0+) and Windows 11 (x64, ARM64)
-**Release Artifact:** `release/store/PrivGuard-2.0.0.0-x64.msix` (SHA-256: `AC2E826463C7FC618EE24F6E80D7F97177EC04D3A9440768181A00B12B1C5119`)
+**Product:** PrivGuard (v2.0.0.0)
+**Target Platform:** Windows 10 (10.0.19041.0+) and Windows 11 (x64)
+**Release Artifact:** `release/store/PrivGuard-2.0.0.0-x64.msix` (SHA-256: `4D77B8D76DB17D4FA8A8A432555628475BACD06A5F40929D883BC37792FC74CD`)
 * **Historical Package:** `release/store/PrivGvard-2.0.0.0-x64.msix` (SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)
 **Package Family Name (PFN):** `cdevstudios.PrivGuard_tv7b4yqg10sw2`
-**Current Milestone:** `READY FOR SUBMISSION` (Awaiting explicit user authorization for Stage C)
+**Current Milestone:** `CONDITIONAL HOLD — PENDING MICROSOFT RESTRICTED CAPABILITY GUIDANCE` (Draft upload permitted; Certification submission blocked)
 
 ---
 
@@ -23,7 +23,7 @@ The publishing process is organized into three sequential stages:
 ```mermaid
 flowchart TD
     A["Etapa A: Store Readiness Audit"] -->|Passed| B["Etapa B: Partner Center Preparation"]
-    B -->|Artifacts & Metadata Ready| M["MILESTONE: READY FOR SUBMISSION"]
+    B -->|Artifacts & Metadata Ready| M["MILESTONE: CONDITIONAL HOLD (Draft Ready / Cert Blocked)"]
     M -->|Explicit User Authorization| C["Etapa C: Submission & Certification"]
     C -->|Microsoft Ingestion & Tests| D{"Certification Result"}
     D -->|Passed| E["MILESTONE: CERTIFIED"]

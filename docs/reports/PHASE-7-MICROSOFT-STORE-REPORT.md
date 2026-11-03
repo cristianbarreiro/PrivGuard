@@ -1,4 +1,4 @@
-﻿# PrivGuard 2.0 — Phase 7: Microsoft Store Submission & Publishing Report
+# PrivGuard 2.0 — Phase 7: Microsoft Store Submission & Publishing Report
 
 **Document Date:** November 2, 2026
 **Product:** PrivGuard (v2.0.0.0)
@@ -38,9 +38,9 @@ The official Microsoft Store submission package was generated using the automate
 
 ### Artifact Checksum & Dimensions
 - **File Path:** `release\store\PrivGuard-2.0.0.0-x64.msix`
-- **File Size:** 58,524,366 bytes (~55.81 MB)
-- **SHA-256 Hash:** `AC2E826463C7FC618EE24F6E80D7F97177EC04D3A9440768181A00B12B1C5119`
-- **Historical Package:** `release\store\PrivGuard-2.0.0.0-x64.msix` (58,524,157 bytes, SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`
+- **File Size:** 58,524,324 bytes (~55.81 MB)
+- **SHA-256 Hash:** `4D77B8D76DB17D4FA8A8A432555628475BACD06A5F40929D883BC37792FC74CD`
+- **Historical Package:** `release\store\PrivGvard-2.0.0.0-x64.msix` (58,524,157 bytes, SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)
 - **MakePri Indexing:** Successfully indexed 7 scales (100% to 400%), target sizes (16 to 256), and qualifiers (`LIGHTUNPLATED`, `UNPLATED`).
 - **MakeAppx Packaging:** Passed with 0 errors.
 
@@ -88,8 +88,8 @@ All mandatory deliverables have been authored, verified, and staged in the repos
 
 ## 5. Transition to Stage C (Submission for Certification)
 
-### Current Status: `READY FOR SUBMISSION`
-The local engineering phase is 100% complete. All artifacts, listings, compliance reports, and reviewer notes are ready.
+### Current Status: `CONDITIONAL HOLD — PENDING MICROSOFT RESTRICTED CAPABILITY GUIDANCE`
+The local engineering phase and Store draft package are verified. Submission for certification is blocked pending Microsoft restricted capability pre-approval.
 
 ### Next Action for Developer:
 To submit the application for official Microsoft Store certification:
