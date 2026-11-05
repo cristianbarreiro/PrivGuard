@@ -2,26 +2,30 @@ namespace PrivLock.Platform.Abstractions;
 
 /// <summary>
 /// Identifies the outcome of operating system package identity detection.
+/// Default value (0) is explicitly DetectionFailed to ensure fail-closed security.
 /// </summary>
 public enum PackageIdentityKind
 {
     /// <summary>
-    /// Process is running unpackaged (standard Win32 executable).
+    /// Default fail-closed state: detection has not executed, failed, or was uninitialized.
     /// </summary>
-    NotPackaged = 0,
+    DetectionFailed = 0,
 
     /// <summary>
-    /// Process is running inside the authentic PrivGuard Microsoft Store package.
+    /// Process is verified as running unpackaged (standard Win32 executable).
+    /// Requires explicit detection.
     /// </summary>
-    AuthenticStorePackage = 1,
+    NotPackaged = 1,
+
+    /// <summary>
+    /// Process is verified as running inside the authentic PrivGuard Microsoft Store package.
+    /// Requires explicit detection.
+    /// </summary>
+    AuthenticStorePackage = 2,
 
     /// <summary>
     /// Process is running inside a package container, but the identity does not match authentic PrivGuard.
+    /// Requires explicit detection.
     /// </summary>
-    UnexpectedPackage = 2,
-
-    /// <summary>
-    /// Detection failed due to an OS API error, exception, or unsupported environment.
-    /// </summary>
-    DetectionFailed = 3
+    UnexpectedPackage = 3
 }

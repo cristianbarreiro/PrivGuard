@@ -30,6 +30,22 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
+    public void Enums_DefaultValues_AreFailClosed()
+    {
+        // Default values must evaluate to failure / untrusted states to prevent uninitialized privilege escalation
+        Assert.Equal(PackageIdentityKind.DetectionFailed, default);
+        Assert.Equal(0, (int)PackageIdentityKind.DetectionFailed);
+
+        Assert.Equal(EditionProfile.UntrustedOrIndeterminate, default);
+        Assert.Equal(0, (int)EditionProfile.UntrustedOrIndeterminate);
+
+        // NotPackaged and Standalone must NOT have value 0
+        Assert.NotEqual(0, (int)PackageIdentityKind.NotPackaged);
+        Assert.NotEqual(0, (int)EditionProfile.Standalone);
+        Assert.NotEqual(0, (int)EditionProfile.Store);
+    }
+
+    [Fact]
     public void Resolve_WhenAuthenticStorePackage_ReturnsStoreProfileAndIsolatedPaths()
     {
         var detector = new FakePackageIdentityDetector
@@ -120,7 +136,54 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
-    public void NoOpPackageIdentityDetector_DefaultsToDetectionFailed_FailsClosed()
+    public void Resolve_WhenUnknownPackageIdentityKind_ResolvesUntrustedAndRejectsPathsAndPrivileges()
+    {
+        var detector = new FakePackageIdentityDetector
+        {
+            Kind = (PackageIdentityKind)999
+        };
+
+        var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
+
+        Assert.Equal(EditionProfile.UntrustedOrIndeterminate, resolver.Profile);
+        Assert.Equal("UntrustedOrIndeterminate", resolver.ProfileName);
+        Assert.False(resolver.SupportsPrivilegedOperations);
+
+        Assert.Throws<InvalidOperationException>(() => resolver.DataDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.RecoveryDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.LogsDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.CrashReportsDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.SingleInstanceMutexName);
+    }
+
+    [Fact]
+    public void Resolve_WhenDetectorMutatesAfterConstruction_ResolverMaintainsImmutableCoherence()
+    {
+        var detector = new FakePackageIdentityDetector
+        {
+            Kind = PackageIdentityKind.AuthenticStorePackage,
+            PackageFamilyName = "cdevstudios.PrivGuard_tv7b4yqg10sw2",
+            PackageFullName = "cdevstudios.PrivGuard_1.0.0.0_x64__tv7b4yqg10sw2"
+        };
+
+        var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
+
+        Assert.Equal(EditionProfile.Store, resolver.Profile);
+        Assert.Equal("Store", resolver.ProfileName);
+        Assert.False(resolver.SupportsPrivilegedOperations);
+
+        // Mutate the detector after resolver construction
+        detector.Kind = PackageIdentityKind.NotPackaged;
+
+        // The resolver MUST remain strictly coherent with its initial resolution snapshot
+        Assert.Equal(EditionProfile.Store, resolver.Profile);
+        Assert.Equal("Store", resolver.ProfileName);
+        Assert.False(resolver.SupportsPrivilegedOperations);
+        Assert.Equal(Path.Combine(_testRoot, "Store"), resolver.DataDirectory);
+    }
+
+    [Fact]
+    public void NoOpPackageIdentityDetector_IsStrictlyUntrusted_CannotDeclareAuthenticIdentity()
     {
         var detector = NoOpPackageIdentityDetector.Instance;
 
@@ -154,7 +217,7 @@ public sealed class EditionProfileResolverTests : IDisposable
 
     private sealed class FakePackageIdentityDetector : IPackageIdentityDetector
     {
-        public PackageIdentityKind Kind { get; set; } = PackageIdentityKind.NotPackaged;
+        public PackageIdentityKind Kind { get; set; } = PackageIdentityKind.DetectionFailed;
         public string? PackageFullName { get; set; }
         public string? PackageFamilyName { get; set; }
 
