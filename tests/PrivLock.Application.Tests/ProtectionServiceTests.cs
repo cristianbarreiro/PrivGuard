@@ -208,8 +208,8 @@ public class ProtectionServiceTests
                 Camera = new TargetProtectionStatus
                 {
                     Target = BlockTarget.Camera,
-                    StandardState = StandardProtectionState.Active,
-                    SecureState = SecureProtectionState.Available
+                    StandardState = StandardProtectionState.Inactive,
+                    SecureState = SecureProtectionState.Unavailable
                 },
                 Microphone = new TargetProtectionStatus
                 {
@@ -760,13 +760,23 @@ public class ProtectionServiceTests
                 {
                     Target = BlockTarget.Camera,
                     StandardState = camStandard,
-                    SecureState = SecureProtectionState.Unavailable
+                    SecureState = camStandard == StandardProtectionState.Active
+                        ? SecureProtectionState.Available
+                        : SecureProtectionState.Unavailable,
+                    StandardIsVerified = true,
+                    SecureIsVerified = true,
+                    IsVerified = true
                 },
                 Microphone = new TargetProtectionStatus
                 {
                     Target = BlockTarget.Microphone,
                     StandardState = micStandard,
-                    SecureState = SecureProtectionState.Unavailable
+                    SecureState = micStandard == StandardProtectionState.Active
+                        ? SecureProtectionState.Available
+                        : SecureProtectionState.Unavailable,
+                    StandardIsVerified = true,
+                    SecureIsVerified = true,
+                    IsVerified = true
                 }
             });
 
@@ -849,13 +859,23 @@ public class ProtectionServiceTests
                 {
                     Target = BlockTarget.Camera,
                     StandardState = camStd,
-                    SecureState = SecureProtectionState.Unavailable
+                    SecureState = camStd == StandardProtectionState.Active
+                        ? SecureProtectionState.Available
+                        : SecureProtectionState.Unavailable,
+                    StandardIsVerified = true,
+                    SecureIsVerified = true,
+                    IsVerified = true
                 },
                 Microphone = new TargetProtectionStatus
                 {
                     Target = BlockTarget.Microphone,
                     StandardState = micStd,
-                    SecureState = SecureProtectionState.Unavailable
+                    SecureState = micStd == StandardProtectionState.Active
+                        ? SecureProtectionState.Available
+                        : SecureProtectionState.Unavailable,
+                    StandardIsVerified = true,
+                    SecureIsVerified = true,
+                    IsVerified = true
                 }
             });
 

@@ -692,9 +692,17 @@ public sealed class RestartLifecycleValidationTests
             if (StandardEnableResult.Success)
             {
                 if (target is BlockTarget.Camera or BlockTarget.Both)
+                {
                     SetCameraStandardState(StandardProtectionState.Active);
+                    if (CurrentProtectionState.Camera.SecureState == SecureProtectionState.Unavailable)
+                        SetCameraSecureState(SecureProtectionState.Available);
+                }
                 if (target is BlockTarget.Microphone or BlockTarget.Both)
+                {
                     SetMicrophoneStandardState(StandardProtectionState.Active);
+                    if (CurrentProtectionState.Microphone.SecureState == SecureProtectionState.Unavailable)
+                        SetMicrophoneSecureState(SecureProtectionState.Available);
+                }
             }
             return Task.FromResult(StandardEnableResult);
         }
@@ -705,9 +713,15 @@ public sealed class RestartLifecycleValidationTests
         {
             OnStandardDisableAction?.Invoke(target);
             if (target is BlockTarget.Camera or BlockTarget.Both)
+            {
                 SetCameraStandardState(StandardProtectionState.Inactive);
+                SetCameraSecureState(SecureProtectionState.Unavailable);
+            }
             if (target is BlockTarget.Microphone or BlockTarget.Both)
+            {
                 SetMicrophoneStandardState(StandardProtectionState.Inactive);
+                SetMicrophoneSecureState(SecureProtectionState.Unavailable);
+            }
             return Task.FromResult(OperationResult.Ok());
         }
 

@@ -469,6 +469,8 @@ internal sealed class RecoveryHostDependencies :
     public Action? BeforeStandardEnableReturn { get; set; }
     public int StandardEnableCalls { get; private set; }
     public int StandardDisableCalls { get; private set; }
+    public int SecureEnableCalls { get; private set; }
+    public int SecureDisableCalls { get; private set; }
 
     public FullProtectionState CurrentProtectionState { get; set; } = new()
     {
@@ -476,13 +478,19 @@ internal sealed class RecoveryHostDependencies :
         {
             Target = BlockTarget.Camera,
             StandardState = StandardProtectionState.Inactive,
-            SecureState = SecureProtectionState.Unavailable
+            SecureState = SecureProtectionState.Unavailable,
+            StandardIsVerified = true,
+            SecureIsVerified = true,
+            IsVerified = true
         },
         Microphone = new TargetProtectionStatus
         {
             Target = BlockTarget.Microphone,
             StandardState = StandardProtectionState.Inactive,
-            SecureState = SecureProtectionState.Unavailable
+            SecureState = SecureProtectionState.Unavailable,
+            StandardIsVerified = true,
+            SecureIsVerified = true,
+            IsVerified = true
         }
     };
 
@@ -541,9 +549,17 @@ internal sealed class RecoveryHostDependencies :
         if (StandardEnableResult.Success)
         {
             if (target is BlockTarget.Camera or BlockTarget.Both)
+            {
                 SetCameraStandardState(StandardProtectionState.Active);
+                if (CurrentProtectionState.Camera.SecureState == SecureProtectionState.Unavailable)
+                    SetCameraSecureState(SecureProtectionState.Available);
+            }
             if (target is BlockTarget.Microphone or BlockTarget.Both)
+            {
                 SetMicrophoneStandardState(StandardProtectionState.Active);
+                if (CurrentProtectionState.Microphone.SecureState == SecureProtectionState.Unavailable)
+                    SetMicrophoneSecureState(SecureProtectionState.Available);
+            }
         }
         return Task.FromResult(StandardEnableResult);
     }
@@ -554,9 +570,15 @@ internal sealed class RecoveryHostDependencies :
     {
         StandardDisableCalls++;
         if (target is BlockTarget.Camera or BlockTarget.Both)
+        {
             SetCameraStandardState(StandardProtectionState.Inactive);
+            SetCameraSecureState(SecureProtectionState.Unavailable);
+        }
         if (target is BlockTarget.Microphone or BlockTarget.Both)
+        {
             SetMicrophoneStandardState(StandardProtectionState.Inactive);
+            SetMicrophoneSecureState(SecureProtectionState.Unavailable);
+        }
         return Task.FromResult(OperationResult.Ok());
     }
 
@@ -564,6 +586,7 @@ internal sealed class RecoveryHostDependencies :
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        SecureEnableCalls++;
         var result = EnableSecureHandler?.Invoke(target) ?? SecureEnableResult;
         if (result.Success)
         {
@@ -579,6 +602,7 @@ internal sealed class RecoveryHostDependencies :
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        SecureDisableCalls++;
         if (target is BlockTarget.Camera or BlockTarget.Both)
             SetCameraSecureState(SecureProtectionState.Available);
         if (target is BlockTarget.Microphone or BlockTarget.Both)

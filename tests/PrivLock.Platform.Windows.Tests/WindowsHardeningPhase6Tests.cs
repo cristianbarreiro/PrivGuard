@@ -624,13 +624,19 @@ public sealed class WindowsHardeningPhase6Tests : IDisposable
                 {
                     Target = BlockTarget.Camera,
                     StandardState = CameraIsProtected ? StandardProtectionState.Active : StandardProtectionState.Inactive,
-                    SecureState = SecureProtectionState.Unavailable
+                    SecureState = CameraIsProtected ? SecureProtectionState.Available : SecureProtectionState.Unavailable,
+                    StandardIsVerified = true,
+                    SecureIsVerified = true,
+                    IsVerified = true
                 },
                 Microphone = new TargetProtectionStatus
                 {
                     Target = BlockTarget.Microphone,
                     StandardState = MicIsProtected ? StandardProtectionState.Active : StandardProtectionState.Inactive,
-                    SecureState = SecureProtectionState.Unavailable
+                    SecureState = MicIsProtected ? SecureProtectionState.Available : SecureProtectionState.Unavailable,
+                    StandardIsVerified = true,
+                    SecureIsVerified = true,
+                    IsVerified = true
                 }
             });
 
