@@ -20,7 +20,7 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsProtectionProvider>();
 
-    private readonly WindowsDeviceDetector _deviceDetector;
+    private readonly IDeviceDetector _deviceDetector;
     private readonly WindowsDeviceController _deviceController;
     private readonly WindowsCoreAudioController _coreAudioController;
     private readonly WindowsPolicyManager _policyManager;
@@ -29,7 +29,7 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
     private readonly IPrivacySessionStore _privacySessionStore;
 
     public WindowsProtectionProvider(
-        WindowsDeviceDetector deviceDetector,
+        IDeviceDetector deviceDetector,
         WindowsDeviceController deviceController,
         WindowsCoreAudioController coreAudioController,
         WindowsPolicyManager policyManager,
@@ -219,10 +219,11 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
             mics.Count,
             micEndpointAvailability);
 
-        var micIsVerified = micStandardState != StandardProtectionState.Unknown &&
-                            micSecureState != SecureProtectionState.Unknown &&
-                            micEndpointAvailability != AudioEndpointAvailability.Unknown &&
-                            micHardwareAvailability != TargetDeviceAvailability.Unknown;
+        var micStandardIsVerified = micStandardState != StandardProtectionState.Unknown &&
+                                    micEndpointAvailability != AudioEndpointAvailability.Unknown;
+        var micSecureIsVerified = micSecureState != SecureProtectionState.Unknown &&
+                                  micHardwareAvailability != TargetDeviceAvailability.Unknown;
+        var micIsVerified = micStandardIsVerified && micSecureIsVerified;
 
         var micStatusMessage = DetermineMicrophoneStatusMessage(
             micHardwareAvailability,
@@ -233,8 +234,9 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         var camAvailability = cameras.Count > 0
             ? TargetDeviceAvailability.Available
             : TargetDeviceAvailability.NotDetected;
-        var camIsVerified = camStandardState != StandardProtectionState.Unknown &&
-                            camSecureState != SecureProtectionState.Unknown;
+        var camStandardIsVerified = camStandardState != StandardProtectionState.Unknown;
+        var camSecureIsVerified = camSecureState != SecureProtectionState.Unknown;
+        var camIsVerified = camStandardIsVerified && camSecureIsVerified;
         var camStatusMessage = camAvailability == TargetDeviceAvailability.NotDetected
             ? "No camera detected."
             : (!camIsVerified
@@ -249,6 +251,8 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 StandardState = camStandardState,
                 SecureState = camSecureState,
                 Availability = camAvailability,
+                StandardIsVerified = camStandardIsVerified,
+                SecureIsVerified = camSecureIsVerified,
                 IsVerified = camIsVerified,
                 StatusMessage = camStatusMessage
             },
@@ -260,6 +264,8 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 Availability = micHardwareAvailability,
                 EndpointAvailability = micEndpointAvailability,
                 HardwareMuteSummary = micHwSummary,
+                StandardIsVerified = micStandardIsVerified,
+                SecureIsVerified = micSecureIsVerified,
                 IsVerified = micIsVerified,
                 StatusMessage = micStatusMessage
             }

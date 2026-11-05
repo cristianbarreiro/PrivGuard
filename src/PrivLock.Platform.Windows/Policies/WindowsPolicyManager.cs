@@ -8,7 +8,7 @@ namespace PrivLock.Platform.Windows.Policies;
 /// <summary>
 /// Manages Windows AppPrivacy Group Policies in HKLM registry.
 /// </summary>
-public sealed class WindowsPolicyManager
+public class WindowsPolicyManager
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsPolicyManager>();
 
@@ -17,12 +17,12 @@ public sealed class WindowsPolicyManager
     internal const string MicrophoneValueName = "LetAppsAccessMicrophone";
     internal const int PolicyDeny = 2;
 
-    public BlockStatus GetCameraPolicyStatus()
+    public virtual BlockStatus GetCameraPolicyStatus()
     {
         return ReadPolicyValue(CameraValueName);
     }
 
-    public BlockStatus GetMicrophonePolicyStatus()
+    public virtual BlockStatus GetMicrophonePolicyStatus()
     {
         return ReadPolicyValue(MicrophoneValueName);
     }

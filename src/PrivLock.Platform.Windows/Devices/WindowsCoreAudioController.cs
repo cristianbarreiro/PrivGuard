@@ -9,7 +9,7 @@ namespace PrivLock.Platform.Windows.Devices;
 /// Controls and queries individual Windows Core Audio capture endpoint mute states.
 /// Endpoint-level operations ensure recovery never unmutes a microphone that was muted before PrivLock.
 /// </summary>
-public sealed class WindowsCoreAudioController
+public class WindowsCoreAudioController
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsCoreAudioController>();
     private static readonly Guid IID_IAudioEndpointVolume = new("5CDF2C82-841E-4546-9722-0CF74078229A");
@@ -28,7 +28,7 @@ public sealed class WindowsCoreAudioController
             : AudioEndpointHardwareMuteSupport.NotSupported;
     }
 
-    public WindowsAudioEndpointQueryResult GetMicrophoneMuteStates()
+    public virtual WindowsAudioEndpointQueryResult GetMicrophoneMuteStates()
     {
         IMMDeviceEnumerator? enumerator = null;
         IMMDeviceCollection? collection = null;

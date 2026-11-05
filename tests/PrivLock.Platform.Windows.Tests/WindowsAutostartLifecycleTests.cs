@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using PrivLock.Application.Services;
 using PrivLock.Domain.Capabilities;
 using PrivLock.Domain.Models;
@@ -26,6 +26,7 @@ namespace PrivLock.Platform.Windows.Tests;
 /// - Test I: Startup Recovery Integration (Recovery precedes DesiredState reconcile, effective verified)
 /// - Test J: Explicit User Disable (Simulated restart does not re-register autostart)
 /// </summary>
+[Collection("AvaloniaUI")]
 public sealed class WindowsAutostartLifecycleTests : IDisposable
 {
     private readonly string _testDirectory;

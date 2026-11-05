@@ -11,7 +11,7 @@ namespace PrivLock.Platform.Windows.Devices;
 /// <summary>
 /// Direct in-process PnP hardware device controller using CfgMgr32.dll on Windows.
 /// </summary>
-public sealed class WindowsDeviceController
+public class WindowsDeviceController
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsDeviceController>();
 

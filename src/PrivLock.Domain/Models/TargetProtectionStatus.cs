@@ -45,6 +45,33 @@ public sealed record TargetProtectionStatus
     public TargetDeviceAvailability Availability { get; init; } = TargetDeviceAvailability.Available;
     public AudioEndpointAvailability? EndpointAvailability { get; init; }
     public AudioHardwareMuteSummary? HardwareMuteSummary { get; init; }
+
+    private readonly bool _standardIsVerified;
+    private readonly bool _hasExplicitStandardIsVerified;
+
+    public bool StandardIsVerified
+    {
+        get => _hasExplicitStandardIsVerified ? _standardIsVerified : IsVerified;
+        init
+        {
+            _standardIsVerified = value;
+            _hasExplicitStandardIsVerified = true;
+        }
+    }
+
+    private readonly bool _secureIsVerified;
+    private readonly bool _hasExplicitSecureIsVerified;
+
+    public bool SecureIsVerified
+    {
+        get => _hasExplicitSecureIsVerified ? _secureIsVerified : IsVerified;
+        init
+        {
+            _secureIsVerified = value;
+            _hasExplicitSecureIsVerified = true;
+        }
+    }
+
     public bool IsVerified { get; init; }
     public string? StatusMessage { get; init; }
 

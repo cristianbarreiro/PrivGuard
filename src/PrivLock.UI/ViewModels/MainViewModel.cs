@@ -354,29 +354,57 @@ public sealed partial class MainViewModel : ObservableObject
             // === 2. Camera UI ===
             var camBlocked = state.Camera.IsProtected;
             var camAbsent = state.Camera.Availability == TargetDeviceAvailability.NotDetected;
-            var camUnverifiable = state.Camera.StandardState == StandardProtectionState.Unknown || !state.Camera.IsVerified;
-            var camAllowedVerified = !camBlocked && !camAbsent && !camUnverifiable &&
+            var camStandardUnverifiable = state.Camera.StandardState == StandardProtectionState.Unknown || !state.Camera.StandardIsVerified;
+            var camSecureUnverifiable = state.Camera.SecureState == SecureProtectionState.Unknown || !state.Camera.SecureIsVerified;
+            var camAllowedVerified = !camBlocked && !camAbsent && !camStandardUnverifiable && !camSecureUnverifiable &&
                                      state.Camera.StandardState == StandardProtectionState.Inactive;
 
             IsCameraBlocked = camBlocked;
             IsCameraStandardActive = camBlocked;
-            IsCameraToggleEnabled = !camAbsent && !camUnverifiable;
 
             if (camBlocked)
             {
-                if (state.Camera.SecureState == SecureProtectionState.Active)
+                // Safe unblock/restoration: user can restore if Standard or Secure is Active and verified
+                IsCameraToggleEnabled = (state.Camera.StandardState == StandardProtectionState.Active && state.Camera.StandardIsVerified) ||
+                                        (state.Camera.SecureState == SecureProtectionState.Active && state.Camera.SecureIsVerified);
+            }
+            else
+            {
+                // Safe mutation: user can enable Standard if camera is present and Standard is Inactive and verifiable
+                IsCameraToggleEnabled = !camAbsent && !camStandardUnverifiable &&
+                                        state.Camera.StandardState == StandardProtectionState.Inactive;
+            }
+
+            if (camBlocked)
+            {
+                if (state.Camera.SecureState == SecureProtectionState.Active && state.Camera.SecureIsVerified)
                 {
                     CameraStatusText = _localizationService.GetString("StatusBlockedAdvanced", "🛡️ Blocked (Advanced)");
                     CameraStatusColor = "#D32F2F";
                     CameraStandardText = _localizationService.GetString("StatusStandardActive", "● Standard Active");
                     CameraStandardColor = "#E57373";
                 }
-                else
+                else if (state.Camera.StandardState == StandardProtectionState.Active && state.Camera.StandardIsVerified)
                 {
-                    CameraStatusText = _localizationService.GetString("StatusBlockedStandard", "🔒 Blocked (Standard)");
-                    CameraStatusColor = "#E57373";
+                    if (camSecureUnverifiable)
+                    {
+                        CameraStatusText = _localizationService.GetString("StatusPartiallyUnverifiable", "⚠️ Parcialmente protegido / No verificable");
+                        CameraStatusColor = "#FFA726";
+                    }
+                    else
+                    {
+                        CameraStatusText = _localizationService.GetString("StatusBlockedStandard", "🔒 Blocked (Standard)");
+                        CameraStatusColor = "#E57373";
+                    }
                     CameraStandardText = _localizationService.GetString("StatusStandardActive", "● Standard Active");
                     CameraStandardColor = "#E57373";
+                }
+                else
+                {
+                    CameraStatusText = _localizationService.GetString("StatusPartiallyUnverifiable", "⚠️ Parcialmente protegido / No verificable");
+                    CameraStatusColor = "#FFA726";
+                    CameraStandardText = _localizationService.GetString("StatusStandardUnknown", "○ Standard Unverifiable");
+                    CameraStandardColor = "#FFA726";
                 }
             }
             else if (camAbsent)
@@ -386,12 +414,14 @@ public sealed partial class MainViewModel : ObservableObject
                 CameraStandardText = _localizationService.GetString("NoCameraDetected", "No camera detected");
                 CameraStandardColor = "#9E9E9E";
             }
-            else if (camUnverifiable)
+            else if (camStandardUnverifiable || camSecureUnverifiable)
             {
                 CameraStatusText = _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
                 CameraStatusColor = "#FFA726";
-                CameraStandardText = _localizationService.GetString("StatusStandardUnknown", "○ Standard Unverifiable");
-                CameraStandardColor = "#FFA726";
+                CameraStandardText = camStandardUnverifiable
+                    ? _localizationService.GetString("StatusStandardUnknown", "○ Standard Unverifiable")
+                    : _localizationService.GetString("StatusStandardInactive", "○ Standard Inactive");
+                CameraStandardColor = camStandardUnverifiable ? "#FFA726" : "#81C784";
             }
             else
             {
@@ -427,10 +457,10 @@ public sealed partial class MainViewModel : ObservableObject
                     CameraSecureBadgeColor = "#555555";
                     CameraSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
                     IsCameraSecureButtonEnabled = false;
-                    IsCameraSecureHintVisible = !camBlocked;
+                    IsCameraSecureHintVisible = !camBlocked || state.Camera.SecureState == SecureProtectionState.Unknown;
                     CameraSecureHint = camAbsent
                         ? _localizationService.GetString("NoCameraDetected", "No camera detected")
-                        : (camUnverifiable
+                        : (camStandardUnverifiable || state.Camera.SecureState == SecureProtectionState.Unknown
                             ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
                             : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first"));
                     break;
@@ -442,34 +472,63 @@ public sealed partial class MainViewModel : ObservableObject
                             state.Microphone.EndpointAvailability == AudioEndpointAvailability.NotDetected;
             var micHardwareWithoutEndpoints = state.Microphone.Availability == TargetDeviceAvailability.Available &&
                                               state.Microphone.EndpointAvailability == AudioEndpointAvailability.NotDetected;
-            var micUnverifiable = state.Microphone.EndpointAvailability == AudioEndpointAvailability.Unknown ||
-                                  state.Microphone.Availability == TargetDeviceAvailability.Unknown ||
-                                  state.Microphone.StandardState == StandardProtectionState.Unknown ||
-                                  !state.Microphone.IsVerified;
-            var micAllowedVerified = !micBlocked && !micAbsent && !micHardwareWithoutEndpoints && !micUnverifiable &&
+            var micStandardUnverifiable = state.Microphone.StandardState == StandardProtectionState.Unknown ||
+                                          !state.Microphone.StandardIsVerified ||
+                                          state.Microphone.EndpointAvailability == AudioEndpointAvailability.Unknown;
+            var micSecureUnverifiable = state.Microphone.SecureState == SecureProtectionState.Unknown ||
+                                        !state.Microphone.SecureIsVerified;
+            var micAllowedVerified = !micBlocked && !micAbsent && !micHardwareWithoutEndpoints &&
+                                     !micStandardUnverifiable && !micSecureUnverifiable &&
                                      state.Microphone.StandardState == StandardProtectionState.Inactive &&
                                      state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available;
 
             IsMicBlocked = micBlocked;
             IsMicStandardActive = micBlocked;
-            IsMicToggleEnabled = !micAbsent && !micHardwareWithoutEndpoints && !micUnverifiable &&
-                                 state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available;
 
             if (micBlocked)
             {
-                if (state.Microphone.SecureState == SecureProtectionState.Active)
+                // Safe unblock/restoration: user can restore if Standard or Secure is Active and verified
+                IsMicToggleEnabled = (state.Microphone.StandardState == StandardProtectionState.Active && state.Microphone.StandardIsVerified) ||
+                                     (state.Microphone.SecureState == SecureProtectionState.Active && state.Microphone.SecureIsVerified);
+            }
+            else
+            {
+                // Safe mutation: user can enable Standard if hardware and endpoints are available and Standard is Inactive and verifiable
+                IsMicToggleEnabled = !micAbsent && !micHardwareWithoutEndpoints && !micStandardUnverifiable &&
+                                     state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available &&
+                                     state.Microphone.StandardState == StandardProtectionState.Inactive;
+            }
+
+            if (micBlocked)
+            {
+                if (state.Microphone.SecureState == SecureProtectionState.Active && state.Microphone.SecureIsVerified)
                 {
                     MicStatusText = _localizationService.GetString("StatusBlockedAdvanced", "🛡️ Blocked (Advanced)");
                     MicStatusColor = "#D32F2F";
                     MicStandardText = _localizationService.GetString("StatusStandardActive", "● Standard Active");
                     MicStandardColor = "#E57373";
                 }
-                else
+                else if (state.Microphone.StandardState == StandardProtectionState.Active && state.Microphone.StandardIsVerified)
                 {
-                    MicStatusText = _localizationService.GetString("StatusBlockedStandard", "🔒 Blocked (Standard)");
-                    MicStatusColor = "#E57373";
+                    if (micSecureUnverifiable)
+                    {
+                        MicStatusText = _localizationService.GetString("StatusPartiallyUnverifiable", "⚠️ Parcialmente protegido / No verificable");
+                        MicStatusColor = "#FFA726";
+                    }
+                    else
+                    {
+                        MicStatusText = _localizationService.GetString("StatusBlockedStandard", "🔒 Blocked (Standard)");
+                        MicStatusColor = "#E57373";
+                    }
                     MicStandardText = _localizationService.GetString("StatusStandardActive", "● Standard Active");
                     MicStandardColor = "#E57373";
+                }
+                else
+                {
+                    MicStatusText = _localizationService.GetString("StatusPartiallyUnverifiable", "⚠️ Parcialmente protegido / No verificable");
+                    MicStatusColor = "#FFA726";
+                    MicStandardText = _localizationService.GetString("StatusStandardUnknown", "○ Standard Unverifiable");
+                    MicStandardColor = "#FFA726";
                 }
             }
             else if (micAbsent)
@@ -486,12 +545,14 @@ public sealed partial class MainViewModel : ObservableObject
                 MicStandardText = _localizationService.GetString("MicrophoneDetectedNoEndpoints", "Microphone detected, but no active capture endpoint available");
                 MicStandardColor = "#FFA726";
             }
-            else if (micUnverifiable)
+            else if (micStandardUnverifiable || micSecureUnverifiable)
             {
                 MicStatusText = _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
                 MicStatusColor = "#FFA726";
-                MicStandardText = _localizationService.GetString("StatusStandardUnknown", "○ Standard Unverifiable");
-                MicStandardColor = "#FFA726";
+                MicStandardText = micStandardUnverifiable
+                    ? _localizationService.GetString("StatusStandardUnknown", "○ Standard Unverifiable")
+                    : _localizationService.GetString("StatusStandardInactive", "○ Standard Inactive");
+                MicStandardColor = micStandardUnverifiable ? "#FFA726" : "#81C784";
             }
             else
             {
@@ -527,12 +588,12 @@ public sealed partial class MainViewModel : ObservableObject
                     MicSecureBadgeColor = "#555555";
                     MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
                     IsMicSecureButtonEnabled = false;
-                    IsMicSecureHintVisible = !micBlocked;
+                    IsMicSecureHintVisible = !micBlocked || state.Microphone.SecureState == SecureProtectionState.Unknown;
                     if (micAbsent)
                         MicSecureHint = _localizationService.GetString("NoMicrophonesDetected", "No input microphones detected");
                     else if (micHardwareWithoutEndpoints)
                         MicSecureHint = _localizationService.GetString("MicrophoneDetectedNoEndpoints", "Microphone detected, but no active capture endpoint available");
-                    else if (micUnverifiable)
+                    else if (micStandardUnverifiable || state.Microphone.SecureState == SecureProtectionState.Unknown)
                         MicSecureHint = _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
                     else
                         MicSecureHint = _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
@@ -567,13 +628,15 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             // === 4. Unified (Both) UI ===
-            var camProtectedVerified = camBlocked && !camUnverifiable;
-            var micProtectedVerified = micBlocked && !micUnverifiable;
+            var camProtectedVerified = camBlocked && !camStandardUnverifiable &&
+                                       (state.Camera.SecureState != SecureProtectionState.Active || state.Camera.SecureIsVerified);
+            var micProtectedVerified = micBlocked && !micStandardUnverifiable &&
+                                       (state.Microphone.SecureState != SecureProtectionState.Active || state.Microphone.SecureIsVerified);
             var bothBlockedVerified = camProtectedVerified && micProtectedVerified;
 
             IsBothBlocked = bothBlockedVerified;
             IsBothStandardActive = bothBlockedVerified;
-            IsBothToggleEnabled = IsCameraToggleEnabled && IsMicToggleEnabled;
+            IsBothToggleEnabled = IsCameraToggleEnabled && IsMicToggleEnabled && (IsCameraBlocked == IsMicBlocked);
 
             if (bothBlockedVerified)
             {
@@ -655,14 +718,14 @@ public sealed partial class MainViewModel : ObservableObject
             }
             else
             {
-                BothSecureText = (camUnverifiable || micUnverifiable)
+                BothSecureText = (camSecureUnverifiable || micSecureUnverifiable)
                     ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
                     : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
                 BothSecureBadgeColor = "#555555";
                 BothSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
                 IsBothSecureButtonEnabled = false;
-                IsBothSecureHintVisible = !bothBlockedVerified;
-                BothSecureHint = (camUnverifiable || micUnverifiable)
+                IsBothSecureHintVisible = !bothBlockedVerified || camSecureUnverifiable || micSecureUnverifiable;
+                BothSecureHint = (camSecureUnverifiable || micSecureUnverifiable)
                     ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
                     : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
             }
@@ -674,7 +737,7 @@ public sealed partial class MainViewModel : ObservableObject
                 SecurityBadgeText = _localizationService.GetString("BadgeProtected", "Protegido");
             else if (camBlocked || micBlocked)
                 SecurityBadgeText = _localizationService.GetString("BadgePartiallyProtected", "Parcialmente protegido");
-            else if (camUnverifiable || micUnverifiable)
+            else if (camStandardUnverifiable || camSecureUnverifiable || micStandardUnverifiable || micSecureUnverifiable)
                 SecurityBadgeText = _localizationService.GetString("BadgeUnverifiable", "No verificable");
             else
                 SecurityBadgeText = _localizationService.GetString("BadgeUnprotected", "Sin protección");

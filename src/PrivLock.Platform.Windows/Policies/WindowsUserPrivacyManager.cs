@@ -9,7 +9,7 @@ namespace PrivLock.Platform.Windows.Policies;
 /// Manages user-level privacy permissions in the Windows Capability Consent Store (HKCU).
 /// Enforces standard camera and microphone blocking on Windows without requiring administrative elevation.
 /// </summary>
-public sealed class WindowsUserPrivacyManager
+public class WindowsUserPrivacyManager
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsUserPrivacyManager>();
 
@@ -67,7 +67,7 @@ public sealed class WindowsUserPrivacyManager
         }
     }
 
-    public BlockStatus GetCameraUserPrivacyStatus()
+    public virtual BlockStatus GetCameraUserPrivacyStatus()
     {
         return ReadCombinedConsentStatus(
             ConsentStoreCameraPath,
@@ -75,7 +75,7 @@ public sealed class WindowsUserPrivacyManager
             "Camera");
     }
 
-    public BlockStatus GetMicrophoneUserPrivacyStatus()
+    public virtual BlockStatus GetMicrophoneUserPrivacyStatus()
     {
         return ReadCombinedConsentStatus(
             ConsentStoreMicPath,
