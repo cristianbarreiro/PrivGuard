@@ -40,6 +40,10 @@ public static class LocalizationCatalog
         ["SecureRequirementHint"] = "Activa primero la Protección Estándar",
 
         // Devices
+        ["NoMicrophonesDetected"] = "No se detectó ningún micrófono de entrada",
+        ["HardwareMuteSupported"] = "Soporte hardware de silenciamiento disponible",
+        ["HardwareMuteNotSupported"] = "Soporte hardware de silenciamiento no reportado",
+        ["HardwareMuteUnknown"] = "Soporte hardware de silenciamiento desconocido",
         ["DetectedDevices"] = "Dispositivos de Hardware Detectados",
         ["DeviceEnabled"] = "Habilitado",
         ["DeviceDisabled"] = "Deshabilitado",
@@ -238,6 +242,10 @@ public static class LocalizationCatalog
         ["SecureRequirementHint"] = "Enable Standard Protection first",
 
         // Devices
+        ["NoMicrophonesDetected"] = "No input microphones detected",
+        ["HardwareMuteSupported"] = "Hardware mute support available",
+        ["HardwareMuteNotSupported"] = "Hardware mute support not reported",
+        ["HardwareMuteUnknown"] = "Hardware mute support unknown",
         ["DetectedDevices"] = "Detected Hardware Devices",
         ["DeviceEnabled"] = "Enabled",
         ["DeviceDisabled"] = "Disabled",

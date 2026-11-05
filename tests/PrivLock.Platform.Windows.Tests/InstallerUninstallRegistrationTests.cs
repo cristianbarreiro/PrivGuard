@@ -30,4 +30,46 @@ public sealed class InstallerUninstallRegistrationTests
         Assert.Contains("'UninstallString', UninstallCommand", script, StringComparison.Ordinal);
         Assert.Contains("'QuietUninstallString', QuietUninstallCommand", script, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void InnoDefinesModernRecoveryRelativePathAndSeparatesMarkerFromJournalInspection()
+    {
+        var script = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "setup.iss"));
+
+        Assert.Contains(
+            "#define ModernRecoveryRelativePath \"AppData\\Local\\PrivGuard\\Recovery\\\"",
+            script,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "#define RecoveryRelativePath \"AppData\\Local\\PrivGvard\\Recovery\\\"",
+            script,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "#define LegacyRecoveryRelativePath \"AppData\\Local\\PrivLock\\Recovery\\\"",
+            script,
+            StringComparison.Ordinal);
+
+        Assert.Contains("function RecoveryDirectoryAncestorsSafe", script, StringComparison.Ordinal);
+        Assert.Contains("function ProfilePathMayHaveActiveMarkerInDir", script, StringComparison.Ordinal);
+        Assert.Contains("function ProfilePathMayHaveActiveJournalInDir", script, StringComparison.Ordinal);
+        Assert.Contains("function ProfilePathMayHaveActiveSessionInDir", script, StringComparison.Ordinal);
+
+        // Verify ProfileMayHaveActiveSession checks journals under PrivGuard but markers only under PrivGvard and PrivLock
+        Assert.Contains(
+            "ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#RecoveryRelativePath}')",
+            script,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#LegacyRecoveryRelativePath}')",
+            script,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ProfilePathMayHaveActiveJournalInDir(ProfilePath, '{#ModernRecoveryRelativePath}')",
+            script,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#ModernRecoveryRelativePath}')",
+            script,
+            StringComparison.Ordinal);
+    }
 }

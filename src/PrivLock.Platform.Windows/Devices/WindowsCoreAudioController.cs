@@ -13,8 +13,19 @@ public sealed class WindowsCoreAudioController
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsCoreAudioController>();
     private static readonly Guid IID_IAudioEndpointVolume = new("5CDF2C82-841E-4546-9722-0CF74078229A");
+    public const uint ENDPOINT_HARDWARE_SUPPORT_MUTE = 0x00000002;
     private const uint CLSCTX_ALL = 23;
     private const uint DEVICE_STATE_ACTIVE = 1;
+
+    public static AudioEndpointHardwareMuteSupport ParseHardwareMuteSupport(int hresult, uint hardwareSupportMask)
+    {
+        if (hresult != 0)
+            return AudioEndpointHardwareMuteSupport.Unknown;
+
+        return (hardwareSupportMask & ENDPOINT_HARDWARE_SUPPORT_MUTE) != 0
+            ? AudioEndpointHardwareMuteSupport.Supported
+            : AudioEndpointHardwareMuteSupport.NotSupported;
+    }
 
     public WindowsAudioEndpointQueryResult GetMicrophoneMuteStates()
     {
@@ -60,7 +71,21 @@ public sealed class WindowsCoreAudioController
                     if (hr != 0)
                         return QueryFailure($"Failed to query capture endpoint mute. HR=0x{hr:X8}");
 
-                    states.Add(new WindowsAudioEndpointMuteState(endpointId, isMuted));
+                    var hwSupport = AudioEndpointHardwareMuteSupport.Unknown;
+                    var hwHr = volume.QueryHardwareSupport(out var hwMask);
+                    if (hwHr == 0)
+                    {
+                        hwSupport = ParseHardwareMuteSupport(hwHr, hwMask);
+                    }
+                    else
+                    {
+                        Log.Warning(
+                            "QueryHardwareSupport failed for capture endpoint index {Index} (HR=0x{Hr:X8}). Hardware mute support is Unknown.",
+                            index,
+                            hwHr);
+                    }
+
+                    states.Add(new WindowsAudioEndpointMuteState(endpointId, isMuted, hwSupport));
                 }
                 finally
                 {
@@ -94,7 +119,7 @@ public sealed class WindowsCoreAudioController
             string.Equals(state.EndpointId, endpointId, StringComparison.OrdinalIgnoreCase));
         return match == null
             ? WindowsAudioEndpointLookupResult.Missing()
-            : WindowsAudioEndpointLookupResult.Found(match.IsMuted);
+            : WindowsAudioEndpointLookupResult.Found(match.IsMuted, match.HardwareMuteSupport);
     }
 
     public OperationResult SetMicrophoneMute(string endpointId, bool mute)
@@ -324,7 +349,17 @@ public sealed class WindowsCoreAudioController
     #endregion
 }
 
-public sealed record WindowsAudioEndpointMuteState(string EndpointId, bool IsMuted);
+public enum AudioEndpointHardwareMuteSupport
+{
+    Unknown = 0,
+    Supported = 1,
+    NotSupported = 2,
+}
+
+public sealed record WindowsAudioEndpointMuteState(
+    string EndpointId,
+    bool IsMuted,
+    AudioEndpointHardwareMuteSupport HardwareMuteSupport = AudioEndpointHardwareMuteSupport.Unknown);
 
 public sealed record WindowsAudioEndpointQueryResult(bool Success, IReadOnlyList<WindowsAudioEndpointMuteState> States, string? ErrorMessage)
 {
@@ -332,9 +367,21 @@ public sealed record WindowsAudioEndpointQueryResult(bool Success, IReadOnlyList
     public static WindowsAudioEndpointQueryResult Failed(string errorMessage) => new(false, [], errorMessage);
 }
 
-public sealed record WindowsAudioEndpointLookupResult(bool QuerySucceeded, bool IsPresent, bool IsMuted, string? ErrorMessage)
+public sealed record WindowsAudioEndpointLookupResult(
+    bool QuerySucceeded,
+    bool IsPresent,
+    bool IsMuted,
+    string? ErrorMessage,
+    AudioEndpointHardwareMuteSupport HardwareMuteSupport = AudioEndpointHardwareMuteSupport.Unknown)
 {
-    public static WindowsAudioEndpointLookupResult Found(bool isMuted) => new(true, true, isMuted, null);
-    public static WindowsAudioEndpointLookupResult Missing() => new(true, false, false, null);
-    public static WindowsAudioEndpointLookupResult Failed(string errorMessage) => new(false, false, false, errorMessage);
+    public static WindowsAudioEndpointLookupResult Found(
+        bool isMuted,
+        AudioEndpointHardwareMuteSupport hardwareMuteSupport = AudioEndpointHardwareMuteSupport.Unknown) =>
+        new(true, true, isMuted, null, hardwareMuteSupport);
+
+    public static WindowsAudioEndpointLookupResult Missing() =>
+        new(true, false, false, null, AudioEndpointHardwareMuteSupport.Unknown);
+
+    public static WindowsAudioEndpointLookupResult Failed(string errorMessage) =>
+        new(false, false, false, errorMessage, AudioEndpointHardwareMuteSupport.Unknown);
 }

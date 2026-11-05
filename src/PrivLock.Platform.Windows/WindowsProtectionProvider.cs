@@ -220,12 +220,31 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 SecureState = micSecureState,
                 IsVerified = micStandardState != StandardProtectionState.Unknown &&
                              micSecureState != SecureProtectionState.Unknown,
-                StatusMessage = micStandardState == StandardProtectionState.Unknown ||
-                                micSecureState == SecureProtectionState.Unknown
-                    ? "Windows microphone protection state is partial or could not be fully verified."
-                    : null
+                StatusMessage = DetermineMicrophoneStatusMessage(
+                    microphoneEndpoints.Success,
+                    microphoneEndpoints.States.Count,
+                    mics.Count,
+                    micStandardState,
+                    micSecureState)
             }
         };
+    }
+
+    internal static string? DetermineMicrophoneStatusMessage(
+        bool endpointQuerySucceeded,
+        int endpointCount,
+        int deviceCount,
+        StandardProtectionState standardState,
+        SecureProtectionState secureState)
+    {
+        if (endpointQuerySucceeded && endpointCount == 0 && deviceCount == 0)
+            return "No input microphones detected.";
+
+        if (standardState == StandardProtectionState.Unknown ||
+            secureState == SecureProtectionState.Unknown)
+            return "Windows microphone protection state is partial or could not be fully verified.";
+
+        return null;
     }
 
     private static StandardProtectionState ToStandardState(BlockStatus status) => status switch

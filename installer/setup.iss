@@ -17,6 +17,7 @@
 #define ProfileListRegistryKey "SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 #define RecoveryRelativePath "AppData\Local\PrivGvard\Recovery\"
 #define LegacyRecoveryRelativePath "AppData\Local\PrivLock\Recovery\"
+#define ModernRecoveryRelativePath "AppData\Local\PrivGuard\Recovery\"
 #define ActiveMarkerFile "active-session-v1.marker"
 #define JournalFile "privacy-session-v1.json"
 
@@ -421,17 +422,15 @@ begin
   Result := StartsText('S-1-5-21-', Sid) or StartsText('S-1-12-1-', Sid);
 end;
 
-function ProfilePathMayHaveActiveSessionInDir(const ProfilePath, RelativeDir: String): Boolean;
+function RecoveryDirectoryAncestorsSafe(const ProfilePath, RelativeDir: String; var DirectoryExists: Boolean): Boolean;
 var
   RecoveryPath: String;
-  PrimaryJournal: String;
   ParentPath: String;
   Exists: Boolean;
   Index: Integer;
 begin
-  Result := True;
-  // The marker uses the conventional profile path even when LocalAppData is redirected.
-  // Reject unknown/redirected ancestors before considering any missing child authoritative.
+  Result := False;
+  DirectoryExists := False;
   RecoveryPath := AddBackslash(ProfilePath) + RelativeDir;
   for Index := 4 to Length(RecoveryPath) do
   begin
@@ -443,22 +442,67 @@ begin
       begin
         // A missing profile is not proof that its offline or deleted recovery state is safe.
         if Length(ParentPath) <= Length(ProfilePath) then exit;
-        Result := False;
+        DirectoryExists := False;
+        Result := True;
         exit;
       end;
     end;
   end;
+  DirectoryExists := True;
+  Result := True;
+end;
+
+function ProfilePathMayHaveActiveMarkerInDir(const ProfilePath, RelativeDir: String): Boolean;
+var
+  RecoveryPath: String;
+  DirSafe: Boolean;
+  DirExists: Boolean;
+  Exists: Boolean;
+begin
+  Result := True;
+  DirSafe := RecoveryDirectoryAncestorsSafe(ProfilePath, RelativeDir, DirExists);
+  if not DirSafe then exit;
+  if not DirExists then
+  begin
+    Result := False;
+    exit;
+  end;
+  RecoveryPath := AddBackslash(ProfilePath) + RelativeDir;
   if not TryInspectPath(RecoveryPath + '{#ActiveMarkerFile}', False, Exists) then exit;
-  if Exists then exit;
+  Result := Exists;
+end;
+
+function ProfilePathMayHaveActiveJournalInDir(const ProfilePath, RelativeDir: String): Boolean;
+var
+  RecoveryPath: String;
+  PrimaryJournal: String;
+  DirSafe: Boolean;
+  DirExists: Boolean;
+begin
+  Result := True;
+  DirSafe := RecoveryDirectoryAncestorsSafe(ProfilePath, RelativeDir, DirExists);
+  if not DirSafe then exit;
+  if not DirExists then
+  begin
+    Result := False;
+    exit;
+  end;
+  RecoveryPath := AddBackslash(ProfilePath) + RelativeDir;
   PrimaryJournal := RecoveryPath + '{#JournalFile}';
-  // A completed commit durably updates both copies before clearing the marker.
   Result := JournalMayBeActive(PrimaryJournal) or JournalMayBeActive(PrimaryJournal + '.bak');
+end;
+
+function ProfilePathMayHaveActiveSessionInDir(const ProfilePath, RelativeDir: String): Boolean;
+begin
+  Result := ProfilePathMayHaveActiveMarkerInDir(ProfilePath, RelativeDir) or
+            ProfilePathMayHaveActiveJournalInDir(ProfilePath, RelativeDir);
 end;
 
 function ProfileMayHaveActiveSession(const ProfilePath: String): Boolean;
 begin
   Result := ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#RecoveryRelativePath}') or
-            ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#LegacyRecoveryRelativePath}');
+            ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#LegacyRecoveryRelativePath}') or
+            ProfilePathMayHaveActiveJournalInDir(ProfilePath, '{#ModernRecoveryRelativePath}');
 end;
 
 function AnyProfileMayHaveActiveSession: Boolean;

@@ -392,10 +392,18 @@ public sealed partial class MainViewModel : ObservableObject
 
             // === 3. Microphone UI ===
             var micBlocked = state.Microphone.IsProtected;
+            var noMicrophonesDetected = state.Microphone.StatusMessage == "No input microphones detected.";
             IsMicBlocked = micBlocked;
             IsMicStandardActive = micBlocked;
 
-            if (!micBlocked)
+            if (noMicrophonesDetected && !micBlocked)
+            {
+                MicStatusText = _localizationService.GetString("NoMicrophonesDetected", "No input microphones detected");
+                MicStatusColor = "#9E9E9E";
+                MicStandardText = _localizationService.GetString("NoMicrophonesDetected", "No input microphones detected");
+                MicStandardColor = "#9E9E9E";
+            }
+            else if (!micBlocked)
             {
                 MicStatusText = _localizationService.GetString("StatusUnblocked", "✅ Allowed");
                 MicStatusColor = "#81C784";
@@ -439,7 +447,9 @@ public sealed partial class MainViewModel : ObservableObject
                     MicSecureBadgeColor = "#555555";
                     MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
                     IsMicSecureButtonEnabled = false;
-                    MicSecureHint = _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
+                    MicSecureHint = noMicrophonesDetected
+                        ? _localizationService.GetString("NoMicrophonesDetected", "No input microphones detected")
+                        : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
                     IsMicSecureHintVisible = !micBlocked;
                     break;
             }
