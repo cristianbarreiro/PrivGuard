@@ -1,4 +1,4 @@
-﻿# Pre-Submission Inquiry: `rescap:allowElevation` and `rescap:unvirtualizedResources` for PrivGuard
+# Pre-Submission Inquiry Draft: `rescap:allowElevation` and `rescap:unvirtualizedResources` for PrivGuard
 
 **Document Date:** November 2026
 **Product Name:** PrivGuard
@@ -7,18 +7,24 @@
 **Publisher ID:** `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD`
 **Publisher Display Name:** `cdev studios`
 **Package Family Name (PFN):** `cdevstudios.PrivGuard_tv7b4yqg10sw2`
-**Contact Email:** `reportapp@microsoft.com` (Microsoft Store Restricted Capabilities Team)
-**Developer Account Type:** Individual Developer Account
+**Status:** **ARCHIVED / HISTORICAL TECHNICAL REFERENCE (NOT DISPATCHED)**
 
-> [!IMPORTANT]
-> **Pre-Submission Draft:** This document constitutes a formal pre-submission consultation draft to be reviewed and sent by the developer to `reportapp@microsoft.com`. It has **not** been submitted automatically, and Microsoft has **not** yet granted approval for these restricted capabilities.
+> [!NOTE]
+> **Archival Notice & Design Decision:**
+> Under **Architectural Decision D-01**, PrivGuard adopted a dual-edition model. The package destined for Microsoft Store (**PrivGuard Store Edition**) eliminates `rescap:allowElevation` and `rescap:unvirtualizedResources`, retaining solely `rescap:runFullTrust`. Advanced functionality requiring elevated privileges (PnP hardware DevNode disabling and HKLM Group Policies) is reserved exclusively for **PrivGuard Standalone Edition**.
+>
+> Consequently, this pre-submission consultation draft **has not been sent to `reportapp@microsoft.com` and will not be dispatched**.
+>
+> *Note on Evidence:* Microsoft has **not** issued an express rejection or negative ruling regarding individual developer accounts. The decision to omit elevated capabilities from Store Edition was made proactively by the PrivGuard engineering team to guarantee clean MSIX uninstallation, prevent orphaned hardware states, and adhere to least-privilege principles.
+>
+> This file is retained in the repository solely as a technical record of the worker security architecture and historical certification evaluation.
 
 ---
 
-## 1. Email Draft to Microsoft Store Review Team
+## 1. Historical Draft Text (Preserved for Technical Reference)
 
 **To:** `reportapp@microsoft.com`
-**Subject:** Pre-Submission Capability Approval Inquiry: `allowElevation` and `unvirtualizedResources` â€” PrivGuard (`9NQ56N45XH5N`)
+**Subject:** Pre-Submission Capability Approval Inquiry: `allowElevation` and `unvirtualizedResources` — PrivGuard (`9NQ56N45XH5N`)
 
 ```text
 Dear Microsoft Store Application Review Team,
@@ -113,10 +119,9 @@ PrivGuard Engineering Team
 
 ---
 
-## 2. Status & Pre-Submission Action Plan
+## 2. Archival Status
 
-| Vector | Current Status | Required Action |
+| Vector | Status | Action / Decision |
 |---|:---:|---|
-| **allowElevation Pre-Approval** | **PENDING DEVELOPER DISPATCH** | The developer should copy the text above, insert their contact information, and send it to `reportapp@microsoft.com`. |
-| **Microsoft Response Tracking** | **AWAITING RESPONSE** | Document the official reply in this file upon receipt. |
-| **Store Readiness Impact** | **CONDITIONAL HOLD** | Do NOT click "Submit for certification" in Partner Center until Microsoft provides written guidance on capability eligibility for Individual Accounts. |
+| **allowElevation Pre-Approval** | **ARCHIVED / NOT SENT** | In accordance with D-01, `allowElevation` is excluded from the Store package. |
+| **Store Readiness Impact** | **RESOLVED VIA DUAL DESIGN** | Store Edition will declare solely `runFullTrust`, eliminating the dependency on pre-approval. |

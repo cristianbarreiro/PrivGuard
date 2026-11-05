@@ -1,30 +1,37 @@
 # PrivGuard 2.0 — Microsoft Store Publishing Plan
 
-**Document Version:** 1.0.0
+**Document Version:** 2.0.0
 **Effective Date:** November 2026
 **Product:** PrivGuard (v2.0.0.0)
 **Target Platform:** Windows 10 (10.0.19041.0+) and Windows 11 (x64)
 **Release Artifact:** `release/store/PrivGuard-2.0.0.0-x64.msix` (SHA-256: `4D77B8D76DB17D4FA8A8A432555628475BACD06A5F40929D883BC37792FC74CD`)
 * **Historical Package:** `release/store/PrivGvard-2.0.0.0-x64.msix` (SHA-256: `0397F8C8918CD80E4D282CCDB12C6504B2E49F1E4B96C0C21CA8146A4963B542`)
 **Package Family Name (PFN):** `cdevstudios.PrivGuard_tv7b4yqg10sw2`
-**Current Milestone:** `CONDITIONAL HOLD — PENDING MICROSOFT RESTRICTED CAPABILITY GUIDANCE` (Draft upload permitted; Certification submission blocked)
+**Current Milestone:** `CONDITIONAL HOLD — PENDING PACKAGE STORAGE VALIDATION & DUAL PROFILE IMPLEMENTATION` (Draft upload permitted; Certification submission blocked)
 
 ---
 
-## 1. Executive Strategy & Publishing Roadmap
+## 1. Executive Strategy & Dual Architecture Publishing Roadmap
 
 This plan establishes the operational, technical, legal, and certification procedures required to publish **PrivGuard 2.0** on the **Microsoft Store**.
 
-The publishing process is organized into three sequential stages:
-- **Etapa A — Store Readiness Audit:** Technical, architectural, security, and policy compliance verification.
-- **Etapa B — Partner Center Preparation:** Staging of Store-ready packages, metadata, listings, graphical assets, and reviewer notes.
-- **Etapa C — Certification & Publishing:** Controlled submission to Microsoft certification, review tracking, issue resolution, and live release on the Microsoft Store.
+Following **Architectural Decisions D-01, D-02, and D-03**, the distribution of PrivGuard is structured as two distinct, complementary editions:
+
+1. **PrivGuard Store Edition (MSIX Package):**
+   - Distributed via Microsoft Store.
+   - Runs strictly with standard user privileges (`asInvoker`).
+   - Declares solely the standard `rescap:runFullTrust` capability.
+   - Core mitigation: Silences microphone capture endpoints using the native Windows Core Audio COM API (WASAPI) and provides one-click navigation to Windows Camera/Microphone privacy settings (`ms-settings:`).
+   - Completely excludes elevated code paths (`--privileged-worker`), PnP device node disabling (`CfgMgr32.dll`), and machine-level Group Policy writes (`HKLM`).
+2. **PrivGuard Standalone Edition (Inno Setup Installer & Portable Zip):**
+   - Distributed via GitHub Releases / Direct Download.
+   - Retains the complete, uncompromised Secure Protection suite (PnP DevNode management and HKLM AppPrivacy policies via the on-demand authenticated worker) and Standard Protection (HKCU `ConsentStore`).
 
 ```mermaid
 flowchart TD
-    A["Etapa A: Store Readiness Audit"] -->|Passed| B["Etapa B: Partner Center Preparation"]
-    B -->|Artifacts & Metadata Ready| M["MILESTONE: CONDITIONAL HOLD (Draft Ready / Cert Blocked)"]
-    M -->|Explicit User Authorization| C["Etapa C: Submission & Certification"]
+    A["Etapa A: Store Readiness Audit (Fase 8A/8A.1)"] -->|Dual Architecture Approved| B["Etapa B: Validación de Almacenamiento & Pipeline 8B"]
+    B -->|Storage Measured & Manifiesto Limpio| M["MILESTONE: CONDITIONAL HOLD (Listo para WACK / Pre-Submission)"]
+    M -->|WACK 100% Pass & Autorización del Usuario| C["Etapa C: Submission & Certification en Partner Center"]
     C -->|Microsoft Ingestion & Tests| D{"Certification Result"}
     D -->|Passed| E["MILESTONE: CERTIFIED"]
     D -->|Observations| F["Reviewer Feedback Remediation"]
@@ -44,7 +51,7 @@ The official Microsoft Store Partner Center identity constants configured in the
 | **Publisher ID** | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` | **EXACT** |
 | **Publisher Display Name** | `cdev studios` | `cdev studios` | **EXACT** |
 | **Package Family Name** | `cdevstudios.PrivGuard_tv7b4yqg10sw2` | Derived automatically from Name + Publisher ID | **EXACT** |
-| **Application ID** | `PrivGvardApp` | `PrivGvardApp` | **EXACT** |
+| **Application ID** | `PrivGuardApp` | `PrivGuardApp` | **EXACT** |
 | **Version** | `2.0.0.0` | `2.0.0.0` | **EXACT** |
 | **Entry Point** | `Windows.FullTrustApplication` | `Windows.FullTrustApplication` (`PrivGvard.exe`) | **EXACT** |
 
@@ -58,9 +65,7 @@ The official Microsoft Store Partner Center identity constants configured in the
 Publishing requires an active **Microsoft Partner Center Windows Developer Account**:
 
 - **Account URL:** `https://partner.microsoft.com/dashboard/registration`
-- **Account Types:**
-  - **Individual Account:** Registered using personal legal identity. Publisher Display Name represents the developer.
-  - **Company Account:** Requires valid Dun & Bradstreet (D-U-N-S) number and business verification. Publisher Display Name represents the legal entity (`cdev studios`).
+- **Account Type:** Individual Developer Account (Publisher: `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD`, Display Name: `cdev studios`).
 - **Security Rule:** No credentials, 2FA codes, or Partner Center API secrets are ever stored in this repository or transmitted via tools. All administrative account interactions are performed directly by the developer in the browser.
 
 ---
@@ -69,8 +74,8 @@ Publishing requires an active **Microsoft Partner Center Windows Developer Accou
 
 1. **Compilation Configuration:**
    - Framework: .NET 10.0 (`net10.0-windows10.0.19041.0`)
-   - Compilation: Loose binary publish (`PublishSingleFile=false`) required for MSIX manifest packaging.
-   - Optimization: Release mode, ready-to-run disabled to avoid native bytecode incompatibilities on downlevel builds.
+   - Compilation Profile: `Release-Store` (`STORE_EDITION` constant; excludes privileged worker and PnP/HKLM code).
+   - Packaging: Loose binary publish (`PublishSingleFile=false`) packaged via `MakeAppx.exe`.
 2. **Resource Indexing (`MakePri.exe`):**
    - Configured with qualifiers for scales 100, 125, 150, 200, 400 and target sizes 16 to 256.
    - Bilingual indexing (`en-us`, `es-es`).
@@ -82,19 +87,21 @@ Publishing requires an active **Microsoft Partner Center Windows Developer Accou
 
 ---
 
-## 5. Certification Strategy & Restricted Capabilities
+## 5. Certification Strategy & Capabilities
 
-PrivGvard declares three restricted capabilities (`rescap`) in `Package.appxmanifest`:
-1. `rescap:runFullTrust`: Required for Win32 desktop APIs (Core Audio COM, CfgMgr32, WMI).
-2. `rescap:allowElevation`: Required for launching the transient helper (`PrivGvard.exe --privileged-worker`) with `Verb="runas"` upon explicit user trigger for Secure Protection.
-3. `rescap:unvirtualizedResources`: Required to ensure standard (un-elevated) camera consent updates write directly to real user registry keys (`HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam`) rather than being trapped in the package virtual hive (`SystemAppData\Helium\User.dat`).
+Under Architectural Decision D-01, the Store package declares solely:
+- **`rescap:runFullTrust`**: Required for Win32 desktop APIs, COM WASAPI interop (`IMMDeviceEnumerator`, `IAudioEndpointVolume`), WMI hardware detection (`Win32_PnPEntity`), and System Tray lifecycle integration.
 
-A comprehensive technical justification document is prepared in [docs/store/MICROSOFT-STORE-JUSTIFICATION.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/MICROSOFT-STORE-JUSTIFICATION.md) and [docs/store/REVIEWER-CERTIFICATION-NOTES.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/REVIEWER-CERTIFICATION-NOTES.md) for Microsoft certification testers.
+**Capabilities Omitted from Store Edition:**
+- `rescap:allowElevation`: Excluded. Store Edition executes strictly under standard user rights (`asInvoker`).
+- `rescap:unvirtualizedResources`: Excluded. Store Edition does not modify `ConsentStore` directly, directing users to native Windows settings instead.
+
+*(Note on Evidence: Microsoft has not issued an express rejection regarding Individual accounts; the omission of elevated capabilities from Store Edition is a proactive engineering decision to prevent orphaned hardware states upon MSIX uninstallation and ensure minimal privilege).*
 
 ---
 
 ## 6. Servicing & Update Policy
 
 - **Version Numbering:** Semantic versioning mapping (`Major.Minor.Build.Revision`). Subsequent hotfixes will increment the third or fourth component (e.g., `2.0.1.0` or `2.0.0.1`).
-- **Data Preservation:** Future updates inherit user preferences (`state.json`) and recovery journals (`privacy-session-v1.json`) seamlessly from `%LOCALAPPDATA%\PrivGvard`.
-- **Downgrade Protection:** Package version enforcement in Windows prevents accidental rollbacks that could orphan session journals.
+- **Data Preservation:** Updates within the package family preserve user preferences and runtime session data stored in `LocalCache\Local`.
+- **Downgrade Protection:** Package version enforcement in Windows prevents accidental rollbacks.

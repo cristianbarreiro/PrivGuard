@@ -1,10 +1,10 @@
 # PrivGvard — Roadmap de Evolución y Estado de Auditoría
 
-**Estado:** Activo / PrivGvard 2.0<br />
-**Fecha de actualización:** 2026-09-12<br />
-**Repositorio:** `Cam&MicroBlocker`<br />
-**Rama activa:** `dev`<br />
-**Identidad del producto:** PrivGvard (ejecutable: `PrivGvard.exe` / `PrivGvard`)<br />
+**Estado:** Activo / PrivGuard 2.0<br />
+**Fecha de actualización:** 2026-11-05<br />
+**Repositorio:** `PrivGuard`<br />
+**Rama activa:** `main`<br />
+**Identidad del producto:** PrivGuard (ejecutable interno: `PrivGvard.exe` / `PrivGvard`, paquete Store: `cdevstudios.PrivGuard`)<br />
 **Postura de soporte:** Windows es la plataforma principal soportada para protección y recuperación de privacidad. Linux y macOS permanecen como scaffolds de descubrimiento/interfaz (`CapabilityLevel.None`) hasta que cuenten con adaptadores de persistencia y rollback reversibles.
 
 ---
@@ -54,14 +54,25 @@ dotnet test PrivGvard.sln --no-restore        -> correcto en todas las suites ac
 
 ---
 
-### P2 — Mejoras Post-2.0 y Roadmap Futuro
+### P2 — Arquitectura Dual y Microsoft Store (Fase 8A / 8A.1) [EN CONDITIONAL HOLD]
+
+- **Auditoría Técnica y de Cumplimiento Regulatorio**:
+  - Informe exhaustivo completado en `INFORME-FASE-8A1-VALIDACION-FINAL.md`.
+  - **Decisión D-01 (Aprobada):** El perfil MSIX Store elimina `rescap:allowElevation` y `rescap:unvirtualizedResources`, conservando únicamente `rescap:runFullTrust`. La funcionalidad avanzada que requiere elevación queda reservada para Standalone. Eliminadas conclusiones no demostradas respecto a rechazos de cuentas individuales (la exclusión de elevación es una decisión de diseño proactiva).
+  - **Decisión D-02 (Aprobada con condiciones):** Store Edition utilizará WASAPI para silenciar endpoints y ofrecerá acceso a la configuración nativa de privacidad (`ms-settings:`). No escribirá directamente en `ConsentStore`, `HKLM` ni administrará dispositivos PnP. La interfaz no afirmará bloqueo absoluto ni cobertura universal del micrófono, reflejando honestamente los matices de modo compartido/exclusivo y soporte de hardware (`QueryHardwareSupport`).
+  - **Decisión D-03 (Aprobación parcial):** Aprobado el aislamiento independiente de configuración, diarios, backups, marcadores y registros de cada edición. Pendiente la validación del almacenamiento real de MSIX Full Trust en VM y el diseño de un coordinador de propiedad de recursos entre ambas ediciones.
+  - **Estado de Envío a Store:** **CONDITIONAL HOLD**. Bloqueado hasta completar las pruebas de laboratorio de almacenamiento y la implementación de la Fase 8B.
+
+---
+
+### P3 — Mejoras Post-2.0 y Roadmap Futuro
 
 - **Adaptador nativo de audio en Linux**:
   - Diseñar un proveedor PipeWire / WirePlumber nativo que capture nodos de audio estables, volumen y estado de mute con rollback exacto.
 - **Adaptador nativo de audio en macOS**:
   - Implementar captura y restauración de volumen/mute por AudioDeviceID exacto mediante CoreAudio HAL.
 - **Migración de identificadores internos**:
-  - Cuando se apruebe una migración interna de código, planificar la renonmbrada coordinada de espacios de nombres `PrivLock.*` y la solución `CamMicBlocker.sln` hacia `PrivGvard`, garantizando la migración de llaves de registro de propiedad y mutex.
+  - Cuando se apruebe una migración interna de código, planificar el renombrado coordinado de espacios de nombres `PrivLock.*` y la solución `PrivGvard.sln` hacia `PrivGuard`, garantizando la migración de llaves de registro de propiedad y mutex.
 
 ---
 
@@ -79,8 +90,9 @@ dotnet test PrivGvard.sln --no-restore        -> correcto en todas las suites ac
 | **Eliminación de Recuentos Fijos de Tests** | **RESUELTO** | Recuentos volátiles eliminados de la documentación permanente para evitar obsolescencia rápida. |
 | **Validación de Ciclo de Vida y Reinicio (Fase 4)** | **RESUELTO** | `tests/PrivLock.Application.Tests/RestartLifecycleValidationTests.cs` valida Test A (Cámara), Test B (Micrófono), Test C (Combinado), Test D (Desactivación de usuario), idempotencia multi-ciclo, fallos parciales de reconciliación segura, recuperación asimétrica y preservación estricta del invariante de separación de estados. |
 | **Inicio Automático en Windows (Fase 5)** | **RESUELTO** | `tests/PrivLock.Platform.Windows.Tests/WindowsAutostartLifecycleTests.cs` valida exhaustivamente los 10 escenarios normativos de autostart (Test A al Test J): autorización, lectura efectiva, deshabilitación de registro, respeto de directivas de usuario y directivas de grupo de Windows, idempotencia y cero duplicados, arranque manual desacoplado, degradación ante plataformas no soportadas, guardia de instancia única bajo autostart, precedencia de recuperación sobre reconciliación y persistencia de desactivación explícita. Aceptación física en VM Windows 11 PASS. |
-| **Endurecimiento de Windows y Preparación de Release (Fase 6)** | **RESUELTO** | `tests/PrivLock.Platform.Windows.Tests/WindowsHardeningPhase6Tests.cs` valida hotplug de hardware (HOTPLUG-A a D), barrera de inmovilidad/quiescencia en caídas (CRASH-B a D), mitigación de fallos en diario corrupto sin borrado destructivo, manejo de cancelación de UAC sin corrupción de DesiredState (UAC-B y D), y paquete MSIX Release (`publish_out\msix\PrivGvard-2.0.0.0-x64.msix`) validado con 0 errores y 418 pruebas exitosas. |
-| **Preparación para Microsoft Store (Fase 7 - Etapas A y B)** | **LISTO PARA ENVÍO** | Auditoría completa bajo directivas Store 7.20 (0 riesgos críticos/altos). Paquete `release/store/PrivGvard-2.0.0.0-x64.msix` generado con identidad `cdevstudios.PrivGvard` y validación estricta de Partner Center. Documentación completa: plan de publicación, matriz de políticas, política de privacidad HTTPS, ficha comercial bilingüe (EN/ES), checklist y notas para revisores. Etapa C lista para autorización del usuario. |
+| **Endurecimiento de Windows y Preparación de Release (Fase 6)** | **RESUELTO** | `tests/PrivLock.Platform.Windows.Tests/WindowsHardeningPhase6Tests.cs` valida hotplug de hardware (HOTPLUG-A a D), barrera de inmovilidad/quiescencia en caídas (CRASH-B a D), mitigación de fallos en diario corrupto sin borrado destructivo, manejo de cancelación de UAC sin corrupción de DesiredState (UAC-B y D), y paquete MSIX Release (`publish_out\msix\PrivGvard-2.0.0.0-x64.msix`) validado con 0 errores. |
+| **Preparación para Microsoft Store (Fase 7 - Etapas A y B)** | **RESUELTO** | Paquete MSIX generado con identidad `cdevstudios.PrivGuard` y validación estricta de Partner Center. Documentación de preflight completada. |
+| **Auditoría Técnica y Validación Dual (Fase 8A / 8A.1)** | **CONDITIONAL HOLD (D-01/D-02/D-03)** | Auditoría de virtualización (`Helium\User.dat`), ciclo de vida MSIX (purga de `%LOCALAPPDATA%\Packages`), WASAPI Mute y políticas de Store. Eliminadas conclusiones no demostradas. Aprobada arquitectura dual: Store Edition (MSIX, `runFullTrust` únicamente, WASAPI Mute y atajos nativos de SO) y Standalone Edition (Inno Setup / Portable, Secure Protection completa con PnP y HKLM). Envío a Store en CONDITIONAL HOLD pendiente de validación física de almacenamiento en VM y diseño de coordinador de recursos. |
 
 ---
 
