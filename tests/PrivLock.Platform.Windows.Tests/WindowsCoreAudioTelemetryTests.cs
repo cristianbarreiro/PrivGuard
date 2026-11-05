@@ -36,10 +36,24 @@ public sealed class WindowsCoreAudioTelemetryTests
             WindowsCoreAudioController.ParseHardwareMuteSupport(0, 0x00000004));
     }
 
+    [Fact]
+    public void ParseHardwareMuteSupport_WhenComSucceededWithSFalse_ParsesMaskAccurately()
+    {
+        // COM S_FALSE = 1 is a non-negative success code (SUCCEEDED(hr) == true)
+        Assert.Equal(
+            AudioEndpointHardwareMuteSupport.Supported,
+            WindowsCoreAudioController.ParseHardwareMuteSupport(1, WindowsCoreAudioController.ENDPOINT_HARDWARE_SUPPORT_MUTE));
+
+        Assert.Equal(
+            AudioEndpointHardwareMuteSupport.NotSupported,
+            WindowsCoreAudioController.ParseHardwareMuteSupport(1, 0x00000000));
+    }
+
     [Theory]
     [InlineData(unchecked((int)0x80004005))] // E_FAIL
-    [InlineData(1)]                          // S_FALSE
-    [InlineData(-1)]                         // Generic failure
+    [InlineData(unchecked((int)0x80070005))] // E_ACCESSDENIED
+    [InlineData(unchecked((int)0x80004001))] // E_NOTIMPL
+    [InlineData(-1)]                         // Generic negative failure
     public void ParseHardwareMuteSupport_WhenHResultFailed_ReturnsUnknownRegardlessOfMask(int hresult)
     {
         Assert.Equal(
@@ -56,16 +70,16 @@ public sealed class WindowsCoreAudioTelemetryTests
     {
         var supported = new WindowsAudioEndpointMuteState(
             "endpoint-hw",
-            isMuted: true,
-            AudioEndpointHardwareMuteSupport.Supported);
+            IsMuted: true,
+            HardwareMuteSupport: AudioEndpointHardwareMuteSupport.Supported);
         Assert.Equal("endpoint-hw", supported.EndpointId);
         Assert.True(supported.IsMuted);
         Assert.Equal(AudioEndpointHardwareMuteSupport.Supported, supported.HardwareMuteSupport);
 
         var notSupported = new WindowsAudioEndpointMuteState(
             "endpoint-sw",
-            isMuted: false,
-            AudioEndpointHardwareMuteSupport.NotSupported);
+            IsMuted: false,
+            HardwareMuteSupport: AudioEndpointHardwareMuteSupport.NotSupported);
         Assert.Equal("endpoint-sw", notSupported.EndpointId);
         Assert.False(notSupported.IsMuted);
         Assert.Equal(AudioEndpointHardwareMuteSupport.NotSupported, notSupported.HardwareMuteSupport);
@@ -80,7 +94,7 @@ public sealed class WindowsCoreAudioTelemetryTests
     {
         var foundSupported = WindowsAudioEndpointLookupResult.Found(
             isMuted: true,
-            AudioEndpointHardwareMuteSupport.Supported);
+            hardwareMuteSupport: AudioEndpointHardwareMuteSupport.Supported);
         Assert.True(foundSupported.QuerySucceeded);
         Assert.True(foundSupported.IsPresent);
         Assert.True(foundSupported.IsMuted);
@@ -116,53 +130,72 @@ public sealed class WindowsCoreAudioTelemetryTests
     }
 
     [Fact]
-    public void DetermineMicrophoneStatusMessage_WhenZeroEndpointsAndZeroDevices_ReturnsNeutralAbsenceMessage()
+    public void DetermineMicrophoneAvailability_WhenQuerySucceededAndNoEndpointsOrDevices_ReturnsNotDetected()
     {
-        var message = WindowsProtectionProvider.DetermineMicrophoneStatusMessage(
+        var availability = WindowsProtectionProvider.DetermineMicrophoneAvailability(
             endpointQuerySucceeded: true,
             endpointCount: 0,
-            deviceCount: 0,
-            standardState: StandardProtectionState.Unknown,
-            secureState: SecureProtectionState.Unknown);
+            deviceCount: 0);
+
+        Assert.Equal(TargetDeviceAvailability.NotDetected, availability);
+    }
+
+    [Fact]
+    public void DetermineMicrophoneAvailability_WhenQueryFailed_ReturnsUnknown()
+    {
+        var availability = WindowsProtectionProvider.DetermineMicrophoneAvailability(
+            endpointQuerySucceeded: false,
+            endpointCount: 0,
+            deviceCount: 0);
+
+        Assert.Equal(TargetDeviceAvailability.Unknown, availability);
+    }
+
+    [Fact]
+    public void DetermineMicrophoneAvailability_WhenEndpointsOrDevicesPresent_ReturnsAvailable()
+    {
+        var availabilityWithEndpoints = WindowsProtectionProvider.DetermineMicrophoneAvailability(
+            endpointQuerySucceeded: true,
+            endpointCount: 1,
+            deviceCount: 0);
+        Assert.Equal(TargetDeviceAvailability.Available, availabilityWithEndpoints);
+
+        var availabilityWithDevices = WindowsProtectionProvider.DetermineMicrophoneAvailability(
+            endpointQuerySucceeded: true,
+            endpointCount: 0,
+            deviceCount: 1);
+        Assert.Equal(TargetDeviceAvailability.Available, availabilityWithDevices);
+    }
+
+    [Fact]
+    public void DetermineMicrophoneStatusMessage_WhenNotDetected_ReturnsNeutralAbsenceMessage()
+    {
+        var message = WindowsProtectionProvider.DetermineMicrophoneStatusMessage(
+            TargetDeviceAvailability.NotDetected,
+            StandardProtectionState.Unknown,
+            SecureProtectionState.Unknown);
 
         Assert.Equal("No input microphones detected.", message);
     }
 
     [Fact]
-    public void DetermineMicrophoneStatusMessage_WhenQueryFailed_ReturnsPartialVerificationWarning()
+    public void DetermineMicrophoneStatusMessage_WhenAvailableAndUnknown_ReturnsPartialWarning()
     {
         var message = WindowsProtectionProvider.DetermineMicrophoneStatusMessage(
-            endpointQuerySucceeded: false,
-            endpointCount: 0,
-            deviceCount: 0,
-            standardState: StandardProtectionState.Unknown,
-            secureState: SecureProtectionState.Unknown);
+            TargetDeviceAvailability.Available,
+            StandardProtectionState.Unknown,
+            SecureProtectionState.Unknown);
 
         Assert.Equal("Windows microphone protection state is partial or could not be fully verified.", message);
     }
 
     [Fact]
-    public void DetermineMicrophoneStatusMessage_WhenEndpointsPresentAndUnknown_ReturnsPartialWarning()
+    public void DetermineMicrophoneStatusMessage_WhenAvailableAndFullyVerified_ReturnsNull()
     {
         var message = WindowsProtectionProvider.DetermineMicrophoneStatusMessage(
-            endpointQuerySucceeded: true,
-            endpointCount: 1,
-            deviceCount: 1,
-            standardState: StandardProtectionState.Unknown,
-            secureState: SecureProtectionState.Unknown);
-
-        Assert.Equal("Windows microphone protection state is partial or could not be fully verified.", message);
-    }
-
-    [Fact]
-    public void DetermineMicrophoneStatusMessage_WhenFullyVerified_ReturnsNull()
-    {
-        var message = WindowsProtectionProvider.DetermineMicrophoneStatusMessage(
-            endpointQuerySucceeded: true,
-            endpointCount: 1,
-            deviceCount: 1,
-            standardState: StandardProtectionState.Active,
-            secureState: SecureProtectionState.Active);
+            TargetDeviceAvailability.Available,
+            StandardProtectionState.Active,
+            SecureProtectionState.Active);
 
         Assert.Null(message);
     }

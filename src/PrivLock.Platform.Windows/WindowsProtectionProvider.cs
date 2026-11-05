@@ -199,6 +199,28 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         var micSecureState = ToSecureState(
             micSecureEvaluation.IsActive, micSecureEvaluation.IsUnknown, micStandardState);
 
+        AudioHardwareMuteSummary? micHwSummary = null;
+        if (microphoneEndpoints.Success && microphoneEndpoints.States.Count > 0)
+        {
+            micHwSummary = new AudioHardwareMuteSummary
+            {
+                SupportedCount = microphoneEndpoints.States.Count(s => s.HardwareMuteSupport == AudioEndpointHardwareMuteSupport.Supported),
+                NotSupportedCount = microphoneEndpoints.States.Count(s => s.HardwareMuteSupport == AudioEndpointHardwareMuteSupport.NotSupported),
+                UnknownCount = microphoneEndpoints.States.Count(s => s.HardwareMuteSupport == AudioEndpointHardwareMuteSupport.Unknown),
+                TotalCount = microphoneEndpoints.States.Count
+            };
+        }
+
+        var micAvailability = DetermineMicrophoneAvailability(
+            microphoneEndpoints.Success,
+            microphoneEndpoints.States.Count,
+            mics.Count);
+
+        var micStatusMessage = DetermineMicrophoneStatusMessage(
+            micAvailability,
+            micStandardState,
+            micSecureState);
+
         return new FullProtectionState
         {
             Camera = new TargetProtectionStatus
@@ -206,6 +228,7 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 Target = BlockTarget.Camera,
                 StandardState = camStandardState,
                 SecureState = camSecureState,
+                Availability = TargetDeviceAvailability.Available,
                 IsVerified = camStandardState != StandardProtectionState.Unknown &&
                              camSecureState != SecureProtectionState.Unknown,
                 StatusMessage = camStandardState == StandardProtectionState.Unknown ||
@@ -218,26 +241,35 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 Target = BlockTarget.Microphone,
                 StandardState = micStandardState,
                 SecureState = micSecureState,
+                Availability = micAvailability,
+                HardwareMuteSummary = micHwSummary,
                 IsVerified = micStandardState != StandardProtectionState.Unknown &&
                              micSecureState != SecureProtectionState.Unknown,
-                StatusMessage = DetermineMicrophoneStatusMessage(
-                    microphoneEndpoints.Success,
-                    microphoneEndpoints.States.Count,
-                    mics.Count,
-                    micStandardState,
-                    micSecureState)
+                StatusMessage = micStatusMessage
             }
         };
     }
 
-    internal static string? DetermineMicrophoneStatusMessage(
+    internal static TargetDeviceAvailability DetermineMicrophoneAvailability(
         bool endpointQuerySucceeded,
         int endpointCount,
-        int deviceCount,
+        int deviceCount)
+    {
+        if (!endpointQuerySucceeded)
+            return TargetDeviceAvailability.Unknown;
+
+        if (endpointCount == 0 && deviceCount == 0)
+            return TargetDeviceAvailability.NotDetected;
+
+        return TargetDeviceAvailability.Available;
+    }
+
+    internal static string? DetermineMicrophoneStatusMessage(
+        TargetDeviceAvailability availability,
         StandardProtectionState standardState,
         SecureProtectionState secureState)
     {
-        if (endpointQuerySucceeded && endpointCount == 0 && deviceCount == 0)
+        if (availability == TargetDeviceAvailability.NotDetected)
             return "No input microphones detected.";
 
         if (standardState == StandardProtectionState.Unknown ||

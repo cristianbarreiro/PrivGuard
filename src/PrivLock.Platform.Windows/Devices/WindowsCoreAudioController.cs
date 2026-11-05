@@ -19,7 +19,8 @@ public sealed class WindowsCoreAudioController
 
     public static AudioEndpointHardwareMuteSupport ParseHardwareMuteSupport(int hresult, uint hardwareSupportMask)
     {
-        if (hresult != 0)
+        // COM SUCCEEDED: hr >= 0 (includes S_OK = 0 and S_FALSE = 1). Negative HRESULTs are failures.
+        if (hresult < 0)
             return AudioEndpointHardwareMuteSupport.Unknown;
 
         return (hardwareSupportMask & ENDPOINT_HARDWARE_SUPPORT_MUTE) != 0
@@ -73,7 +74,7 @@ public sealed class WindowsCoreAudioController
 
                     var hwSupport = AudioEndpointHardwareMuteSupport.Unknown;
                     var hwHr = volume.QueryHardwareSupport(out var hwMask);
-                    if (hwHr == 0)
+                    if (hwHr >= 0)
                     {
                         hwSupport = ParseHardwareMuteSupport(hwHr, hwMask);
                     }

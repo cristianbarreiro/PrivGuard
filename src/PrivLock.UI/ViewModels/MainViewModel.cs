@@ -99,6 +99,15 @@ public sealed partial class MainViewModel : ObservableObject
     private string _micSecureBadgeColor = "#555555";
 
     [ObservableProperty]
+    private bool _isMicToggleEnabled = true;
+
+    [ObservableProperty]
+    private string _micHardwareCapabilityText = "";
+
+    [ObservableProperty]
+    private bool _hasMicHardwareCapability;
+
+    [ObservableProperty]
     private string _micSecureButtonText = "";
 
     [ObservableProperty]
@@ -392,9 +401,10 @@ public sealed partial class MainViewModel : ObservableObject
 
             // === 3. Microphone UI ===
             var micBlocked = state.Microphone.IsProtected;
-            var noMicrophonesDetected = state.Microphone.StatusMessage == "No input microphones detected.";
+            var noMicrophonesDetected = state.Microphone.Availability == TargetDeviceAvailability.NotDetected;
             IsMicBlocked = micBlocked;
             IsMicStandardActive = micBlocked;
+            IsMicToggleEnabled = !noMicrophonesDetected;
 
             if (noMicrophonesDetected && !micBlocked)
             {
@@ -452,6 +462,31 @@ public sealed partial class MainViewModel : ObservableObject
                         : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
                     IsMicSecureHintVisible = !micBlocked;
                     break;
+            }
+
+            var hwSummary = state.Microphone.HardwareMuteSummary;
+            if (hwSummary != null && hwSummary.TotalCount > 0)
+            {
+                HasMicHardwareCapability = true;
+                if (hwSummary.TotalCount == 1)
+                {
+                    if (hwSummary.SupportedCount == 1)
+                        MicHardwareCapabilityText = _localizationService.GetString("HardwareMuteSupported", "Hardware mute support available");
+                    else if (hwSummary.NotSupportedCount == 1)
+                        MicHardwareCapabilityText = _localizationService.GetString("HardwareMuteNotSupported", "Hardware mute support not reported");
+                    else
+                        MicHardwareCapabilityText = _localizationService.GetString("HardwareMuteUnknown", "Hardware mute support unknown");
+                }
+                else
+                {
+                    var formatStr = _localizationService.GetString("HardwareMuteSummaryFormat", "Hardware mute: {0} of {1} supported, {2} not reported, {3} unknown");
+                    MicHardwareCapabilityText = string.Format(formatStr, hwSummary.SupportedCount, hwSummary.TotalCount, hwSummary.NotSupportedCount, hwSummary.UnknownCount);
+                }
+            }
+            else
+            {
+                HasMicHardwareCapability = false;
+                MicHardwareCapabilityText = string.Empty;
             }
 
             // === 4. Unified (Both) UI ===

@@ -145,8 +145,9 @@
                         <TextBlock Text="{Binding MicrophoneTitle}" FontSize="13" FontWeight="Bold" Foreground="White" />
                         <TextBlock Text="{Binding MicrophoneSubtitle}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding MicStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding MicStatusColor}" Margin="0,1,0,0" />
+                        <TextBlock Text="{Binding MicHardwareCapabilityText}" IsVisible="{Binding HasMicHardwareCapability}" FontSize="10" Foreground="#888888" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsMicBlocked}"
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsMicBlocked}" IsEnabled="{Binding IsMicToggleEnabled}"
                                   VerticalAlignment="Center" Margin="10,0,0,0" />
                 </Grid>
             </StackPanel>
