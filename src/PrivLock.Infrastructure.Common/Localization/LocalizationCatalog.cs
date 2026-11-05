@@ -41,6 +41,9 @@ public static class LocalizationCatalog
 
         // Devices
         ["NoMicrophonesDetected"] = "No se detectó ningún micrófono de entrada",
+        ["MicrophoneDetectedNoEndpoints"] = "Micrófono detectado, pero no hay ningún punto de conexión de captura activo",
+        ["NoCameraDetected"] = "No se detectó ninguna cámara",
+        ["NoDevicesDetected"] = "No se detectaron dispositivos",
         ["HardwareMuteSupported"] = "Soporte hardware de silenciamiento disponible",
         ["HardwareMuteNotSupported"] = "Soporte hardware de silenciamiento no reportado",
         ["HardwareMuteUnknown"] = "Soporte hardware de silenciamiento desconocido",
@@ -159,7 +162,11 @@ public static class LocalizationCatalog
         ["BadgeProtected"] = "Protegido",
         ["BadgePartiallyProtected"] = "Parcialmente protegido",
         ["BadgeUnprotected"] = "Sin protección",
+        ["BadgeUnverifiable"] = "No verificable",
         ["StatusPartiallyBlocked"] = "🔒 Parcialmente bloqueado",
+        ["StatusPartiallyUnverifiable"] = "⚠️ Parcialmente protegido / No verificable",
+        ["StatusUnverifiable"] = "⚠️ No verificable",
+        ["StatusStandardUnknown"] = "○ Estándar No verificable",
         ["StatusActive"] = "🛡️ Activa",
         ["StatusInactive"] = "○ Inactiva",
 
@@ -244,6 +251,9 @@ public static class LocalizationCatalog
 
         // Devices
         ["NoMicrophonesDetected"] = "No input microphones detected",
+        ["MicrophoneDetectedNoEndpoints"] = "Microphone detected, but no active capture endpoint available",
+        ["NoCameraDetected"] = "No camera detected",
+        ["NoDevicesDetected"] = "No devices detected",
         ["HardwareMuteSupported"] = "Hardware mute support available",
         ["HardwareMuteNotSupported"] = "Hardware mute support not reported",
         ["HardwareMuteUnknown"] = "Hardware mute support unknown",
@@ -362,7 +372,11 @@ public static class LocalizationCatalog
         ["BadgeProtected"] = "Protected",
         ["BadgePartiallyProtected"] = "Partially Protected",
         ["BadgeUnprotected"] = "Unprotected",
+        ["BadgeUnverifiable"] = "Unverifiable",
         ["StatusPartiallyBlocked"] = "🔒 Partially Blocked",
+        ["StatusPartiallyUnverifiable"] = "⚠️ Partially Protected / Unverifiable",
+        ["StatusUnverifiable"] = "⚠️ Unverifiable",
+        ["StatusStandardUnknown"] = "○ Standard Unverifiable",
         ["StatusActive"] = "🛡️ Active",
         ["StatusInactive"] = "○ Inactive",
 

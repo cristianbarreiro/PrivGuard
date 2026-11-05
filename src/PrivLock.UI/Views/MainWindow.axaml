@@ -118,7 +118,7 @@
                         <TextBlock Text="{Binding UnifiedSubtitle}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding BothStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding BothStatusColor}" Margin="0,1,0,0" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsBothBlocked}"
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsBothBlocked}" IsEnabled="{Binding IsBothToggleEnabled}"
                                   VerticalAlignment="Center" Margin="10,0,0,0" />
                 </Grid>
 
@@ -132,7 +132,7 @@
                         <TextBlock Text="{Binding CameraSubtitle}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding CameraStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding CameraStatusColor}" Margin="0,1,0,0" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsCameraBlocked}"
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsCameraBlocked}" IsEnabled="{Binding IsCameraToggleEnabled}"
                                   VerticalAlignment="Center" Margin="10,0,0,0" />
                 </Grid>
 

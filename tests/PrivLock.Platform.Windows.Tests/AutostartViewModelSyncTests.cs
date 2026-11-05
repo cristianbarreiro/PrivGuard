@@ -8,6 +8,7 @@ using Xunit;
 
 namespace PrivLock.Platform.Windows.Tests;
 
+[Collection("AvaloniaUI")]
 public sealed class AutostartViewModelSyncTests
 {
     [Fact]

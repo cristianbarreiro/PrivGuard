@@ -211,15 +211,35 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
             };
         }
 
-        var micAvailability = DetermineMicrophoneAvailability(
+        var micEndpointAvailability = DetermineAudioEndpointAvailability(
             microphoneEndpoints.Success,
-            microphoneEndpoints.States.Count,
-            mics.Count);
+            microphoneEndpoints.States.Count);
+
+        var micHardwareAvailability = DetermineMicrophoneHardwareAvailability(
+            mics.Count,
+            micEndpointAvailability);
+
+        var micIsVerified = micStandardState != StandardProtectionState.Unknown &&
+                            micSecureState != SecureProtectionState.Unknown &&
+                            micEndpointAvailability != AudioEndpointAvailability.Unknown &&
+                            micHardwareAvailability != TargetDeviceAvailability.Unknown;
 
         var micStatusMessage = DetermineMicrophoneStatusMessage(
-            micAvailability,
+            micHardwareAvailability,
+            micEndpointAvailability,
             micStandardState,
             micSecureState);
+
+        var camAvailability = cameras.Count > 0
+            ? TargetDeviceAvailability.Available
+            : TargetDeviceAvailability.NotDetected;
+        var camIsVerified = camStandardState != StandardProtectionState.Unknown &&
+                            camSecureState != SecureProtectionState.Unknown;
+        var camStatusMessage = camAvailability == TargetDeviceAvailability.NotDetected
+            ? "No camera detected."
+            : (!camIsVerified
+                ? "Windows camera protection state is partial or could not be fully verified."
+                : null);
 
         return new FullProtectionState
         {
@@ -228,26 +248,47 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 Target = BlockTarget.Camera,
                 StandardState = camStandardState,
                 SecureState = camSecureState,
-                Availability = TargetDeviceAvailability.Available,
-                IsVerified = camStandardState != StandardProtectionState.Unknown &&
-                             camSecureState != SecureProtectionState.Unknown,
-                StatusMessage = camStandardState == StandardProtectionState.Unknown ||
-                                camSecureState == SecureProtectionState.Unknown
-                    ? "Windows camera protection state is partial or could not be fully verified."
-                    : null
+                Availability = camAvailability,
+                IsVerified = camIsVerified,
+                StatusMessage = camStatusMessage
             },
             Microphone = new TargetProtectionStatus
             {
                 Target = BlockTarget.Microphone,
                 StandardState = micStandardState,
                 SecureState = micSecureState,
-                Availability = micAvailability,
+                Availability = micHardwareAvailability,
+                EndpointAvailability = micEndpointAvailability,
                 HardwareMuteSummary = micHwSummary,
-                IsVerified = micStandardState != StandardProtectionState.Unknown &&
-                             micSecureState != SecureProtectionState.Unknown,
+                IsVerified = micIsVerified,
                 StatusMessage = micStatusMessage
             }
         };
+    }
+
+    internal static AudioEndpointAvailability DetermineAudioEndpointAvailability(
+        bool endpointQuerySucceeded,
+        int endpointCount)
+    {
+        if (!endpointQuerySucceeded)
+            return AudioEndpointAvailability.Unknown;
+
+        return endpointCount > 0
+            ? AudioEndpointAvailability.Available
+            : AudioEndpointAvailability.NotDetected;
+    }
+
+    internal static TargetDeviceAvailability DetermineMicrophoneHardwareAvailability(
+        int deviceCount,
+        AudioEndpointAvailability endpointAvailability)
+    {
+        if (deviceCount > 0 || endpointAvailability == AudioEndpointAvailability.Available)
+            return TargetDeviceAvailability.Available;
+
+        if (endpointAvailability == AudioEndpointAvailability.NotDetected)
+            return TargetDeviceAvailability.NotDetected;
+
+        return TargetDeviceAvailability.Unknown;
     }
 
     internal static TargetDeviceAvailability DetermineMicrophoneAvailability(
@@ -255,29 +296,44 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         int endpointCount,
         int deviceCount)
     {
-        if (!endpointQuerySucceeded)
-            return TargetDeviceAvailability.Unknown;
-
-        if (endpointCount == 0 && deviceCount == 0)
-            return TargetDeviceAvailability.NotDetected;
-
-        return TargetDeviceAvailability.Available;
+        var endpointAvailability = DetermineAudioEndpointAvailability(endpointQuerySucceeded, endpointCount);
+        return DetermineMicrophoneHardwareAvailability(deviceCount, endpointAvailability);
     }
 
     internal static string? DetermineMicrophoneStatusMessage(
         TargetDeviceAvailability availability,
+        AudioEndpointAvailability endpointAvailability,
         StandardProtectionState standardState,
         SecureProtectionState secureState)
     {
-        if (availability == TargetDeviceAvailability.NotDetected)
+        if (availability == TargetDeviceAvailability.NotDetected &&
+            endpointAvailability == AudioEndpointAvailability.NotDetected)
             return "No input microphones detected.";
 
-        if (standardState == StandardProtectionState.Unknown ||
+        if (availability == TargetDeviceAvailability.Available &&
+            endpointAvailability == AudioEndpointAvailability.NotDetected)
+            return "Microphone detected, but no active capture endpoint available.";
+
+        if (endpointAvailability == AudioEndpointAvailability.Unknown ||
+            availability == TargetDeviceAvailability.Unknown ||
+            standardState == StandardProtectionState.Unknown ||
             secureState == SecureProtectionState.Unknown)
             return "Windows microphone protection state is partial or could not be fully verified.";
 
         return null;
     }
+
+    internal static string? DetermineMicrophoneStatusMessage(
+        TargetDeviceAvailability availability,
+        StandardProtectionState standardState,
+        SecureProtectionState secureState) =>
+        DetermineMicrophoneStatusMessage(
+            availability,
+            availability == TargetDeviceAvailability.NotDetected
+                ? AudioEndpointAvailability.NotDetected
+                : AudioEndpointAvailability.Available,
+            standardState,
+            secureState);
 
     private static StandardProtectionState ToStandardState(BlockStatus status) => status switch
     {

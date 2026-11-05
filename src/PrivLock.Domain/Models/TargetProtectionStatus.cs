@@ -12,6 +12,17 @@ public enum TargetDeviceAvailability
 }
 
 /// <summary>
+/// Operational availability of audio capture endpoints (WASAPI).
+/// Distinct from PnP hardware presence to prevent conflating missing active endpoints with hardware absence.
+/// </summary>
+public enum AudioEndpointAvailability
+{
+    Available = 0,
+    NotDetected = 1,
+    Unknown = 2
+}
+
+/// <summary>
 /// Aggregated summary of reported hardware mute capabilities across individual audio endpoints.
 /// </summary>
 public sealed record AudioHardwareMuteSummary
@@ -32,6 +43,7 @@ public sealed record TargetProtectionStatus
     public required StandardProtectionState StandardState { get; init; }
     public required SecureProtectionState SecureState { get; init; }
     public TargetDeviceAvailability Availability { get; init; } = TargetDeviceAvailability.Available;
+    public AudioEndpointAvailability? EndpointAvailability { get; init; }
     public AudioHardwareMuteSummary? HardwareMuteSummary { get; init; }
     public bool IsVerified { get; init; }
     public string? StatusMessage { get; init; }
