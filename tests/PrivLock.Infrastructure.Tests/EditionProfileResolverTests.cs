@@ -30,13 +30,13 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
-    public void Resolve_WhenPackaged_ReturnsStoreProfileAndIsolatedPaths()
+    public void Resolve_WhenAuthenticStorePackage_ReturnsStoreProfileAndIsolatedPaths()
     {
         var detector = new FakePackageIdentityDetector
         {
-            IsRunningAsPackaged = true,
-            PackageFullName = "cdevstudios.PrivGuard_1.0.0.0_x64__tv7b4yqg10sw2",
-            HasExpectedIdentity = true
+            Kind = PackageIdentityKind.AuthenticStorePackage,
+            PackageFamilyName = "cdevstudios.PrivGuard_tv7b4yqg10sw2",
+            PackageFullName = "cdevstudios.PrivGuard_1.0.0.0_x64__tv7b4yqg10sw2"
         };
 
         var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
@@ -52,13 +52,13 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
-    public void Resolve_WhenUnpackaged_ReturnsStandaloneProfileAndIsolatedPaths()
+    public void Resolve_WhenNotPackaged_ReturnsStandaloneProfileAndIsolatedPaths()
     {
         var detector = new FakePackageIdentityDetector
         {
-            IsRunningAsPackaged = false,
-            PackageFullName = null,
-            HasExpectedIdentity = false
+            Kind = PackageIdentityKind.NotPackaged,
+            PackageFamilyName = null,
+            PackageFullName = null
         };
 
         var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
@@ -74,11 +74,74 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_WhenUnexpectedPackage_ReturnsUntrustedProfileAndRejectsPathsAndPrivileges()
+    {
+        var detector = new FakePackageIdentityDetector
+        {
+            Kind = PackageIdentityKind.UnexpectedPackage,
+            PackageFamilyName = "unrelated.application_1234567890abc",
+            PackageFullName = "unrelated.application_1.0.0.0_x64__1234567890abc"
+        };
+
+        var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
+
+        Assert.Equal(EditionProfile.UntrustedOrIndeterminate, resolver.Profile);
+        Assert.Equal("UntrustedOrIndeterminate", resolver.ProfileName);
+        Assert.False(resolver.SupportsPrivilegedOperations);
+
+        Assert.Throws<InvalidOperationException>(() => resolver.DataDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.RecoveryDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.LogsDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.CrashReportsDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.SingleInstanceMutexName);
+    }
+
+    [Fact]
+    public void Resolve_WhenDetectionFailed_ReturnsUntrustedProfileAndRejectsPathsAndPrivileges()
+    {
+        var detector = new FakePackageIdentityDetector
+        {
+            Kind = PackageIdentityKind.DetectionFailed,
+            PackageFamilyName = null,
+            PackageFullName = null
+        };
+
+        var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
+
+        Assert.Equal(EditionProfile.UntrustedOrIndeterminate, resolver.Profile);
+        Assert.Equal("UntrustedOrIndeterminate", resolver.ProfileName);
+        Assert.False(resolver.SupportsPrivilegedOperations);
+
+        Assert.Throws<InvalidOperationException>(() => resolver.DataDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.RecoveryDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.LogsDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.CrashReportsDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.SingleInstanceMutexName);
+    }
+
+    [Fact]
+    public void NoOpPackageIdentityDetector_DefaultsToDetectionFailed_FailsClosed()
+    {
+        var detector = NoOpPackageIdentityDetector.Instance;
+
+        Assert.Equal(PackageIdentityKind.DetectionFailed, detector.Kind);
+        Assert.Null(detector.PackageFullName);
+        Assert.Null(detector.PackageFamilyName);
+        Assert.False(detector.HasExpectedPackageIdentity());
+
+        var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
+        Assert.Equal(EditionProfile.UntrustedOrIndeterminate, resolver.Profile);
+        Assert.False(resolver.SupportsPrivilegedOperations);
+        Assert.Throws<InvalidOperationException>(() => resolver.DataDirectory);
+        Assert.Throws<InvalidOperationException>(() => resolver.SingleInstanceMutexName);
+    }
+
+    [Fact]
     public void Resolve_DefaultConstructor_UsesCanonicalPrivGuardFolder()
     {
         var detector = new FakePackageIdentityDetector
         {
-            IsRunningAsPackaged = false
+            Kind = PackageIdentityKind.NotPackaged
         };
 
         var resolver = new DefaultEditionProfileResolver(detector);
@@ -89,28 +152,12 @@ public sealed class EditionProfileResolverTests : IDisposable
         Assert.Equal(expectedRoot, resolver.DataDirectory);
     }
 
-    [Fact]
-    public void NoOpPackageIdentityDetector_AlwaysReportsUnpackaged()
-    {
-        var detector = NoOpPackageIdentityDetector.Instance;
-
-        Assert.False(detector.IsRunningAsPackaged);
-        Assert.Null(detector.PackageFullName);
-        Assert.False(detector.HasExpectedPackageIdentity());
-        Assert.False(detector.MatchesPackageName("cdevstudios.PrivGuard"));
-    }
-
     private sealed class FakePackageIdentityDetector : IPackageIdentityDetector
     {
-        public bool IsRunningAsPackaged { get; set; }
+        public PackageIdentityKind Kind { get; set; } = PackageIdentityKind.NotPackaged;
         public string? PackageFullName { get; set; }
-        public bool HasExpectedIdentity { get; set; }
+        public string? PackageFamilyName { get; set; }
 
-        public bool HasExpectedPackageIdentity() => HasExpectedIdentity;
-
-        public bool MatchesPackageName(string expectedPrefixOrName)
-        {
-            return PackageFullName != null && PackageFullName.StartsWith(expectedPrefixOrName, StringComparison.OrdinalIgnoreCase);
-        }
+        public bool HasExpectedPackageIdentity() => Kind == PackageIdentityKind.AuthenticStorePackage;
     }
 }

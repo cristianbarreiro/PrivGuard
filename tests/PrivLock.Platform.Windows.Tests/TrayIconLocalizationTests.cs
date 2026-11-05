@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -10,6 +10,7 @@ using Xunit;
 
 namespace PrivLock.Platform.Windows.Tests;
 
+[Collection("AvaloniaUI")]
 public class TrayIconLocalizationTests
 {
     [Theory]

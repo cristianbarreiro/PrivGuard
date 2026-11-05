@@ -15,5 +15,11 @@ public enum EditionProfile
     /// Microsoft Store edition (MSIX runFullTrust).
     /// Executes asInvoker without elevation; limited strictly to Standard protection (WASAPI).
     /// </summary>
-    Store = 1
+    Store = 1,
+
+    /// <summary>
+    /// Untrusted or indeterminate edition profile (unexpected package identity or native detection failure).
+    /// Fails closed: refuses privileged operations, storage paths, and single-instance coordination.
+    /// </summary>
+    UntrustedOrIndeterminate = 2
 }
