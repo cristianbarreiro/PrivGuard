@@ -525,6 +525,50 @@ public sealed class LayerVerificationAndRecoveryUiTests
         Assert.True(vm.IsMicToggleEnabled);    // Mic is inactive and can be blocked!
     }
 
+    // --- Case L: Camera Inactive, Mic Inactive, Camera Secure Unknown, Mic Secure Available ---
+    [Fact]
+    public void CaseL_CameraInactive_MicInactive_CameraSecureUnknown_MicSecureAvailable_DisablesUnifiedToggle()
+    {
+        var vm = CreateTestViewModel(language: "en");
+        var state = new FullProtectionState
+        {
+            Camera = new TargetProtectionStatus
+            {
+                Target = BlockTarget.Camera,
+                StandardState = StandardProtectionState.Inactive,
+                SecureState = SecureProtectionState.Unknown,
+                Availability = TargetDeviceAvailability.Available,
+                StandardIsVerified = true,
+                SecureIsVerified = false,
+                IsVerified = false
+            },
+            Microphone = new TargetProtectionStatus
+            {
+                Target = BlockTarget.Microphone,
+                StandardState = StandardProtectionState.Inactive,
+                SecureState = SecureProtectionState.Available,
+                Availability = TargetDeviceAvailability.Available,
+                EndpointAvailability = AudioEndpointAvailability.Available,
+                StandardIsVerified = true,
+                SecureIsVerified = true,
+                IsVerified = true
+            }
+        };
+
+        vm.UpdateUi(state, []);
+
+        // Due to Camera Secure being Unknown/unverifiable while Mic is verifiable,
+        // the unified view reflects unverifiability.
+        Assert.Contains("Unverifiable", vm.BothStatusText);
+        // Individual standard toggles are enabled because standard is inactive and verified
+        Assert.True(vm.IsCameraToggleEnabled);
+        Assert.True(vm.IsMicToggleEnabled);
+        // Secure button for camera is disabled (unverifiable)
+        Assert.False(vm.IsCameraSecureButtonEnabled);
+        // Unified secure button is disabled
+        Assert.False(vm.IsBothSecureButtonEnabled);
+    }
+
     // --- Case M: WAL sin ownership activo, observación Unknown, query failed, no detectado ---
     [Fact]
     public void CaseM_NoActiveOwnership_BothUnknown_NoDestructiveMutationOffered()
@@ -730,7 +774,7 @@ public sealed class LayerVerificationAndRecoveryUiTests
             sharedState,
             localizationService);
 
-        // Setup UI with blocked microphone but Secure unknown (Case A)
+        // Setup UI and Provider with blocked microphone but Secure unknown (Case A)
         var protectionState = new FullProtectionState
         {
             Camera = new TargetProtectionStatus
@@ -756,6 +800,8 @@ public sealed class LayerVerificationAndRecoveryUiTests
             }
         };
 
+        // Ensure provider returns Secure Unknown when ProtectionService queries it during unblock
+        provider.StateToReturn = protectionState;
         vm.UpdateUi(protectionState, []);
 
         Assert.True(vm.IsMicBlocked);
@@ -830,6 +876,33 @@ public sealed class LayerVerificationAndRecoveryUiTests
             stateStore,
             privacySessionService);
 
+        var autostartProvider = new FakeAutostartProvider();
+        var localizationService = new LocalizationService(stateStore);
+        localizationService.Initialize();
+
+        var sharedState = new AutostartStateService(
+            new SettingsService(autostartProvider, stateStore),
+            new NoOpAutostartChangeObserver());
+
+        var vm = new MainViewModel(
+            protectionService,
+            sharedState,
+            localizationService);
+
+        vm.UpdateUi(provider.StateToReturn, []);
+        Assert.True(vm.IsMicBlocked);
+
+        // Act 1: User toggles off from UI
+        vm.IsMicBlocked = false;
+
+        // Allow UIThread background tasks to execute
+        for (var i = 0; i < 10; i++)
+        {
+            await Task.Delay(25);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        // Direct service invocation also asserts conflict contract
         var result = await protectionService.UnblockDeviceAsync(BlockTarget.Microphone);
 
         // Unblock should fail due to conflict (external state without PrivLock ownership snapshot)

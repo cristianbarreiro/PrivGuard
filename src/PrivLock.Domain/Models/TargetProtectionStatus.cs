@@ -51,7 +51,9 @@ public sealed record TargetProtectionStatus
 
     public bool StandardIsVerified
     {
-        get => _hasExplicitStandardIsVerified ? _standardIsVerified : IsVerified;
+        get => _hasExplicitStandardIsVerified
+            ? _standardIsVerified
+            : (_hasExplicitIsVerified ? _isVerified : StandardState != StandardProtectionState.Unknown);
         init
         {
             _standardIsVerified = value;
@@ -64,7 +66,9 @@ public sealed record TargetProtectionStatus
 
     public bool SecureIsVerified
     {
-        get => _hasExplicitSecureIsVerified ? _secureIsVerified : IsVerified;
+        get => _hasExplicitSecureIsVerified
+            ? _secureIsVerified
+            : (_hasExplicitIsVerified ? _isVerified : SecureState != SecureProtectionState.Unknown);
         init
         {
             _secureIsVerified = value;
@@ -72,7 +76,18 @@ public sealed record TargetProtectionStatus
         }
     }
 
-    public bool IsVerified { get; init; }
+    private readonly bool _isVerified;
+    private readonly bool _hasExplicitIsVerified;
+
+    public bool IsVerified
+    {
+        get => _hasExplicitIsVerified ? _isVerified : (StandardIsVerified && SecureIsVerified);
+        init
+        {
+            _isVerified = value;
+            _hasExplicitIsVerified = true;
+        }
+    }
     public string? StatusMessage { get; init; }
 
     /// <summary>

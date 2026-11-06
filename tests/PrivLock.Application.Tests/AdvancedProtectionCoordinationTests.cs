@@ -42,18 +42,8 @@ public class AdvancedProtectionCoordinationTests
         _detectorMock.Setup(d => d.DetectAllAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<DeviceInfo>());
 
-        _cameraStatus = new TargetProtectionStatus
-        {
-            Target = BlockTarget.Camera,
-            StandardState = StandardProtectionState.Inactive,
-            SecureState = SecureProtectionState.Unavailable
-        };
-        _micStatus = new TargetProtectionStatus
-        {
-            Target = BlockTarget.Microphone,
-            StandardState = StandardProtectionState.Inactive,
-            SecureState = SecureProtectionState.Unavailable
-        };
+        _cameraStatus = CreateStatus(BlockTarget.Camera, StandardProtectionState.Inactive, SecureProtectionState.Unavailable);
+        _micStatus = CreateStatus(BlockTarget.Microphone, StandardProtectionState.Inactive, SecureProtectionState.Unavailable);
 
         _nativeMock.Setup(n => n.GetProtectionStateAsync(It.IsAny<CancellationToken>()))
             .Returns(() => Task.FromResult(new FullProtectionState
@@ -67,25 +57,21 @@ public class AdvancedProtectionCoordinationTests
             {
                 if (target is BlockTarget.Camera or BlockTarget.Both)
                 {
-                    _cameraStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Camera,
-                        StandardState = StandardProtectionState.Active,
-                        SecureState = _cameraStatus.SecureState == SecureProtectionState.Active
+                    _cameraStatus = CreateStatus(
+                        BlockTarget.Camera,
+                        StandardProtectionState.Active,
+                        _cameraStatus.SecureState == SecureProtectionState.Active
                             ? SecureProtectionState.Active
-                            : SecureProtectionState.Available
-                    };
+                            : SecureProtectionState.Available);
                 }
                 if (target is BlockTarget.Microphone or BlockTarget.Both)
                 {
-                    _micStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Microphone,
-                        StandardState = StandardProtectionState.Active,
-                        SecureState = _micStatus.SecureState == SecureProtectionState.Active
+                    _micStatus = CreateStatus(
+                        BlockTarget.Microphone,
+                        StandardProtectionState.Active,
+                        _micStatus.SecureState == SecureProtectionState.Active
                             ? SecureProtectionState.Active
-                            : SecureProtectionState.Available
-                    };
+                            : SecureProtectionState.Available);
                 }
                 return Task.FromResult(OperationResult.Ok());
             });
@@ -95,21 +81,11 @@ public class AdvancedProtectionCoordinationTests
             {
                 if (target is BlockTarget.Camera or BlockTarget.Both)
                 {
-                    _cameraStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Camera,
-                        StandardState = StandardProtectionState.Inactive,
-                        SecureState = SecureProtectionState.Unavailable
-                    };
+                    _cameraStatus = CreateStatus(BlockTarget.Camera, StandardProtectionState.Inactive, SecureProtectionState.Unavailable);
                 }
                 if (target is BlockTarget.Microphone or BlockTarget.Both)
                 {
-                    _micStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Microphone,
-                        StandardState = StandardProtectionState.Inactive,
-                        SecureState = SecureProtectionState.Unavailable
-                    };
+                    _micStatus = CreateStatus(BlockTarget.Microphone, StandardProtectionState.Inactive, SecureProtectionState.Unavailable);
                 }
                 return Task.FromResult(OperationResult.Ok());
             });
@@ -119,21 +95,11 @@ public class AdvancedProtectionCoordinationTests
             {
                 if (target is BlockTarget.Camera or BlockTarget.Both)
                 {
-                    _cameraStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Camera,
-                        StandardState = _cameraStatus.StandardState,
-                        SecureState = SecureProtectionState.Active
-                    };
+                    _cameraStatus = CreateStatus(BlockTarget.Camera, _cameraStatus.StandardState, SecureProtectionState.Active);
                 }
                 if (target is BlockTarget.Microphone or BlockTarget.Both)
                 {
-                    _micStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Microphone,
-                        StandardState = _micStatus.StandardState,
-                        SecureState = SecureProtectionState.Active
-                    };
+                    _micStatus = CreateStatus(BlockTarget.Microphone, _micStatus.StandardState, SecureProtectionState.Active);
                 }
                 return Task.FromResult(OperationResult.Ok());
             });
@@ -143,25 +109,29 @@ public class AdvancedProtectionCoordinationTests
             {
                 if (target is BlockTarget.Camera or BlockTarget.Both)
                 {
-                    _cameraStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Camera,
-                        StandardState = _cameraStatus.StandardState,
-                        SecureState = SecureProtectionState.Available
-                    };
+                    _cameraStatus = CreateStatus(BlockTarget.Camera, _cameraStatus.StandardState, SecureProtectionState.Available);
                 }
                 if (target is BlockTarget.Microphone or BlockTarget.Both)
                 {
-                    _micStatus = new TargetProtectionStatus
-                    {
-                        Target = BlockTarget.Microphone,
-                        StandardState = _micStatus.StandardState,
-                        SecureState = SecureProtectionState.Available
-                    };
+                    _micStatus = CreateStatus(BlockTarget.Microphone, _micStatus.StandardState, SecureProtectionState.Available);
                 }
                 return Task.FromResult(OperationResult.Ok());
             });
     }
+
+    private static TargetProtectionStatus CreateStatus(
+        BlockTarget target,
+        StandardProtectionState standardState,
+        SecureProtectionState secureState) =>
+        new()
+        {
+            Target = target,
+            StandardState = standardState,
+            SecureState = secureState,
+            StandardIsVerified = true,
+            SecureIsVerified = true,
+            IsVerified = true
+        };
 
     private ProtectionService CreateService() =>
         new(_nativeMock.Object, _detectorMock.Object, _capabilityMock.Object, _stateStore);
@@ -443,18 +413,8 @@ public class AdvancedProtectionCoordinationTests
         // so no snapshot belongs to PrivLock.
         recoveryDeps.CurrentProtectionState = new FullProtectionState
         {
-            Camera = new TargetProtectionStatus
-            {
-                Target = BlockTarget.Camera,
-                StandardState = StandardProtectionState.Active,
-                SecureState = SecureProtectionState.Active
-            },
-            Microphone = new TargetProtectionStatus
-            {
-                Target = BlockTarget.Microphone,
-                StandardState = StandardProtectionState.Inactive,
-                SecureState = SecureProtectionState.Unavailable
-            }
+            Camera = CreateStatus(BlockTarget.Camera, StandardProtectionState.Active, SecureProtectionState.Active),
+            Microphone = CreateStatus(BlockTarget.Microphone, StandardProtectionState.Inactive, SecureProtectionState.Unavailable)
         };
 
         var privacySessionService = new PrivacySessionService(sessionStore, platformAdapter);
