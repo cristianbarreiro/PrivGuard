@@ -1,7 +1,7 @@
 # PrivGvard — Roadmap de Evolución y Estado de Auditoría
 
 **Estado:** Activo / PrivGuard 2.0<br />
-**Fecha de actualización:** 2026-11-05<br />
+**Fecha de actualización:** 2026-11-06<br />
 **Repositorio:** `PrivGuard`<br />
 **Rama activa:** `main`<br />
 **Identidad del producto:** PrivGuard (ejecutable interno: `PrivGvard.exe` / `PrivGvard`, paquete Store: `cdevstudios.PrivGuard`)<br />
@@ -93,6 +93,9 @@ dotnet test PrivGvard.sln --no-restore        -> correcto en todas las suites ac
 | **Endurecimiento de Windows y Preparación de Release (Fase 6)** | **RESUELTO** | `tests/PrivLock.Platform.Windows.Tests/WindowsHardeningPhase6Tests.cs` valida hotplug de hardware (HOTPLUG-A a D), barrera de inmovilidad/quiescencia en caídas (CRASH-B a D), mitigación de fallos en diario corrupto sin borrado destructivo, manejo de cancelación de UAC sin corrupción de DesiredState (UAC-B y D), y paquete MSIX Release (`publish_out\msix\PrivGvard-2.0.0.0-x64.msix`) validado con 0 errores. |
 | **Preparación para Microsoft Store (Fase 7 - Etapas A y B)** | **RESUELTO** | Paquete MSIX generado con identidad `cdevstudios.PrivGuard` y validación estricta de Partner Center. Documentación de preflight completada. |
 | **Auditoría Técnica y Validación Dual (Fase 8A / 8A.1)** | **CONDITIONAL HOLD (D-01/D-02/D-03)** | Auditoría de virtualización (`Helium\User.dat`), ciclo de vida MSIX (purga de `%LOCALAPPDATA%\Packages`), WASAPI Mute y políticas de Store. Eliminadas conclusiones no demostradas. Aprobada arquitectura dual: Store Edition (MSIX, `runFullTrust` únicamente, WASAPI Mute y atajos nativos de SO) y Standalone Edition (Inno Setup / Portable, Secure Protection completa con PnP y HKLM). Envío a Store en CONDITIONAL HOLD pendiente de validación física de almacenamiento en VM y diseño de coordinador de recursos. |
+| **Contrato de Identidad y Fail-Closed (Fases 8B.1B.1 – 8B.1B.3)** | **RESUELTO** | Enums `PackageIdentityKind` y `EditionProfile` reordenados para garantizar defaults fail-closed (`DetectionFailed = 0`, `UntrustedOrIndeterminate = 0`). Snapshot inmutable en `DefaultEditionProfileResolver`. Implementación `WindowsPackageIdentityDetector` con P/Invoke `GetCurrentPackageFamilyName`. 554 tests unitarios pasando. |
+| **Auditoría Correctiva de Coherencia MSIX y Storage (Fase 8B.1A.6.2)** | **RESUELTO** | Corrección de contradicciones documentales, análisis riguroso de `ReplaceFileW` (requisito de mismo volumen) y VFS de AppData post-1903. Establecida matriz de evidencia de 8 subsistemas. Documentado en `docs/reports/INFORME-FASE-8B1A6_2-CIERRE-CONTRADICCIONES-MATRIZ-EVIDENCIA-MSIX.md`. |
+| **Preflight Laboratorio VM y Build MSIX Reproducible (Fase 8B.1A.7.1)** | **BUILD READY — VM STILL UNAVAILABLE** | Diagnóstico del host actual (Guest VM VirtualBox sin virtualización anidada y 3.98 GB RAM). Compilación 100% aislada de `PrivGuard-2.0.0.0-x64.msix` (SHA-256 `AE7E...071A`) y `BUILD-PROVENANCE.json` desde HEAD `9f856c0`. Runbook preparado para validación dinámica en Fase 8B.1A.7.2. |
 
 ---
 

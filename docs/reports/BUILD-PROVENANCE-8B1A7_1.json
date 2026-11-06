@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "build_type": "lab-reproducible",
+  "timestamp_utc": "2026-11-06T10:01:25Z",
+  "source": {
+    "canonical_repository": "c:\\Users\\Cristian\\Documents\\GitHub\\PrivGuard",
+    "cloned_temp_repo": "C:\\Users\\Cristian\\AppData\\Local\\Temp\\PrivGuard_Lab_Build_9f856c0",
+    "commit_sha": "9f856c0405e4e5b64e784309affad450c38d3a37",
+    "branch": "main",
+    "git_status_clean": true,
+    "git_diff_clean": true
+  },
+  "toolchain": {
+    "dotnet_sdk": "10.0.403",
+    "windows_sdk": "10.0.28000.0",
+    "makeappx_path": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.28000.0\\x64\\makeappx.exe",
+    "makepri_path": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.28000.0\\x64\\makepri.exe",
+    "host_os": "Microsoft Windows 11 Enterprise Evaluation 10.0.26300"
+  },
+  "invocation": {
+    "script": "scripts/build-msix.ps1",
+    "command": "pwsh -ExecutionPolicy Bypass -File scripts/build-msix.ps1 -Architecture x64 -Configuration Release -OutputDir C:\\Users\\Cristian\\AppData\\Local\\Temp\\PrivGuard_Lab_MSIX_Out",
+    "build_configuration": "Release",
+    "architecture": "x64"
+  },
+  "package": {
+    "file_name": "PrivGuard-2.0.0.0-x64.msix",
+    "path": "C:\\Users\\Cristian\\AppData\\Local\\Temp\\PrivGuard_Lab_MSIX_Out\\PrivGuard-2.0.0.0-x64.msix",
+    "size_bytes": 58539668,
+    "sha256": "AE7E3978FA4491952C706AECDE072B269BDD2B4802050A1B018690407DD9071A",
+    "signing_status": "Unsigned (Test-signing deferred to guest VM lab)",
+    "package_identity": {
+      "name": "cdevstudios.PrivGuard",
+      "publisher": "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD",
+      "version": "2.0.0.0",
+      "processor_architecture": "x64",
+      "target_device_family_min": "10.0.19041.0",
+      "target_device_family_max_tested": "10.0.26100.0",
+      "entry_point": "Windows.FullTrustApplication",
+      "executable": "PrivGvard.exe",
+      "restricted_capabilities": [
+        "runFullTrust",
+        "allowElevation",
+        "unvirtualizedResources"
+      ]
+    }
+  },
+  "binaries": {
+    "PrivGvard.exe": "DF7DF5CB194C65B66323A8ADE0380517274C38405882E7849B8BE72997C3FF26",
+    "PrivLock.Application.dll": "6537188B0138DC70D9FC00A725C9ADB6469AE94F2A4B6B67F1F581E92DA21293",
+    "PrivLock.Domain.dll": "FBF101393095508B38ABE0961C9F7D871DD0D8A309EC77742A621685442E68D2",
+    "PrivLock.Infrastructure.Common.dll": "4A409AC1315E30063B2B6FCF4973A895DB5D909EA9748945B3299BC1A4D07EFD",
+    "PrivLock.Platform.Abstractions.dll": "C4B0A8E5438F02A18468911F920F499FCCC876C74DE8EE7076A26DD99B64D9E6",
+    "PrivLock.Platform.Linux.dll": "EBAB495D85CF306FCC0C7D4963EDB1DE628A44CB9F1F7905AF604EA75F076168",
+    "PrivLock.Platform.MacOS.dll": "AEAC0EB60C406CC4F61D8431A821DE4F54072378C2D9BD711DAEF6E1F19EE440",
+    "PrivLock.Platform.Windows.dll": "2FEA8CDDBD378DD340471012A89C604BA38C2AFF605BCB1A8ED08109E3EFA582",
+    "PrivLock.UI.dll": "D0C7DB85BE0F377ED8022A2768B7001962A9CB446D32AE31A5CA6097232FC016",
+    "AppxManifest.xml": "3634565F910337964BF45BDF0DF7DA47E35288B57125BD6024F4C09F42D72848"
+  }
+}
