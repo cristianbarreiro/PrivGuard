@@ -46,7 +46,7 @@ The requested product name is **PrivGvard**. The repository is named `PrivGuard`
 | Linux | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported | High |
 | macOS | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported; secure provider methods are currently no-op success paths | High |
 | Tests | All active test suites pass across Domain, Infrastructure, Application, and Windows Platform | High |
-| CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix, selected publish targets, and Windows Release-Store MSIX packaging gate (verified on push runs #89 and #90) | High; pull_request trigger is unverified by push runs, and native privacy/VM dynamics are not proven by CI |
+| CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix, selected publish targets, and Windows Release-Store MSIX packaging gate (verified on push runs #89, #90, and #91) | High; pull_request trigger is unverified by push runs, and native privacy/VM dynamics are not proven by CI |
 | Legacy code | Archived at `legacy/CamMicBlocker` and `legacy/tests/CamMicBlocker.Tests`; build-guarded, not part of active solution | High |
 
 ### Active Host vs Legacy Quarantine
@@ -147,7 +147,8 @@ These invariants are mandatory for every implementation and AI-assisted change:
 - **Legacy Quarantine**: Resolved. Archived WPF code quarantined under `legacy/CamMicBlocker` with compile-time build guard.
 - **Linux & macOS Mutation Guarding**: Maintained. Capability providers explicitly declare `CapabilityLevel.None` and register `UnsupportedPrivacySessionPlatformAdapter`.
 - **Volatile Test Counts**: Removed from canonical documentation in favor of dynamic test suite validation.
-- **Release-Store MSIX CI Gate (Sprint 1.2)**: Implemented in `.github/workflows/ci.yml`. Builds `Release-Store`, generates x64 MSIX via `build-msix.ps1`, and validates internal `AppxManifest.xml` (`cdevstudios.PrivGuard`, `runFullTrust` sole restricted capability, no elevation) via `StoreMsixManifestVerifier` and `verify-store-msix.ps1`. Validated in CI push runs #89 (ID: `42379421580`) and #90 (ID: `42384884759`). Comprobación técnica de empaquetado; el trigger `pull_request` no ha sido demostrado empíricamente, no sustituye validación en VM ni autoriza publicación (Microsoft Store permanece en `CONDITIONAL HOLD`).
+- **Release-Store MSIX CI Gate (Sprint 1.2)**: Implemented in `.github/workflows/ci.yml`. Builds `Release-Store`, generates x64 MSIX via `build-msix.ps1`, and validates internal `AppxManifest.xml` (`cdevstudios.PrivGuard`, `runFullTrust` sole restricted capability, no elevation) via `StoreMsixManifestVerifier` and `verify-store-msix.ps1`. Validated in CI push runs #89 (ID: `42379421580`), #90 (ID: `42384884759`), and #91 (ID: `42390732091`). Comprobación técnica de empaquetado; el trigger `pull_request` no ha sido demostrado empíricamente, no sustituye validación en VM ni autoriza publicación (Microsoft Store permanece en `CONDITIONAL HOLD`).
+- **VM Lab Readiness & Baseline Refresh (Fase 8B.1A.7.2)**: Completed static adversarial rebaseline against HEAD `07e4188`. Historical claims in 8B.1A.5/8B.1A.6 regarding missing DI registration and restricted capabilities are resolved/superseded in code. Storage routes remain unsegmented in DI (D-05 not implemented). Host diagnostics confirm current environment is a VirtualBox guest without nested virtualization (`VirtualizationFirmwareEnabled = False`, 3.98 GB RAM); dynamic VM testing requires owner action in L0 hypervisor and fresh MSIX rebuild from current HEAD. Documented in `docs/reports/INFORME-FASE-8B1A7_2-READINESS-REBASELINE.md`.
 
 ---
 
