@@ -27,6 +27,7 @@ public static class LocalizationCatalog
         ["EnableStandard"] = "Activar Estándar",
         ["DisableStandard"] = "Desactivar Estándar",
         ["StatusStandardActive"] = "● Estándar Activa",
+        ["StatusStandardActiveSoftwareOnly"] = "● Estándar Activa (Solo silenciamiento por software)",
         ["StatusStandardInactive"] = "○ Estándar Inactiva",
 
         // Secure Protection
@@ -71,7 +72,13 @@ public static class LocalizationCatalog
         ["StatusAdvancedInactive"] = "○ Inactiva",
         ["StatusBlockedAdvanced"] = "🛡️ Bloqueado (Avanzado)",
         ["StatusBlockedStandard"] = "🔒 Bloqueado (Estándar)",
+        ["StatusBlockedSoftwareOnly"] = "⚠️ Parcialmente protegido (Solo silenciamiento por software)",
         ["StatusUnblocked"] = "✅ Permitido",
+
+        // Store Edition Navigation & Boundaries
+        ["OpenPrivacySettings"] = "Abrir Configuración de Privacidad de Windows",
+        ["StoreEditionCameraSettingsHint"] = "En la edición Microsoft Store, administra los permisos de cámara en Configuración de Windows",
+        ["StoreEditionSecureNotSupported"] = "No disponible en la edición Microsoft Store",
 
         // Notifications & Errors
         ["ElevationCancelled"] = "Operación cancelada: Se denegaron los permisos de administrador.",
@@ -237,6 +244,7 @@ public static class LocalizationCatalog
         ["EnableStandard"] = "Enable Standard",
         ["DisableStandard"] = "Disable Standard",
         ["StatusStandardActive"] = "● Standard Active",
+        ["StatusStandardActiveSoftwareOnly"] = "● Standard Active (Software Mute Only)",
         ["StatusStandardInactive"] = "○ Standard Inactive",
 
         // Secure Protection
@@ -281,7 +289,13 @@ public static class LocalizationCatalog
         ["StatusAdvancedInactive"] = "○ Inactive",
         ["StatusBlockedAdvanced"] = "🛡️ Blocked (Advanced)",
         ["StatusBlockedStandard"] = "🔒 Blocked (Standard)",
+        ["StatusBlockedSoftwareOnly"] = "⚠️ Partially Protected (Software Mute Only)",
         ["StatusUnblocked"] = "✅ Allowed",
+
+        // Store Edition Navigation & Boundaries
+        ["OpenPrivacySettings"] = "Open Windows Privacy Settings",
+        ["StoreEditionCameraSettingsHint"] = "In the Microsoft Store edition, manage camera permissions in Windows Settings",
+        ["StoreEditionSecureNotSupported"] = "Unavailable in Microsoft Store edition",
 
         // Notifications & Errors
         ["ElevationCancelled"] = "Operation cancelled: Administrator permissions were denied.",

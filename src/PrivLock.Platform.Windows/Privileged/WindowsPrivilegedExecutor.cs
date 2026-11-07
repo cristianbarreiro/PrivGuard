@@ -4,8 +4,10 @@ using System.Security.Principal;
 using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Infrastructure.Common.Storage;
 using PrivLock.Platform.Abstractions;
 using PrivLock.Platform.Windows.Devices;
+using PrivLock.Platform.Windows.System;
 using PrivLock.Platform.Windows.Policies;
 using Serilog;
 
@@ -31,19 +33,34 @@ public static class WindowsPrivilegedExecutor
     internal static OperationResult ExecuteWorkerCommand(
         string command,
         string argument,
-        string ownerUserSid) =>
-        ExecutePrivilegedCommandCore(command, argument, ownerUserSid);
+        string ownerUserSid,
+        IEditionProfileResolver? profileResolver = null) =>
+        ExecutePrivilegedCommandCore(command, argument, ownerUserSid, profileResolver);
 
     private static OperationResult ExecutePrivilegedCommandCore(
         string command,
         string argument,
-        string ownerUserSid)
+        string ownerUserSid,
+        IEditionProfileResolver? profileResolver = null)
     {
+        var resolvedProfile = profileResolver
+            ?? WindowsPrivilegedSession.Instance.ProfileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+        if (resolvedProfile.Profile != EditionProfile.Standalone || !resolvedProfile.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected internal privileged command '{Command}' because EditionProfile is {Profile}.",
+                command,
+                resolvedProfile.Profile);
+            return OperationResult.Fail(
+                $"Privileged worker operations are not supported in the {resolvedProfile.Profile} edition profile.");
+        }
+
         Log.Information("Executing internal privileged command: Command={Command}", command);
 
         try
         {
-            var deviceController = new WindowsDeviceController();
+            var deviceController = new WindowsDeviceController(resolvedProfile);
 
             return command.ToLowerInvariant() switch
             {

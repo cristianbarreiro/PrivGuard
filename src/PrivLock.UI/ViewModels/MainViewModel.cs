@@ -26,9 +26,21 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _appSubtitle = "Camera & Microphone Blocker";
 
+    // --- Edition & Capability Profile ---
+    public EditionProfile EditionProfile => _protectionService.EditionProfile;
+    public bool IsStoreEdition => _protectionService.IsStoreEdition;
+    public bool IsStandaloneEdition => _protectionService.EditionProfile == EditionProfile.Standalone;
+    public bool IsSecureProtectionSupported =>
+        _protectionService.EditionProfile == EditionProfile.Standalone &&
+        _protectionService.Capabilities.SupportsHardwareDisable &&
+        _protectionService.Capabilities.SupportsSystemPolicy;
+
     // --- Advanced Protection (Global Extension) ---
     [ObservableProperty]
     private bool _isAdvancedProtectionEnabled;
+
+    [ObservableProperty]
+    private bool _isAdvancedProtectionToggleEnabled = true;
 
     [ObservableProperty]
     private string _advancedProtectionStatusText = "";
@@ -344,12 +356,18 @@ public sealed partial class MainViewModel : ObservableObject
         _isUpdating = true;
         try
         {
+            var isStore = _protectionService.IsStoreEdition;
+            var isUntrusted = _protectionService.IsUntrustedOrIndeterminate;
+
             // === 1. Advanced Protection (Global Extension) ===
-            IsAdvancedProtectionEnabled = state.AdvancedProtectionEnabled;
-            AdvancedProtectionStatusText = state.AdvancedProtectionEnabled
-                ? _localizationService.GetString("StatusAdvancedActive", "🛡️ Hardened (Advanced)")
-                : _localizationService.GetString("StatusAdvancedInactive", "○ Inactive");
-            AdvancedProtectionStatusColor = state.AdvancedProtectionEnabled ? "#007ACC" : "#888888";
+            IsAdvancedProtectionToggleEnabled = IsSecureProtectionSupported && !isUntrusted;
+            IsAdvancedProtectionEnabled = !isStore && !isUntrusted && state.AdvancedProtectionEnabled;
+            AdvancedProtectionStatusText = isStore
+                ? _localizationService.GetString("StoreEditionSecureNotSupported", "Unavailable in Microsoft Store edition")
+                : (IsAdvancedProtectionEnabled
+                    ? _localizationService.GetString("StatusAdvancedActive", "🛡️ Hardened (Advanced)")
+                    : _localizationService.GetString("StatusAdvancedInactive", "○ Inactive"));
+            AdvancedProtectionStatusColor = IsAdvancedProtectionEnabled ? "#007ACC" : "#888888";
 
             // === 2. Camera UI ===
             var camBlocked = state.Camera.IsProtected;
@@ -362,7 +380,11 @@ public sealed partial class MainViewModel : ObservableObject
             IsCameraBlocked = camBlocked;
             IsCameraStandardActive = camBlocked;
 
-            if (camBlocked)
+            if (isUntrusted)
+            {
+                IsCameraToggleEnabled = false;
+            }
+            else if (camBlocked)
             {
                 // Safe unblock/restoration: user can restore if Standard or Secure is Active and verified
                 IsCameraToggleEnabled = (state.Camera.StandardState == StandardProtectionState.Active && state.Camera.StandardIsVerified) ||
@@ -432,41 +454,67 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             // Camera Secure Compatibility fields
-            switch (state.Camera.SecureState)
+            if (isStore || isUntrusted)
             {
-                case SecureProtectionState.Active:
-                    CameraSecureText = _localizationService.GetString("StatusSecureActive", "🛡️ Secure Active (Hardened)");
-                    CameraSecureBadgeColor = "#D32F2F";
-                    CameraSecureButtonText = _localizationService.GetString("DisableSecure", "Disable Secure");
-                    IsCameraSecureButtonEnabled = true;
-                    IsCameraSecureHintVisible = false;
-                    CameraSecureHint = "";
-                    break;
-                case SecureProtectionState.Available:
-                    CameraSecureText = _localizationService.GetString("StatusSecureAvailable", "○ Available to enable");
-                    CameraSecureBadgeColor = "#F57C00";
-                    CameraSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
-                    IsCameraSecureButtonEnabled = true;
-                    IsCameraSecureHintVisible = false;
-                    CameraSecureHint = "";
-                    break;
-                default:
-                    CameraSecureText = state.Camera.SecureState == SecureProtectionState.Unknown
-                        ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
-                        : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
-                    CameraSecureBadgeColor = "#555555";
-                    CameraSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
-                    IsCameraSecureButtonEnabled = false;
-                    IsCameraSecureHintVisible = !camBlocked || state.Camera.SecureState == SecureProtectionState.Unknown;
-                    CameraSecureHint = camAbsent
-                        ? _localizationService.GetString("NoCameraDetected", "No camera detected")
-                        : (camStandardUnverifiable || state.Camera.SecureState == SecureProtectionState.Unknown
+                CameraSecureText = isStore
+                    ? _localizationService.GetString("StoreEditionSecureNotSupported", "Unavailable in Microsoft Store edition")
+                    : _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
+                CameraSecureBadgeColor = "#555555";
+                CameraSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                IsCameraSecureButtonEnabled = false;
+                IsCameraSecureHintVisible = isStore;
+                CameraSecureHint = isStore
+                    ? _localizationService.GetString("StoreEditionCameraSettingsHint", "In the Microsoft Store edition, manage camera permissions in Windows Settings")
+                    : "";
+            }
+            else
+            {
+                switch (state.Camera.SecureState)
+                {
+                    case SecureProtectionState.Active:
+                        CameraSecureText = _localizationService.GetString("StatusSecureActive", "🛡️ Secure Active (Hardened)");
+                        CameraSecureBadgeColor = "#D32F2F";
+                        CameraSecureButtonText = _localizationService.GetString("DisableSecure", "Disable Secure");
+                        IsCameraSecureButtonEnabled = true;
+                        IsCameraSecureHintVisible = false;
+                        CameraSecureHint = "";
+                        break;
+                    case SecureProtectionState.Available:
+                        CameraSecureText = _localizationService.GetString("StatusSecureAvailable", "○ Available to enable");
+                        CameraSecureBadgeColor = "#F57C00";
+                        CameraSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                        IsCameraSecureButtonEnabled = true;
+                        IsCameraSecureHintVisible = false;
+                        CameraSecureHint = "";
+                        break;
+                    default:
+                        CameraSecureText = state.Camera.SecureState == SecureProtectionState.Unknown
                             ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
-                            : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first"));
-                    break;
+                            : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
+                        CameraSecureBadgeColor = "#555555";
+                        CameraSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                        IsCameraSecureButtonEnabled = false;
+                        IsCameraSecureHintVisible = !camBlocked || state.Camera.SecureState == SecureProtectionState.Unknown;
+                        CameraSecureHint = camAbsent
+                            ? _localizationService.GetString("NoCameraDetected", "No camera detected")
+                            : (camStandardUnverifiable || state.Camera.SecureState == SecureProtectionState.Unknown
+                                ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
+                                : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first"));
+                        break;
+                }
             }
 
             // === 3. Microphone UI ===
+            var hwSummary = state.Microphone.HardwareMuteSummary;
+            var micSoftwareOnlyMute = state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available &&
+                                      hwSummary is { TotalCount: > 0 } &&
+                                      hwSummary.NotSupportedCount > 0 &&
+                                      hwSummary.UnknownCount == 0;
+            var micCanToggleStandard = state.Microphone.StandardState != StandardProtectionState.Unknown &&
+                                       (state.Microphone.StandardIsVerified ||
+                                        (state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available &&
+                                         hwSummary is { TotalCount: > 0 }));
+
             var micBlocked = state.Microphone.IsProtected;
             var micAbsent = state.Microphone.Availability == TargetDeviceAvailability.NotDetected &&
                             state.Microphone.EndpointAvailability == AudioEndpointAvailability.NotDetected;
@@ -485,16 +533,20 @@ public sealed partial class MainViewModel : ObservableObject
             IsMicBlocked = micBlocked;
             IsMicStandardActive = micBlocked;
 
-            if (micBlocked)
+            if (isUntrusted)
             {
-                // Safe unblock/restoration: user can restore if Standard or Secure is Active and verified
-                IsMicToggleEnabled = (state.Microphone.StandardState == StandardProtectionState.Active && state.Microphone.StandardIsVerified) ||
+                IsMicToggleEnabled = false;
+            }
+            else if (micBlocked)
+            {
+                // Safe unblock/restoration: user can restore if Standard is Active (including software-only mute) or Secure is Active and verified
+                IsMicToggleEnabled = (state.Microphone.StandardState == StandardProtectionState.Active && micCanToggleStandard) ||
                                      (state.Microphone.SecureState == SecureProtectionState.Active && state.Microphone.SecureIsVerified);
             }
             else
             {
-                // Safe mutation: user can enable Standard if hardware and endpoints are available and Standard is Inactive and verifiable
-                IsMicToggleEnabled = !micAbsent && !micHardwareWithoutEndpoints && !micStandardUnverifiable &&
+                // Safe mutation: user can enable Standard if endpoints are available and Standard is Inactive (including software-only mute)
+                IsMicToggleEnabled = !micAbsent && !micHardwareWithoutEndpoints && micCanToggleStandard &&
                                      state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available &&
                                      state.Microphone.StandardState == StandardProtectionState.Inactive;
             }
@@ -522,6 +574,13 @@ public sealed partial class MainViewModel : ObservableObject
                     }
                     MicStandardText = _localizationService.GetString("StatusStandardActive", "● Standard Active");
                     MicStandardColor = "#E57373";
+                }
+                else if (state.Microphone.StandardState == StandardProtectionState.Active && micSoftwareOnlyMute)
+                {
+                    MicStatusText = _localizationService.GetString("StatusBlockedSoftwareOnly", "⚠️ Partially Protected (Software Mute Only)");
+                    MicStatusColor = "#FFA726";
+                    MicStandardText = _localizationService.GetString("StatusStandardActiveSoftwareOnly", "● Standard Active (Software Mute Only)");
+                    MicStandardColor = "#FFA726";
                 }
                 else
                 {
@@ -563,45 +622,58 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             // Microphone Secure Compatibility fields
-            switch (state.Microphone.SecureState)
+            if (isStore || isUntrusted)
             {
-                case SecureProtectionState.Active:
-                    MicSecureText = _localizationService.GetString("StatusSecureActive", "🛡️ Secure Active (Hardened)");
-                    MicSecureBadgeColor = "#D32F2F";
-                    MicSecureButtonText = _localizationService.GetString("DisableSecure", "Disable Secure");
-                    IsMicSecureButtonEnabled = true;
-                    IsMicSecureHintVisible = false;
-                    MicSecureHint = "";
-                    break;
-                case SecureProtectionState.Available:
-                    MicSecureText = _localizationService.GetString("StatusSecureAvailable", "○ Available to enable");
-                    MicSecureBadgeColor = "#F57C00";
-                    MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
-                    IsMicSecureButtonEnabled = true;
-                    IsMicSecureHintVisible = false;
-                    MicSecureHint = "";
-                    break;
-                default:
-                    MicSecureText = state.Microphone.SecureState == SecureProtectionState.Unknown
-                        ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
-                        : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
-                    MicSecureBadgeColor = "#555555";
-                    MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
-                    IsMicSecureButtonEnabled = false;
-                    IsMicSecureHintVisible = !micBlocked || state.Microphone.SecureState == SecureProtectionState.Unknown;
-                    if (micAbsent)
-                        MicSecureHint = _localizationService.GetString("NoMicrophonesDetected", "No input microphones detected");
-                    else if (micHardwareWithoutEndpoints)
-                        MicSecureHint = _localizationService.GetString("MicrophoneDetectedNoEndpoints", "Microphone detected, but no active capture endpoint available");
-                    else if (micStandardUnverifiable || state.Microphone.SecureState == SecureProtectionState.Unknown)
-                        MicSecureHint = _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
-                    else
-                        MicSecureHint = _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
-                    break;
+                MicSecureText = isStore
+                    ? _localizationService.GetString("StoreEditionSecureNotSupported", "Unavailable in Microsoft Store edition")
+                    : _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
+                MicSecureBadgeColor = "#555555";
+                MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                IsMicSecureButtonEnabled = false;
+                IsMicSecureHintVisible = false;
+                MicSecureHint = "";
+            }
+            else
+            {
+                switch (state.Microphone.SecureState)
+                {
+                    case SecureProtectionState.Active:
+                        MicSecureText = _localizationService.GetString("StatusSecureActive", "🛡️ Secure Active (Hardened)");
+                        MicSecureBadgeColor = "#D32F2F";
+                        MicSecureButtonText = _localizationService.GetString("DisableSecure", "Disable Secure");
+                        IsMicSecureButtonEnabled = true;
+                        IsMicSecureHintVisible = false;
+                        MicSecureHint = "";
+                        break;
+                    case SecureProtectionState.Available:
+                        MicSecureText = _localizationService.GetString("StatusSecureAvailable", "○ Available to enable");
+                        MicSecureBadgeColor = "#F57C00";
+                        MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                        IsMicSecureButtonEnabled = true;
+                        IsMicSecureHintVisible = false;
+                        MicSecureHint = "";
+                        break;
+                    default:
+                        MicSecureText = state.Microphone.SecureState == SecureProtectionState.Unknown
+                            ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
+                            : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
+                        MicSecureBadgeColor = "#555555";
+                        MicSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                        IsMicSecureButtonEnabled = false;
+                        IsMicSecureHintVisible = !micBlocked || state.Microphone.SecureState == SecureProtectionState.Unknown;
+                        if (micAbsent)
+                            MicSecureHint = _localizationService.GetString("NoMicrophonesDetected", "No input microphones detected");
+                        else if (micHardwareWithoutEndpoints)
+                            MicSecureHint = _localizationService.GetString("MicrophoneDetectedNoEndpoints", "Microphone detected, but no active capture endpoint available");
+                        else if (micStandardUnverifiable || state.Microphone.SecureState == SecureProtectionState.Unknown)
+                            MicSecureHint = _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
+                        else
+                            MicSecureHint = _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
+                        break;
+                }
             }
 
             // Clean telemetry and reset if endpoints unavailable/unknown
-            var hwSummary = state.Microphone.HardwareMuteSummary;
             if (hwSummary != null && hwSummary.TotalCount > 0 &&
                 state.Microphone.EndpointAvailability == AudioEndpointAvailability.Available)
             {
@@ -636,7 +708,8 @@ public sealed partial class MainViewModel : ObservableObject
 
             IsBothBlocked = bothBlockedVerified;
             IsBothStandardActive = bothBlockedVerified;
-            IsBothToggleEnabled = IsCameraToggleEnabled && IsMicToggleEnabled && (IsCameraBlocked == IsMicBlocked);
+            IsBothToggleEnabled = !isStore && !isUntrusted &&
+                                  IsCameraToggleEnabled && IsMicToggleEnabled && (IsCameraBlocked == IsMicBlocked);
 
             if (bothBlockedVerified)
             {
@@ -691,43 +764,57 @@ public sealed partial class MainViewModel : ObservableObject
                 BothStandardColor = "#FFA726";
             }
 
-            var camSecure = state.Camera.SecureState;
-            var micSecure = state.Microphone.SecureState;
-            var bothSecureActive = camSecure == SecureProtectionState.Active && micSecure == SecureProtectionState.Active;
-            var bothSecureAvailable = bothBlockedVerified &&
-                (camSecure is SecureProtectionState.Available or SecureProtectionState.Active) &&
-                (micSecure is SecureProtectionState.Available or SecureProtectionState.Active);
-
-            if (bothSecureActive)
+            if (isStore || isUntrusted)
             {
-                BothSecureText = _localizationService.GetString("StatusSecureActive", "🛡️ Secure Active (Hardened)");
-                BothSecureBadgeColor = "#D32F2F";
-                BothSecureButtonText = _localizationService.GetString("DisableSecure", "Disable Secure");
-                IsBothSecureButtonEnabled = true;
-                IsBothSecureHintVisible = false;
-                BothSecureHint = "";
-            }
-            else if (bothSecureAvailable)
-            {
-                BothSecureText = _localizationService.GetString("StatusSecureAvailable", "○ Available to enable");
-                BothSecureBadgeColor = "#F57C00";
+                BothSecureText = isStore
+                    ? _localizationService.GetString("StoreEditionSecureNotSupported", "Unavailable in Microsoft Store edition")
+                    : _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable");
+                BothSecureBadgeColor = "#555555";
                 BothSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
-                IsBothSecureButtonEnabled = true;
+                IsBothSecureButtonEnabled = false;
                 IsBothSecureHintVisible = false;
                 BothSecureHint = "";
             }
             else
             {
-                BothSecureText = (camSecureUnverifiable || micSecureUnverifiable)
-                    ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
-                    : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
-                BothSecureBadgeColor = "#555555";
-                BothSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
-                IsBothSecureButtonEnabled = false;
-                IsBothSecureHintVisible = !bothBlockedVerified || camSecureUnverifiable || micSecureUnverifiable;
-                BothSecureHint = (camSecureUnverifiable || micSecureUnverifiable)
-                    ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
-                    : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
+                var camSecure = state.Camera.SecureState;
+                var micSecure = state.Microphone.SecureState;
+                var bothSecureActive = camSecure == SecureProtectionState.Active && micSecure == SecureProtectionState.Active;
+                var bothSecureAvailable = bothBlockedVerified &&
+                    (camSecure is SecureProtectionState.Available or SecureProtectionState.Active) &&
+                    (micSecure is SecureProtectionState.Available or SecureProtectionState.Active);
+
+                if (bothSecureActive)
+                {
+                    BothSecureText = _localizationService.GetString("StatusSecureActive", "🛡️ Secure Active (Hardened)");
+                    BothSecureBadgeColor = "#D32F2F";
+                    BothSecureButtonText = _localizationService.GetString("DisableSecure", "Disable Secure");
+                    IsBothSecureButtonEnabled = true;
+                    IsBothSecureHintVisible = false;
+                    BothSecureHint = "";
+                }
+                else if (bothSecureAvailable)
+                {
+                    BothSecureText = _localizationService.GetString("StatusSecureAvailable", "○ Available to enable");
+                    BothSecureBadgeColor = "#F57C00";
+                    BothSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                    IsBothSecureButtonEnabled = true;
+                    IsBothSecureHintVisible = false;
+                    BothSecureHint = "";
+                }
+                else
+                {
+                    BothSecureText = (camSecureUnverifiable || micSecureUnverifiable)
+                        ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
+                        : _localizationService.GetString("StatusSecureUnavailable", "🔒 Unavailable");
+                    BothSecureBadgeColor = "#555555";
+                    BothSecureButtonText = _localizationService.GetString("EnableSecure", "🔒 Enable Secure Protection");
+                    IsBothSecureButtonEnabled = false;
+                    IsBothSecureHintVisible = !bothBlockedVerified || camSecureUnverifiable || micSecureUnverifiable;
+                    BothSecureHint = (camSecureUnverifiable || micSecureUnverifiable)
+                        ? _localizationService.GetString("StatusUnverifiable", "⚠️ Unverifiable")
+                        : _localizationService.GetString("SecureRequirementHint", "Enable Standard Protection first");
+                }
             }
 
             // Overall Badge
@@ -774,7 +861,13 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task ExecuteCameraToggleAsync(bool enable)
     {
         ClearError();
-        Log.Information("User toggled Camera to {Enable}", enable);
+        Log.Information("User toggled Camera to {Enable} (IsStoreEdition={IsStore})", enable, _protectionService.IsStoreEdition);
+
+        if (_protectionService.IsStoreEdition)
+        {
+            await OpenCameraPrivacySettingsAsync();
+            return;
+        }
 
         var result = enable
             ? await _protectionService.BlockDeviceAsync(BlockTarget.Camera)
@@ -785,6 +878,30 @@ public sealed partial class MainViewModel : ObservableObject
             ShowError(result.ErrorMessage ?? _localizationService.GetString("ErrorUpdateCamera", "Failed to update Camera protection"));
             await RefreshStateAsync();
         }
+    }
+
+    [RelayCommand]
+    public async Task OpenCameraPrivacySettingsAsync()
+    {
+        ClearError();
+        var result = await _protectionService.OpenPrivacySettingsAsync(BlockTarget.Camera);
+        if (!result.Success)
+        {
+            ShowError(result.ErrorMessage ?? _localizationService.GetString("ErrorUpdateCamera", "Failed to open Camera privacy settings"));
+        }
+        await RefreshStateAsync();
+    }
+
+    [RelayCommand]
+    public async Task OpenMicrophonePrivacySettingsAsync()
+    {
+        ClearError();
+        var result = await _protectionService.OpenPrivacySettingsAsync(BlockTarget.Microphone);
+        if (!result.Success)
+        {
+            ShowError(result.ErrorMessage ?? _localizationService.GetString("ErrorUpdateMic", "Failed to open Microphone privacy settings"));
+        }
+        await RefreshStateAsync();
     }
 
     partial void OnIsCameraStandardActiveChanged(bool value)

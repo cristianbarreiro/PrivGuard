@@ -1,6 +1,10 @@
 using System.Runtime.InteropServices;
+using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Devices;
@@ -17,6 +21,14 @@ public class WindowsCoreAudioController
     private const uint CLSCTX_ALL = 23;
     private const uint DEVICE_STATE_ACTIVE = 1;
 
+    private readonly IEditionProfileResolver _profileResolver;
+
+    public WindowsCoreAudioController(IEditionProfileResolver? profileResolver = null)
+    {
+        _profileResolver = profileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+    }
+
     public static AudioEndpointHardwareMuteSupport ParseHardwareMuteSupport(int hresult, uint hardwareSupportMask)
     {
         // COM SUCCEEDED: hr >= 0 (includes S_OK = 0 and S_FALSE = 1). Negative HRESULTs are failures.
@@ -30,6 +42,13 @@ public class WindowsCoreAudioController
 
     public virtual WindowsAudioEndpointQueryResult GetMicrophoneMuteStates()
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            Log.Warning("Rejected Core Audio endpoint query because EditionProfile is UntrustedOrIndeterminate.");
+            return WindowsAudioEndpointQueryResult.Failed(
+                "Core Audio query is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         IMMDeviceEnumerator? enumerator = null;
         IMMDeviceCollection? collection = null;
 
@@ -110,7 +129,7 @@ public class WindowsCoreAudioController
         }
     }
 
-    public WindowsAudioEndpointLookupResult GetMicrophoneMuteState(string endpointId)
+    public virtual WindowsAudioEndpointLookupResult GetMicrophoneMuteState(string endpointId)
     {
         var query = GetMicrophoneMuteStates();
         if (!query.Success)
@@ -123,8 +142,18 @@ public class WindowsCoreAudioController
             : WindowsAudioEndpointLookupResult.Found(match.IsMuted, match.HardwareMuteSupport);
     }
 
-    public OperationResult SetMicrophoneMute(string endpointId, bool mute)
+    public virtual OperationResult SetMicrophoneMute(string endpointId, bool mute)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            Log.Warning(
+                "Rejected Core Audio endpoint mute mutation (EndpointId={EndpointId}, Mute={Mute}) because EditionProfile is UntrustedOrIndeterminate.",
+                endpointId,
+                mute);
+            return OperationResult.Fail(
+                "Core Audio mute mutation is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         IMMDeviceEnumerator? enumerator = null;
         IMMDevice? device = null;
         IAudioEndpointVolume? volume = null;
@@ -187,6 +216,12 @@ public class WindowsCoreAudioController
 
     internal OperationResult SetMicrophonesMute(bool mute)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Core Audio mute mutation is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         Log.Information("Setting Windows Core Audio capture endpoints mute={Mute}", mute);
         var query = GetMicrophoneMuteStates();
         if (!query.Success)
@@ -213,6 +248,9 @@ public class WindowsCoreAudioController
 
     public bool IsDefaultMicrophoneMuted()
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+            return false;
+
         IMMDeviceEnumerator? enumerator = null;
         IMMDevice? device = null;
         IAudioEndpointVolume? volume = null;

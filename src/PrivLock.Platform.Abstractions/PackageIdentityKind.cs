@@ -27,5 +27,15 @@ public enum PackageIdentityKind
     /// Process is running inside a package container, but the identity does not match authentic PrivGuard.
     /// Requires explicit detection.
     /// </summary>
-    UnexpectedPackage = 3
+    UnexpectedPackage = 3,
+
+    /// <summary>
+    /// Process is running inside a development or unsigned package container.
+    /// </summary>
+    UnsignedDevPackage = 4,
+
+    /// <summary>
+    /// Process is running inside a package container whose publisher cannot be verified as authentic Store identity.
+    /// </summary>
+    UnverifiedPublisherPackage = 5
 }

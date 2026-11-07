@@ -1,4 +1,5 @@
 using PrivLock.Platform.Abstractions;
+using Serilog;
 
 namespace PrivLock.Infrastructure.Common.Storage;
 
@@ -9,6 +10,8 @@ namespace PrivLock.Infrastructure.Common.Storage;
 /// </summary>
 public sealed class DefaultEditionProfileResolver : IEditionProfileResolver
 {
+    private static readonly ILogger Log = Serilog.Log.ForContext<DefaultEditionProfileResolver>();
+
     public const string StoreSubdirectory = "Store";
     public const string StandaloneSubdirectory = "Standalone";
     public const string UntrustedSubdirectory = "UntrustedOrIndeterminate";
@@ -28,7 +31,16 @@ public sealed class DefaultEditionProfileResolver : IEditionProfileResolver
         if (identityDetector == null)
             throw new ArgumentNullException(nameof(identityDetector));
 
-        _resolvedIdentityKind = identityDetector.Kind;
+        try
+        {
+            _resolvedIdentityKind = identityDetector.Kind;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Package identity detector threw during profile resolution; failing closed to DetectionFailed");
+            _resolvedIdentityKind = PackageIdentityKind.DetectionFailed;
+        }
+
         _resolvedProfile = _resolvedIdentityKind switch
         {
             PackageIdentityKind.AuthenticStorePackage => EditionProfile.Store,

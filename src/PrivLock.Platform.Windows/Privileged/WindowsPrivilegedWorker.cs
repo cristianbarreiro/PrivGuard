@@ -2,7 +2,11 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using PrivLock.Domain.Models;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Privileged;
@@ -15,8 +19,23 @@ public static class WindowsPrivilegedWorker
 {
     private static readonly ILogger Log = Serilog.Log.ForContext(typeof(WindowsPrivilegedWorker));
 
-    public static int Run(string pipeName, int parentProcessId, string sessionNonce)
+    public static int Run(
+        string pipeName,
+        int parentProcessId,
+        string sessionNonce,
+        IEditionProfileResolver? profileResolver = null)
     {
+        var resolvedProfile = profileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+        if (resolvedProfile.Profile != EditionProfile.Standalone || !resolvedProfile.SupportsPrivilegedOperations)
+        {
+            Log.Error(
+                "Privileged worker rejected execution in non-Standalone profile: Profile={Profile}, SupportsPrivilegedOperations={SupportsPrivileged}",
+                resolvedProfile.Profile,
+                resolvedProfile.SupportsPrivilegedOperations);
+            return 1;
+        }
+
         if (!IsValidLaunchContext(pipeName, parentProcessId, sessionNonce))
             return 1;
 
@@ -121,7 +140,8 @@ public static class WindowsPrivilegedWorker
                 var result = WindowsPrivilegedExecutor.ExecuteWorkerCommand(
                     request.Command!,
                     request.Argument!,
-                    ownerUserSid);
+                    ownerUserSid,
+                    resolvedProfile);
 
                 using var responseTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                 PrivilegedPipeProtocol.WriteAsync(pipeClient, new PrivilegedPipeFrame

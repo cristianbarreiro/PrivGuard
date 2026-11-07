@@ -3,7 +3,11 @@ using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
+using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Privileged;
@@ -28,12 +32,24 @@ public sealed class WindowsPrivilegedSession : IDisposable
     private int _elevationLaunchCount;
     private int _deferredScopeDepth;
 
-    internal WindowsPrivilegedSession() { }
+    public WindowsPrivilegedSession(IEditionProfileResolver? profileResolver = null)
+    {
+        ProfileResolver = profileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+    }
 
     public static WindowsPrivilegedSession Instance => _testOverrideInstance ?? InstanceLazy.Value;
 
+    public static void ConfigureDefaultProfileResolver(IEditionProfileResolver profileResolver)
+    {
+        ArgumentNullException.ThrowIfNull(profileResolver);
+        InstanceLazy.Value.ProfileResolver = profileResolver;
+    }
+
     internal static void SetTestOverrideInstance(WindowsPrivilegedSession? testSession) =>
         _testOverrideInstance = testSession;
+
+    public IEditionProfileResolver ProfileResolver { get; set; }
 
     internal Func<string, string, Task<OperationResult>>? CustomCommandExecutor { get; set; }
     internal Func<Task>? CustomWorkerLauncher { get; set; }
@@ -74,6 +90,17 @@ public sealed class WindowsPrivilegedSession : IDisposable
 
     public async Task<OperationResult> ExecuteCommandAsync(string command, string argument)
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected privileged worker command '{Command}' because EditionProfile is {Profile} (SupportsPrivilegedOperations={SupportsPrivileged}).",
+                command,
+                ProfileResolver.Profile,
+                ProfileResolver.SupportsPrivilegedOperations);
+            return OperationResult.Fail(
+                $"Privileged worker execution is not supported in the {ProfileResolver.Profile} edition profile.");
+        }
+
         if (!IsValidCommand(command, argument))
             return OperationResult.Fail("Invalid elevated command framing.");
 
@@ -180,6 +207,12 @@ public sealed class WindowsPrivilegedSession : IDisposable
 
     private async Task EnsureSessionActiveAsync()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+        {
+            throw new InvalidOperationException(
+                $"Privileged worker session cannot be started in the {ProfileResolver.Profile} edition profile.");
+        }
+
         lock (_lock)
         {
             if (_isElevatedSessionActive &&
@@ -345,6 +378,11 @@ public sealed class WindowsPrivilegedSession : IDisposable
     /// </summary>
     public IDisposable BeginDeferredScope()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+        {
+            return NoOpDisposable.Instance;
+        }
+
         var depth = Interlocked.Increment(ref _deferredScopeDepth);
         Log.Information("Deferred elevation scope entered (depth: {Depth})", depth);
         return new DeferredScopeToken(this);
@@ -380,6 +418,9 @@ public sealed class WindowsPrivilegedSession : IDisposable
     /// </summary>
     public bool ReleaseSession()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+            return true;
+
         if (IsDeferredScopeActive)
         {
             int? pid;
@@ -406,6 +447,9 @@ public sealed class WindowsPrivilegedSession : IDisposable
     /// </summary>
     public bool CloseSession()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+            return true;
+
         _commandGate.Wait();
         try
         {
@@ -465,6 +509,12 @@ public sealed class WindowsPrivilegedSession : IDisposable
     }
 
     public void Dispose() => CloseSession();
+
+    private sealed class NoOpDisposable : IDisposable
+    {
+        public static readonly NoOpDisposable Instance = new();
+        public void Dispose() { }
+    }
 
     private sealed class DeferredScopeToken : IDisposable
     {
