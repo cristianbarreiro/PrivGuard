@@ -1,23 +1,28 @@
-# PrivGuard — Fase 8B.1A.7.2-R2: Rebaseline de Supuestos, Readiness del Laboratorio VM, Máquina de Estados FUS y Preflight de Host (Revisión Factual y Corrección Estática R2)
+# PrivGuard — Fase 8B.1A.7.2-R3: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Diseño TEST-09.7 (Revisión Factual y Corrección Estática R3)
 
 **Fecha de emisión original:** 2026-11-07<br />
 **Fecha de revisión factual R1:** 2026-11-07<br />
 **Fecha de revisión factual R2:** 2026-11-07<br />
-**Autor:** Principal .NET / Windows Security Engineer & Transactional Recovery Auditor<br />
-**Rama activa de trabajo:** `docs/8b1a7-2-r2-fus-handoff-state-machine`<br />
+**Fecha de revisión factual R3:** 2026-11-07<br />
+**Autor:** Principal .NET / Windows Security Engineer, Auditor de Sincronización Interproceso y Responsable de Calidad de Evidencia<br />
+**Rama activa de trabajo:** `docs/8b1a7-2-r3-release-order-race`<br />
 **Baseline de código auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
-**HEAD documental remoto (`origin/main`):** `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`<br />
-**Parent directo en `main`:** `11a7e497a212000809084d56cb3c596ccd3c6f43`<br />
+**HEAD documental remoto (`origin/main`):** `2f1281b0df0fa4906f14f690d95be42beadf15aa`<br />
+**Parent directo en `main`:** `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`<br />
 **Parent funcional anterior (Baseline auditado):** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
-**Último workflow CI:** Run #97 (ID: `42428357398`, commit `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`, evento `push`, **7/7 jobs `success`**)<br />
-**Workflows CI previos relevantes:**<br />
+**Último workflow CI:** Run #98 (ID: `42429999278`, commit `2f1281b0df0fa4906f14f690d95be42beadf15aa`, evento `push`, **7/7 jobs `success`**)<br />
+**Workflows CI previos relevantes (SHAs completos verificados vía GitHub Actions API):**<br />
+- Run #97 (ID: `42428357398`, commit `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #96 (ID: `42426468347`, commit `11a7e497a212000809084d56cb3c596ccd3c6f43`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #95 (ID: `42420318570`, commit `fc345ebd06239e8b86c0c502a4b289052e988a8c`, evento `push`, **7/7 jobs `success`**)<br />
-- Run #94 (ID: `42417187681`, commit `aedd19cb24076e73c3da7278d655f4a7c06ebf19`, evento `push`, **7/7 jobs `success`**)<br />
-- Run #93 (ID: `42410227273`, commit `54fb4462725514f7b6c7ce1a5e1ae77cfc21ec15`, evento `push`, **7/7 jobs `success`**)<br />
+- Run #94 (ID: `42417187681`, commit `aedd19c819ddeaf4e482576fb973f490980b7aa5`, evento `push`, **7/7 jobs `success`**)<br />
+- Run #93 (ID: `42410227273`, commit `54fb44670c55b3d0e009e1236dc6a48e0b44378c`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #92 (ID: `42396473407`, commit `653be31040da53bea72a540ddb2a111f16b35d50`, evento `push`, **7/7 jobs `success`**)<br />
-- Runs #87 y #86 (IDs: `42346415046` y `42342850877`, commits `391d79e67dca46797b539c394d284e9c79294ae0` y `0a270a133486395b225883ef4b82d449622d645e`, evento `pull_request`, `head_branch`: `feature/sprint-1-store-profile-guards-d01-d02`, destino: `main`, PR #11, **7/7 jobs `success`**)<br />
-**Veredicto de Rebaseline R2:** **PASS — R2 STATE-MACHINE RECONCILED**<br />
+- Run #91 (ID: `42390732091`, commit `07e41885f4b0398c05c7193e7191773bb658bd6f`, evento `push`, **7/7 jobs `success`**)<br />
+- Run #90 (ID: `42384884759`, commit `b9d4b8f1627c74b70b977f509cbc56acc7989ad0`, evento `push`, **7/7 jobs `success`**)<br />
+- Run #89 (ID: `42379421580`, commit `d8ca7acc703397cabec8d5cbba92f39329fa940a`, evento `push`, **7/7 jobs `success`**)<br />
+- Runs #87 y #86 (IDs: `42346415046` y `42342850877`, commits `391d79e9255cb07f87f6e13748225cd55fc6f514` y `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246`, evento `pull_request`, `head_branch`: `feature/sprint-1-store-profile-guards-d01-d02`, destino: `main`, PR #11, **7/7 jobs `success`**)<br />
+**Veredicto de Rebaseline R3:** **PASS — R3 DOCUMENTATION AND RACE ANALYSIS RECONCILED**<br />
 **Clasificación de Host Preflight:** **GUEST DETECTED — L0 NOT VERIFIED**<br />
 **Readiness del Laboratorio VM:** **HOLD — Requiere aprovisionamiento/acción del propietario en Hipervisor L0**<br />
 **Estado Microsoft Store:** **CONDITIONAL HOLD**<br />
@@ -27,43 +32,70 @@
 
 ## 1. Resumen Ejecutivo y Veredictos Formales
 
-### 1.1 Resumen Ejecutivo y Addenda de Reconciliación Factual (R1 y R2)
-El presente documento constituye la **revisión factual, adversarial y correctiva R2** del rebaseline técnico de la Fase 8B.1A.7.2 (preparación para pruebas dinámicas de almacenamiento MSIX y recuperación transaccional en VM aislada).
+### 1.1 Resumen Ejecutivo y Addenda de Reconciliación Factual (R1, R2 y R3)
+El presente documento constituye la **revisión factual, adversarial, de sincronización y correctiva R3** del rebaseline técnico de la Fase 8B.1A.7.2 (preparación para pruebas dinámicas de almacenamiento MSIX y recuperación transaccional en VM aislada).
 
-Los informes y runbooks previos de virtualización (Fases 8B.1A.5, 8B.1A.6 y 8B.1A.7.1) fueron redactados tomando como base el commit histórico `9f856c0405e4e5b64e784309affad450c38d3a37`. Desde dicho punto, la historia del repositorio avanzó mediante 5 commits en el rango `9f856c0..d8ca7acc` (Sprint 1.0, 1.1 y 1.2) seguidos de **10 commits exclusivamente documentales en `d8ca7acc..405f948d`**:
-- Cuatro commits documentales previos: `dded99c`, `b9d4b8f`, `07e4188` y `653be31` (este último fijando el baseline del código auditado).
-- Seis commits documentales correctivos posteriores: `3f08f12`, `54fb446`, `aedd19c`, `fc345eb`, `11a7e49` y `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`.
+Los informes y runbooks previos de virtualización (Fases 8B.1A.5, 8B.1A.6 y 8B.1A.7.1) fueron redactados tomando como base el commit histórico `9f856c0405e4e5b64e784309affad450c38d3a37`. Desde dicho punto, la historia del repositorio avanzó mediante 5 commits en el rango `9f856c0..d8ca7acc` (Sprint 1.0, 1.1 y 1.2) seguidos de **11 commits exclusivamente documentales en `d8ca7acc..2f1281b0`**:
+- Cuatro commits documentales iniciales: `dded99c`, `b9d4b8f`, `07e4188` y `653be31` (este último fijando el baseline del código auditado).
+- Siete commits documentales correctivos posteriores: `3f08f12`, `54fb446` (SHA real `54fb44670c55...`), `aedd19c` (SHA real `aedd19c819dd...`), `fc345eb`, `11a7e49`, `405f948d` y `2f1281b0df0fa4906f14f690d95be42beadf15aa`.
 
-#### Addendum R2: Resolución Criptográfica de Identidad de Commit, Preflight de Host y Máquina de Estados FUS
-1. **Reconciliación Definitiva de Identidad de Commit (`405f948`):**
-   - Se investigó la aparente discrepancia entre el SHA reportado narrativamente en R1 (`405f9485121b6a12dfd54d241772ea59419b4872`) y el HEAD remoto de `origin/main` (`405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`).
-   - La verificación criptográfica rigurosa mediante Git constata:
-     - `git rev-parse origin/main` -> `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`.
-     - `git rev-parse docs/8b1a7-2-post-push-r1` -> `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`.
-     - `git cat-file -e 405f9485121b6a12dfd54d241772ea59419b4872^{commit}` -> Falla con `fatal: Not a valid object name`.
-   - **Conclusión Factual:** El objeto `405f9485121...` nunca existió en la base de objetos de Git; fue una errata tipográfica/alucinación en la prosa del informe narrativo previo al expandir el prefijo corto `405f948`. El commit creado y sincronizado en `origin/main` fue y sigue siendo **`405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`** (`docs: reconcile 8b1a7 post-push evidence and test precision`).
-2. **Evidencia del Workflow Run #97 en GitHub Actions:**
-   - **Run ID:** `42428357398` | **URL:** [https://github.com/cristianbarreiro/PrivGuard/actions/runs/42428357398](https://github.com/cristianbarreiro/PrivGuard/actions/runs/42428357398)
-   - **Commit:** `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` | **Rama:** `main` | **Evento:** `push`
-   - **Resultado:** **7/7 jobs finalizados en `success`** (Build & Test en windows-latest, ubuntu-latest, macos-latest; y Publish Single-File para osx-arm64, win-x64, linux-x64, win-arm64). Paso `Validate Release-Store MSIX Packaging (Windows)` completado exitosamente.
-   - **Artefactos publicados en CI:** 4 ejecutables single-file (`PrivGvard-osx-arm64`, `PrivGvard-linux-x64`, `PrivGvard-win-arm64`, `PrivGvard-win-x64`). **CI no publicó ningún archivo MSIX instalable ni `BUILD-PROVENANCE.json`**.
-3. **Corrección de la Máquina de Estados de FUS en `TryRequestRunningInstanceAndAcquire()`:**
-   - Se rectifica el análisis de la liberación prematura de mutex en Fast User Switching:
-     - En `WindowsUninstallRequestListener.cs` (líneas 136-144): cuando UserA libera los mutexes antes de que expire el timeout de UserB, la espera sobre el mutex de prueba (`instanceMutex.WaitOne(waitInterval)`) adquiere la propiedad.
-     - A continuación, la línea 136 libera el handle de prueba (`instanceMutex.ReleaseMutex()`).
-     - Inmediatamente después, la línea 137 ejecuta el reintento de adquisición de la guarda: `if (singleInstanceGuard.TryAcquireSingleInstance()) return true;`.
-     - **Si dicho reintento tiene éxito (adquiriendo ambos mutexes: `Global\PrivLock_UninstallGate` y `Global\PrivLock_SingleInstance`), el método retorna `true` (ÉXITO)**, independientemente de que la señal no haya sido enviada (`requestSent == false`).
-     - El mensaje de error *"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."* se devuelve **ÚNICAMENTE si el reintento de la guarda devuelve `false` Y `!requestSent`** (líneas 140-144).
-4. **Resultados del Preflight de Host en Solo Lectura:**
-   - Ejecutado diagnóstico exhaustivo de hardware y entorno. El entorno actual reporta fabricante `innotek GmbH` y modelo `VirtualBox`, con `HypervisorPresent = True`, `VirtualizationFirmwareEnabled = False`, ~3.98 GB RAM total y ~0.45 GB libre.
-   - Clasificación formal: **`GUEST DETECTED — L0 NOT VERIFIED`**. El entorno actual es un sistema operativo invitado sin virtualización anidada expuesta y recursos insuficientes para anidar VMs.
+#### Addendum R3: Reconciliación Post-Push R2, Carrera por Orden de Liberación de Mutexes y Diseño TEST-09.7
+1. **Reconciliación Factual Post-Push de `2f1281b` y Trazabilidad Remota:**
+   - La consulta a la API de GitHub Actions confirma que el commit `2f1281b0df0fa4906f14f690d95be42beadf15aa` (`docs: reconcile R2 FUS state machine and host preflight`) se encuentra publicado en la rama `main` de `origin/main` y desencadenó el workflow **Run #98** (ID: `42429999278`), completando **7/7 jobs con conclusión `success`**.
+   - Se rectifica formalmente la declaración histórica `"ZERO PUSH EJECUTADO"` del informe R2: dicha frase reflejaba el ámbito local de los comandos en la sesión del agente, pero el estado observable en el remoto confirma que **el commit R2 fue publicado en `main`**. No se formula ninguna inferencia sobre el actor, sincronización o cliente que haya producido dicha publicación.
+   - En el workflow Run #98 se publicaron 4 ejecutables single-file (`PrivGvard-osx-arm64`, `PrivGvard-linux-x64`, `PrivGvard-win-arm64`, `PrivGvard-win-x64`). **CI no publicó ningún paquete MSIX descargable ni el archivo `BUILD-PROVENANCE.json`**.
+2. **Corrección de SHAs Completos de CI en la Tabla Histórica:**
+   - Se verificaron directamente contra la API de GitHub Actions los SHAs de 40 caracteres de los workflows anteriores, corrigiendo discrepancias de transcripción presentes en informes previos:
+     - Run #86: `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246` (corrigiendo la errata de terminación `...22d645e`).
+     - Run #87: `391d79e9255cb07f87f6e13748225cd55fc6f514` (corrigiendo la errata de terminación `...9294ae0`).
+     - Run #93: `54fb44670c55b3d0e009e1236dc6a48e0b44378c` (corrigiendo la errata de terminación `...c21ec15`).
+     - Run #94: `aedd19c819ddeaf4e482576fb973f490980b7aa5` (corrigiendo la errata de terminación `...06ebf19`).
+3. **Moderación de la Declaración sobre el SHA R1 Inexistente:**
+   - Se matiza la conclusión absoluta sobre el SHA `405f9485121b6a12dfd54d241772ea59419b4872`:
+     - *Declaración ajustada:* **El SHA completo reportado no se encontró en el object database ni en el remoto consultado; la evidencia disponible indica una transcripción incorrecta al expandir el prefijo abreviado `405f948`.**
+4. **Corrección del Literal Exacto del Mensaje de Timeout:**
+   - Se sustituye la paráfrasis errónea de R2 por el texto literal exacto implementado en el código de producción ([`WindowsUninstallRequestListener.cs#L149-L152`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs#L149-L152)):
+     ```csharp
+     error = requestSent
+         ? "The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."
+         : "No running PrivGvard instance accepted the uninstall shutdown request.";
+     ```
+5. **Hallazgo Central R3 — Carrera por Orden de Liberación de Mutexes (*Release-Order Race*):**
+   - La revisión de sincronización detectó una intercalación crítica en el orden real de las operaciones de producción:
+     - **Orden de Adquisición en Guard:** `Global\PrivLock_UninstallGate` (1º) -> `Global\PrivLock_SingleInstance` (2º).
+     - **Orden de Liberación en Guard (`Release()`):** En [`WindowsSingleInstanceGuard.cs#L84-L88`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsSingleInstanceGuard.cs#L84-L88), el código ejecuta:
+       ```csharp
+       public void Release()
+       {
+           ReleaseMutexCore(ref _mutex, ref _hasAcquired, "single-instance");
+           ReleaseUninstallGateCore();
+       }
+       ```
+       Es decir: **`Global\PrivLock_SingleInstance` se libera PRIMERO, y `Global\PrivLock_UninstallGate` se libera DESPUÉS**.
+     - **Mutex Sondeado en Handoff:** En `TryRequestRunningInstanceAndAcquire()`, el proceso sondea exclusivamente `Global\PrivLock_SingleInstance`.
+     - **Mecanismo de Intercalación en FUS (`requestSent == false`):**
+       1. En FUS, el evento `Local\PrivLock_UninstallRequested` de UserA es inaccesible para UserB (`requestSent = false`).
+       2. UserA inicia su cierre y llama a `Release()`.
+       3. UserA libera `Global\PrivLock_SingleInstance`.
+       4. Antes de que UserA alcance a ejecutar `ReleaseUninstallGateCore()`, el planificador del SO cede la CPU a UserB.
+       5. UserB estaba esperando sobre `SingleInstance`; su `WaitOne` tiene éxito porque UserA ya lo liberó.
+       6. UserB libera su handle de prueba e invoca `singleInstanceGuard.TryAcquireSingleInstance()`.
+       7. La guarda de UserB intenta adquirir primero `Global\PrivLock_UninstallGate`.
+       8. **`UninstallGate` todavía pertenece a UserA**, por lo que `TryAcquireSingleInstance()` falla y devuelve `false`.
+       9. Al evaluar la línea 140, dado que `requestSent == false`, UserB **aborta de inmediato** con el error: *"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."*
+       10. UserA libera el uninstall gate un instante después, pero UserB ya finalizó el handoff con fallo.
+   - **Clasificación Formal del Hallazgo:**
+     $$\mathbf{RACE\ CONDITION\ PLAUSIBLE\ —\ STATICALLY\ GROUNDED\ —\ DYNAMIC\ REPRODUCTION\ REQUIRED}$$
+   - **Delimitación de Impacto:** Se trata de un **fallo fail-closed de disponibilidad/fiabilidad del handoff** (se rechaza una desinstalación segura legítima). No constituye bypass de privacidad ni eliminación insegura de archivos.
+6. **Incorporación de `TEST-09.7` en el Runbook Dinámico:**
+   - Se formula el diseño formal de la prueba falsable `TEST-09.7` para reproducir controladamente esta intercalación mediante pausa en depuración o instrumentación de sincronización, manteniéndola bajo **`LAB HOLD / NOT RUN`**.
 
 ### 1.2 Veredicto Oficial
 
-$$\mathbf{VEREDICTO:\ REBASELINE\ R2\ PASS\ —\ LAB\ HOLD\ (REQUIRES\ OWNER\ ACTION\ ON\ L0\ HOST)}$$
+$$\mathbf{VEREDICTO:\ REBASELINE\ R3\ PASS\ —\ LAB\ HOLD\ (REQUIRES\ OWNER\ ACTION\ ON\ L0\ HOST)}$$
 
-- **Rebaseline de Supuestos y Conciliación R2:** **PASS**. Se reconcilia la identidad de commit `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` y el Run #97, se corrige exhaustivamente la máquina de estados de FUS, se documenta la adquisición secuencial de los dos mutexes (`UninstallGate` y `SingleInstance`), su ambigüedad diagnóstica de retorno `bool` y la condición de carrera entre liberación y reintento.
-- **Readiness del Laboratorio VM:** **HOLD**. El host ha sido clasificado como `GUEST DETECTED — L0 NOT VERIFIED`. Se requiere aprovisionamiento de una VM directa en el host físico del propietario (Topología B).
+- **Rebaseline de Supuestos y Conciliación R3:** **PASS**. Se reconcilia la presencia remota de `2f1281b` en `origin/main` y el Run #98, se corrigen los SHAs históricos en la tabla de CI, se precisa el literal de timeout, se modera la afirmación sobre el SHA R1 no encontrado, se modela exhaustivamente la carrera por orden de liberación de mutexes (*Release-Order Race*), y se incorpora el diseño de `TEST-09.7`.
+- **Readiness del Laboratorio VM:** **HOLD**. El host permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED` (Guest VirtualBox con 3.98 GB RAM visible y ~0.39 GB libre, sin nested VT-x). Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
 - **Salvaguardas Invariantes:** Microsoft Store en `CONDITIONAL HOLD`, Fase 8B.1C en `BLOCKED / NOT AUTHORIZED`.
 
 ---
@@ -72,40 +104,45 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R2\ PASS\ —\ LAB\ HOLD\ (REQUIRES\ OWNER\ AC
 
 ### 2.1 Verificación de Git y Remoto
 - **Repositorio:** `cristianbarreiro/PrivGuard`
-- **Rama activa de trabajo:** `docs/8b1a7-2-r2-fus-handoff-state-machine`
-- **HEAD Remoto Canónico (`origin/main`):** `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`
-- **Parent directo en `main`:** `11a7e497a212000809084d56cb3c596ccd3c6f43`
+- **Rama activa de trabajo:** `docs/8b1a7-2-r3-release-order-race`
+- **HEAD Remoto Canónico (`origin/main`):** `2f1281b0df0fa4906f14f690d95be42beadf15aa`
+- **Parent directo en `main`:** `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`
 - **Parent funcional anterior (Baseline auditado):** `653be31040da53bea72a540ddb2a111f16b35d50`
-- **Historial `d8ca7acc..405f948d` (10 commits exclusivamente documentales):**
+- **Historial `d8ca7acc..2f1281b0` (11 commits exclusivamente documentales):**
   1. `dded99c` — Documental: corrección de evidencia Sprint 1.2 postflight.
   2. `b9d4b8f` — Documental: ajuste de afirmaciones Sprint 1.2 postflight.
   3. `07e4188` — Documental: reconciliación Sprint 1.2 con estado remoto.
   4. `653be31` — Documental: rebaseline 8B.1A.7.2 contra código vigente (baseline de auditoría estática).
   5. `3f08f12` — Documental: corrección factual 8B.1A.7.2.
-  6. `54fb446` — Documental: análisis Full Trust AppData y desinstalación.
-  7. `aedd19c` — Documental: alineación post-push de baseline y análisis preliminar FUS.
-  8. `fc345eb` — Documental: corrección de análisis de DACL de mutex y handoff en FUS.
-  9. `11a7e49` — Documental: finalización de reconciliación de evidencia 8B.1A.7.
+  6. `54fb44670c55b3d0e009e1236dc6a48e0b44378c` — Documental: análisis Full Trust AppData y desinstalación (SHA verificado).
+  7. `aedd19c819ddeaf4e482576fb973f490980b7aa5` — Documental: alineación post-push de baseline y análisis preliminar FUS (SHA verificado).
+  8. `fc345ebd06239e8b86c0c502a4b289052e988a8c` — Documental: corrección de análisis de DACL de mutex y handoff en FUS.
+  9. `11a7e497a212000809084d56cb3c596ccd3c6f43` — Documental: finalización de reconciliación de evidencia 8B.1A.7.
   10. `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` — Documental: reconciliación post-push R1 y precisión de cobertura de tests.
-- **Forma Real de Integración:** Los commits sobre `main` fueron integrados directamente mediante push sin Pull Request. La consulta a la API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. No existen Pull Requests abiertas actualmente.
-- **Estado del Árbol de Trabajo:** Limpio en rama `docs/8b1a7-2-r2-fus-handoff-state-machine`.
+  11. `2f1281b0df0fa4906f14f690d95be42beadf15aa` — Documental: reconciliación R2 de máquina de estados FUS y preflight de host (HEAD canónico en `origin/main`).
+- **Forma Real de Integración:** Integración directa mediante push sin Pull Request. La API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. No existen Pull Requests abiertas actualmente.
+- **Estado del Árbol de Trabajo:** Limpio en rama `docs/8b1a7-2-r3-release-order-race`.
 - **Código Funcional Modificado:** **0 líneas**. Todos los commits posteriores a `d8ca7ac` son estrictamente documentales.
 
-### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #97)
+### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #98)
 
-| Run ID | Commit SHA (40 chars) | Rama / Ref | Evento | Conclusión | Jobs Exitosos | Artefactos Publicados |
+| Run ID | Commit SHA (40 caracteres verificados vía API) | Rama / Ref | Evento | Conclusión | Jobs Exitosos | Artefactos Publicados |
 |---|---|---|---|---|---|---|
+| **42429999278** (#98) | `2f1281b0df0fa4906f14f690d95be42beadf15aa` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42428357398** (#97) | `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42426468347** (#96) | `11a7e497a212000809084d56cb3c596ccd3c6f43` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42420318570** (#95) | `fc345ebd06239e8b86c0c502a4b289052e988a8c` | `main` | `push` | `success` | 7/7 | 4 Single-File executables |
-| **42417187681** (#94) | `aedd19cb24076e73c3da7278d655f4a7c06ebf19` | `main` | `push` | `success` | 7/7 | 4 Single-File executables |
-| **42410227273** (#93) | `54fb4462725514f7b6c7ce1a5e1ae77cfc21ec15` | `main` | `push` | `success` | 7/7 | 4 Single-File executables |
+| **42417187681** (#94) | `aedd19c819ddeaf4e482576fb973f490980b7aa5` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (SHA rectificado) |
+| **42410227273** (#93) | `54fb44670c55b3d0e009e1236dc6a48e0b44378c` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (SHA rectificado) |
 | **42396473407** (#92) | `653be31040da53bea72a540ddb2a111f16b35d50` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Baseline auditado) |
-| **42346415046** (#87) | `391d79e67dca46797b539c394d284e9c79294ae0` | `feature/sprint-1-store-profile-guards-d01-d02` | `pull_request` (PR #11) | `success` | 7/7 | 4 Single-File executables |
-| **42342850877** (#86) | `0a270a133486395b225883ef4b82d449622d645e` | `feature/sprint-1-store-profile-guards-d01-d02` | `pull_request` (PR #11) | `success` | 7/7 | 4 Single-File executables |
+| **42390732091** (#91) | `07e41885f4b0398c05c7193e7191773bb658bd6f` | `main` | `push` | `success` | 7/7 | 4 Single-File executables |
+| **42384884759** (#90) | `b9d4b8f1627c74b70b977f509cbc56acc7989ad0` | `main` | `push` | `success` | 7/7 | 4 Single-File executables |
+| **42379421580** (#89) | `d8ca7acc703397cabec8d5cbba92f39329fa940a` | `main` | `push` | `success` | 7/7 | 4 Single-File executables |
+| **42346415046** (#87) | `391d79e9255cb07f87f6e13748225cd55fc6f514` | `feature/sprint-1-store-profile-guards-d01-d02` | `pull_request` (PR #11) | `success` | 7/7 | 4 Single-File executables (SHA rectificado) |
+| **42342850877** (#86) | `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246` | `feature/sprint-1-store-profile-guards-d01-d02` | `pull_request` (PR #11) | `success` | 7/7 | 4 Single-File executables (SHA rectificado) |
 
 > [!NOTE]
-> **Clarificación de Cobertura de Eventos en CI:** El evento `pull_request` fue probado y superado con éxito en los Runs #86 y #87 durante la tramitación de la PR #11. Los 10 commits documentales posteriores (`d8ca7acc..405f948d`) fueron integrados mediante eventos de tipo `push` directo sobre `main` (Runs #89 al #97).
+> **Trazabilidad de Triggers:** El evento `pull_request` fue probado y superado con éxito en los Runs #86 y #87 durante la tramitación de la PR #11. Los 11 commits documentales posteriores (`d8ca7acc..2f1281b0`) fueron integrados mediante eventos de tipo `push` directo sobre `main` (Runs #89 al #98).
 
 ---
 
@@ -151,12 +188,12 @@ Al auditar directamente el desinstalador Inno Setup ([`installer/setup.iss#L18-L
 - `setup.iss` enumera los perfiles interactivos desde `ProfileList` en HKLM y bloquea la desinstalación (*fail-closed*) si detecta un diario o marcador activo.
 - **Límite Estricto:** Esta protección es exclusiva del instalador Standalone Inno Setup. **No tiene intervención ni capacidad para bloquear la desinstalación del paquete MSIX por parte de Windows**.
 
-### 4.3 Cuantificación de Commits (`9f856c0..405f948d`)
+### 4.3 Cuantificación de Commits (`9f856c0..2f1281b0`)
 El historial se divide en:
 1. **Rango `9f856c0..d8ca7acc` (5 commits funcionales / CI / merge):** `7066b3b` (Docs 8B.1A), `0a270a1` (Sprint 1.0 D-01/D-02), `391d79e` (Sprint 1.1 Inmutabilidad), `ffc2273` (Merge PR #11), `d8ca7ac` (Sprint 1.2 CI Gate).
-2. **Rango `d8ca7acc..405f948d` (10 commits exclusivamente documentales):** `dded99c`, `b9d4b8f`, `07e4188`, `653be31` (baseline de código auditado), `3f08f12`, `54fb446`, `aedd19c`, `fc345eb`, `11a7e49` y `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` (HEAD canónico en `origin/main`).
+2. **Rango `d8ca7acc..2f1281b0` (11 commits exclusivamente documentales):** `dded99c`, `b9d4b8f`, `07e4188`, `653be31` (baseline de código auditado), `3f08f12`, `54fb446` (`54fb44670c55...`), `aedd19c` (`aedd19c819dd...`), `fc345eb`, `11a7e49`, `405f948d` y `2f1281b0df0fa4906f14f690d95be42beadf15aa` (HEAD canónico en `origin/main`).
 
-### 4.4 Mutex Global, DACL, Dos Mutexes en Guard y Máquina de Estados FUS
+### 4.4 Mutex Global, DACL, Dos Mutexes en Guard, Release-Order Race y Máquina de Estados FUS
 La auditoría estática adversarial sobre los objetos de sincronización y control de instancia en Windows (`net10.0-windows10.0.19041.0`) establece las siguientes precisiones técnicas rigurosas:
 
 #### 1. Implementación de .NET 10 y Win32 `CreateMutexExW`:
@@ -165,104 +202,76 @@ La auditoría estática adversarial sobre los objetos de sincronización y contr
   _uninstallGate = new Mutex(initiallyOwned: false, _uninstallGateMutexName);
   _mutex = new Mutex(initiallyOwned: false, _mutexName);
   ```
-- Según el código fuente del runtime de .NET 10 ([`Mutex.Windows.cs` (tag v10.0.0)](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Private.CoreLib/src/System/Threading/Mutex.Windows.cs)), el constructor de `Mutex(bool, string)` invoca:
-  ```c
-  CreateMutexExW(IntPtr.Zero, lpName, 0, (uint)rights);
+- Según el runtime de .NET 10 (`Mutex.Windows.cs`), el constructor invoca `CreateMutexExW(IntPtr.Zero, lpName, 0, (uint)rights)` con derechos `MAXIMUM_ALLOWED | SYNCHRONIZE | MUTEX_MODIFY_STATE` (`0x02100001`) y `NamedWaitHandleOptions.None` (sin `CurrentUserOnly` ni `CurrentSessionOnly`).
+- Los objetos residen en el namespace global `\BaseNamedObjects` con la DACL predeterminada del token del usuario creador.
+
+#### 2. La Guarda Utiliza DOS Mutexes con Orden Inverso entre Adquisición y Liberación:
+- **Orden de Adquisición en `TryAcquireSingleInstance()`:**
+  1. `_uninstallGate` (`Global\PrivLock_UninstallGate`) se adquiere primero.
+  2. `_mutex` (`Global\PrivLock_SingleInstance`) se adquiere segundo.
+- **Orden de Liberación en `Release()`:**
+  ```csharp
+  public void Release()
+  {
+      ReleaseMutexCore(ref _mutex, ref _hasAcquired, "single-instance");
+      ReleaseUninstallGateCore();
+  }
   ```
-  donde `lpMutexAttributes` es `IntPtr.Zero` / `NULL`, `rights` es `MAXIMUM_ALLOWED | SYNCHRONIZE | MUTEX_MODIFY_STATE` (`0x02100001`), y las opciones nombradas son `NamedWaitHandleOptions.None` (sin `CurrentUserOnly` ni `CurrentSessionOnly`).
+  1. `_mutex` (`Global\PrivLock_SingleInstance`) se libera **PRIMERO**.
+  2. `_uninstallGate` (`Global\PrivLock_UninstallGate`) se libera **SEGUNDO**.
+- **Limpieza en Fallo:** Si falla la adquisición de `_mutex`, se libera `_uninstallGate` de inmediato, se llama a `Dispose()` en ambos y se establecen ambos campos a `null`.
 
-#### 2. La Guarda de Admisión Utiliza DOS Mutexes Secuenciales:
-- En [`WindowsSingleInstanceGuard.TryAcquireSingleInstance()`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsSingleInstanceGuard.cs#L33-L69):
-  1. **Primer Mutex:** Instancia y evalúa `_uninstallGate = new Mutex(false, @"Global\PrivLock_UninstallGate")`. Ejecuta `_uninstallGate.WaitOne(0)`. Si no lo adquiere, retorna `false`.
-  2. **Segundo Mutex:** Si adquirió el gate, instancia y evalúa `_mutex = new Mutex(false, @"Global\PrivLock_SingleInstance")`. Ejecuta `_mutex.WaitOne(0)`. Si no lo adquiere, libera el primer mutex (`_uninstallGate.ReleaseMutex()`), invoca `Dispose()` en ambos objetos y establece ambos campos a `null`, retornando `false`.
-- **Ambigüedad Diagnóstica del Retorno `bool`:** `TryAcquireSingleInstance()` devuelve únicamente `bool` (`true` o `false`). Cuando devuelve `false`, el llamador **no puede distinguir** si falló la adquisición de `UninstallGate`, si falló la de `SingleInstance`, o si se capturó una excepción interna (`UnauthorizedAccessException`, etc.) en el bloque `catch (Exception ex)` de las líneas 61-68.
-- **Condición de Carrera en el Reintento:** Entre el momento en que `TryRequestRunningInstanceAndAcquire()` libera su handle de prueba en la línea 136 (`instanceMutex.ReleaseMutex()`) y la invocación de `singleInstanceGuard.TryAcquireSingleInstance()` en la línea 137, transcurre una ventana temporal no atómica. Si otro proceso adquiere `Global\PrivLock_SingleInstance` o `Global\PrivLock_UninstallGate` durante ese intervalo, el reintento de la guarda retornará `false`.
+#### 3. Diagnóstico del Llamador (`bool`) vs. Mensajes Internos de Serilog:
+- `TryAcquireSingleInstance()` devuelve únicamente un `bool`. El llamador no puede discernir directamente a partir de dicho booleano si falló `UninstallGate`, si falló `SingleInstance`, o si se capturó una excepción interna.
+- Sin embargo, la implementación de `WindowsSingleInstanceGuard` **sí genera entradas diferenciadas en Serilog**:
+  - Si no adquiere `_uninstallGate`: `Log.Information("PrivGvard cannot start while the uninstall gate is owned.");`
+  - Si no adquiere `_mutex`: `Log.Information("Another instance of PrivGvard is already running on Windows.");`
+  - Si ocurre excepción: `Log.Error(ex, "Failed to create or acquire single-instance mutex on Windows");`
+- Por ende, los logs permiten distinguir la causa exacta de contención, aunque el contrato `bool` hacia el llamador sea opaco.
 
-#### 3. Separación de Etapas de Adquisición:
-- **Etapa 1: Apertura / Creación de Handle Nativo:** Si la DACL del objeto deniega el acceso al token del usuario, Win32 retorna `ERROR_ACCESS_DENIED` (5) y el constructor de .NET arroja `UnauthorizedAccessException` **antes de cualquier llamada a `WaitOne`**.
-- **Etapa 2: Evaluación de Sincronización en `WaitOne(0)`:**
-  - `true`: Propiedad adquirida.
-  - `false`: Contención normal (objeto retenido por otro hilo/proceso).
-  - `AbandonedMutexException`: El proceso anterior murió abruptamente sin liberar el mutex; el hilo receptor adquiere la propiedad.
+#### 4. Hallazgo Central R3: La Carrera por Orden de Liberación (*Release-Order Race*):
+- En `WindowsUninstallRequestListener.TryRequestRunningInstanceAndAcquire()`:
+  - El mutex de sondeo es `instanceMutexName = WindowsSingleInstanceGuard.MutexName` (`Global\PrivLock_SingleInstance`).
+  - En Fast User Switching (FUS), el evento `Local\PrivLock_UninstallRequested` de UserA en Sesión 1 no es visible para UserB en Sesión 2 (`requestSent = false`).
+  - Cuando UserA cierra limpiamente, ejecuta `Release()`:
+    1. UserA libera `_mutex` (`SingleInstance`).
+    2. UserA aún no ha ejecutado `ReleaseUninstallGateCore()`.
+  - **Ventana de Intercalación:**
+    1. UserB, que esperaba sobre `instanceMutex` (`SingleInstance`), adquiere el mutex de sondeo.
+    2. UserB libera su mutex de sondeo en la línea 136 (`instanceMutex.ReleaseMutex()`).
+    3. UserB invoca `singleInstanceGuard.TryAcquireSingleInstance()` en la línea 137.
+    4. La guarda de UserB intenta adquirir primero `Global\PrivLock_UninstallGate`.
+    5. **`UninstallGate` todavía pertenece a UserA**, por lo que `TryAcquireSingleInstance()` retorna `false`.
+    6. UserB alcanza la línea 140:
+       ```csharp
+       if (!requestSent)
+       {
+           error = "The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request.";
+           return false;
+       }
+       ```
+    7. Dado que `requestSent == false`, UserB **aborta de inmediato** y devuelve `false` con dicho mensaje de error.
+    8. UserA libera `UninstallGate` instantes después, pero UserB ya abortó el proceso de desinstalación segura.
+- **Diferencia con la Carrera de Tercer Proceso:**
+  - *Carrera de Tercer Proceso (R2):* Un tercer proceso independiente gana la contención de cualquiera de los mutexes durante el intervalo entre probe release y guard retry.
+  - *Release-Order Race (R3):* Ocurre estrictamente entre UserA y UserB debido a que `SingleInstance` se libera antes que `UninstallGate` y el sondeo solo vigila `SingleInstance`.
+- **Impacto y Certeza:**
+  - Impacto: **Fallo fail-closed de disponibilidad/fiabilidad del handoff**.
+  - Certeza: `RACE CONDITION PLAUSIBLE — STATICALLY GROUNDED — DYNAMIC REPRODUCTION REQUIRED`.
 
-#### 4. Modelado Exhaustivo de los Seis Caminos de Ejecución (Caminos A a F) en `TryRequestRunningInstanceAndAcquire()`:
-Al analizar [`WindowsUninstallRequestListener.cs#L106-L147`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs#L106-L147):
-```csharp
-using var instanceMutex = new Mutex(initiallyOwned: false, instanceMutexName);
-// ...
-if (instanceAcquired)
-{
-    instanceMutex.ReleaseMutex();
-    if (singleInstanceGuard.TryAcquireSingleInstance())
-    {
-        return true;
-    }
-}
-if (!requestSent)
-{
-    error = "The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request.";
-    return false;
-}
-```
+#### 5. Modelado Exhaustivo de Caminos de Ejecución en `TryRequestRunningInstanceAndAcquire()`:
 
-- **Camino A (Handoff Exitoso en Misma Sesión):**
-  - Ocurre en la misma sesión interactiva.
-  - `TrySignalExistingInstance` encuentra `Local\PrivLock_UninstallRequested` (`requestSent = true`).
-  - La instancia en ejecución recibe la señal, libera sus mutexes y termina limpiamente.
-  - El bucle de espera de UserB adquiere `instanceMutex` (`instanceAcquired = true`).
-  - UserB libera `instanceMutex` (línea 136) y llama a `singleInstanceGuard.TryAcquireSingleInstance()`.
-  - La guarda adquiere `UninstallGate` y `SingleInstance`. Retorna `true` (**ÉXITO**).
-- **Camino B (Timeout con Retención Activa en Misma Sesión o FUS):**
-  - La instancia activa UserA retiene `Global\PrivLock_SingleInstance` durante todo el plazo de espera (`instanceAcquired = false`).
-  - Al agotarse el timeout, si `requestSent == false` (FUS), retorna `false` con: *"No running PrivGvard instance accepted the uninstall shutdown request."*
-  - Si `requestSent == true` pero UserA no liberó el mutex a tiempo, retorna `false` con: *"The running PrivGvard instance did not release its single-instance lock before the shutdown timeout expired."*
-- **Camino C (Liberación Prematura en FUS con Reintento Exitoso — CORRECCIÓN R2):**
-  - En FUS (Sesión 1 vs. Sesión 2), `Local\PrivLock_UninstallRequested` no es visible entre sesiones (`requestSent = false`).
-  - UserA finaliza su proceso o libera sus mutexes antes de que expire el timeout de UserB.
-  - `instanceMutex.WaitOne(waitInterval)` en UserB adquiere el mutex (`instanceAcquired = true`, por retorno `true` o captura de `AbandonedMutexException`).
-  - La línea 136 ejecuta `instanceMutex.ReleaseMutex()`.
-  - La línea 137 invoca `singleInstanceGuard.TryAcquireSingleInstance()`.
-  - La guarda adquiere exitosamente ambos mutexes (`UninstallGate` y `SingleInstance`).
-  - **El método retorna `true` (ÉXITO)**. El bloque de error `if (!requestSent)` de las líneas 140-144 no se ejecuta porque el método retornó en la línea 139.
-- **Camino D (Liberación Prematura con Reintento Fallido por Contención / Carrera):**
-  - En FUS o misma sesión, UserB adquiere el handle de prueba (`instanceAcquired = true`) y lo libera en la línea 136.
-  - Sin embargo, al invocar `singleInstanceGuard.TryAcquireSingleInstance()`, la llamada devuelve `false` (por ejemplo, debido a que otro proceso capturó el gate/instance en la ventana de carrera, o contención residual).
-  - El flujo continúa a la línea 140: al ser `!requestSent` (en FUS), el método retorna `false` con el mensaje: *"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."*
-- **Camino E (Denegación por DACL / Excepción al Abrir Handle en Probe Mutex):**
-  - La línea 106 (`using var instanceMutex = new Mutex(initiallyOwned: false, instanceMutexName);`) intenta abrir el mutex global.
-  - Si la DACL de `Global\PrivLock_SingleInstance` niega permisos al token de UserB, la API de Win32 retorna `ERROR_ACCESS_DENIED` y el constructor de .NET arroja `UnauthorizedAccessException`.
-  - Esta llamada en `TryRequestRunningInstanceAndAcquire` **no tiene bloque `try-catch` local**.
-  - La excepción escapa de la función y se propaga directamente al manejador exterior en `Program.Main` (líneas 476–495):
-    1. Se genera un volcado JSON con `CrashReporter.GenerateCrashReport(ex, "Program.Main", ...)`.
-    2. Se registra un error fatal en Serilog.
-    3. Se muestra retroalimentación de error seguro: `SafeUninstallLauncher.ShowErrorFeedback("PrivGvard could not safely prepare for uninstall...", ...)`.
-    4. El proceso termina con código de salida `1`.
-- **Camino F (Mutex Abandonado por Caída de UserA):**
-  - UserA muere abruptamente (`taskkill /F` o fallo de proceso) mientras retenía el mutex global.
-  - En UserB, `instanceMutex.WaitOne(waitInterval)` arroja `AbandonedMutexException`.
-  - El bloque `catch (AbandonedMutexException)` de las líneas 122–126 captura la excepción, registra un log de advertencia y establece `instanceAcquired = true`.
-  - La línea 136 libera el mutex de prueba y la línea 137 ejecuta el reintento de la guarda.
-  - En la guarda, si `_uninstallGate.WaitOne(0)` y `_mutex.WaitOne(0)` adquieren (capturando internamente `AbandonedMutexException` en las líneas 44 y 53), la guarda retorna `true` y el método retorna `true` (**ÉXITO**). Si la guarda no adquiere, sigue el Camino D.
-
-#### 5. Matriz de Cobertura de Tests Unitarios vs. Validación Requerida en VM:
-
-| Área Evaluada | Cobertura Automatizada Demostrada | Pendiente de Validación en VM de Laboratorio |
-|---|---|---|
-| **Startup Single-Instance** | Exclusión entre 2 tareas `Task.Run` en 1 proceso con mutexes `Local` de test | Concurrencia entre 2 procesos OS independientes, 2 SIDs distintos y sesiones FUS |
-| **Listener de Desinstalación** | Señalización de evento local intra-proceso con guard fake; simulación de timeouts | Handoff real entre procesos OS distintos y entre sesiones Terminal Services en FUS (Caminos A–F) |
-| **Uninstall Gate** | Comprobación de fallback cuando el guard fake devuelve `false` | Retención y contención real del mutex de producción entre procesos independientes |
-| **Listener de Activación** | 2 listeners dentro del mismo proceso con evento `Local` inyectado por GUID | Evento `Global\PrivLock_ActivateExistingInstance` y activación cross-session en el SO |
-| **DACL / Mutex Global** | No evaluada por los tests unitarios (usan nombres herméticos `Local`) | Descriptor de seguridad, ACEs, SIDs y permisos efectivos en `\BaseNamedObjects` |
-| **Abandono de Mutex** | Captura simulada en código sin terminación abrupta real de procesos | Muerte forzada de proceso (`taskkill /F`) y recuperación real de estado y diario WAL |
-| **Identidad y Perfiles** | Detección unitaria con paquetes mock / identidad fija | Dos usuarios estándar reales con SIDs y rutas normalizadas en `%LOCALAPPDATA%` |
-| **Ciclo de Vida MSIX** | Verificación estática de manifiesto en runner CI (`runFullTrust`) | Instalación real, reparación, reset, upgrade y desinstalación en Windows 11 |
-
-#### 6. Límites Arquitectónicos Fundamentales:
-- `Global\PrivLock_SingleInstance` y `Global\PrivLock_UninstallGate` son exclusivamente **guardas de admisión de proceso único**.
-- **No son coordinadores transaccionales de almacenamiento ni gestores de recursos**.
-- **No otorgan leases de diario WAL** ni sincronizan ediciones si se ejecutan secuencialmente.
-- **No integran D-03 ni D-05**.
-- En `src/**/*.cs` **no existe ninguna implementación de `MachineSafetyLatch`, `EndpointClaim` ni leases en `ProgramData`**.
+- **Camino A (Handoff Exitoso en Misma Sesión):** Señal local entregada (`requestSent = true`), UserA libera ambos mutexes, sondeo adquiere, reintento adquiere ambos -> retorna `true` (**ÉXITO**).
+- **Camino B (Timeout con Retención Activa en Misma Sesión o FUS):** UserA retiene el mutex durante todo el plazo (`instanceAcquired = false`). Al expirar el timeout:
+  - Si `requestSent == true`: retorna `false` con el literal exacto:
+    `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."`
+  - Si `requestSent == false`: retorna `false` con:
+    `"No running PrivGvard instance accepted the uninstall shutdown request."`
+- **Camino C (Liberación Completa en FUS con Reintento Exitoso):** En FUS (`requestSent == false`), UserA libera completamente AMBOS mutexes antes de que UserB salga de la espera. El sondeo adquiere, libera probe handle, reintento adquiere ambos mutexes -> retorna `true` (**ÉXITO**).
+- **Camino D1 (Release-Order Race en FUS — HALLAZGO CENTRAL R3):** UserB despierta al liberarse `SingleInstance`, pero UserA todavía retiene `UninstallGate`. El reintento falla al adquirir `UninstallGate`. Con `requestSent == false`, retorna de inmediato `false` con *"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."*
+- **Camino D2 (Contención por Tercer Proceso en FUS o Misma Sesión):** Ambos mutexes fueron liberados, pero un tercer proceso adquiere alguno de ellos entre la línea 136 y la línea 137. El reintento falla; si `requestSent == false`, retorna de inmediato el error de gate owned.
+- **Camino E (Denegación por DACL / Error en Probe Mutex):** Win32 deniega apertura de `Global\PrivLock_SingleInstance`. `new Mutex(...)` en línea 106 arroja `UnauthorizedAccessException` sin try-catch local, propagándose a `Program.Main` (líneas 476–495) -> crash report, log fatal, retroalimentación segura y salida con código 1.
+- **Camino F (Mutex Abandonado por Caída de UserA):** `instanceMutex.WaitOne` arroja `AbandonedMutexException` (capturada en líneas 122–126). Se libera probe handle y se reintenta guard. Si guard adquiere -> retorna `true` (**ÉXITO**); si no adquiere -> Camino D.
 
 ---
 
@@ -272,16 +281,16 @@ if (!requestSent)
 
 | Parámetro Diagnóstico | Valor Observado | Interpretación Factual Rigurosa |
 |---|---|---|
-| **OS / Build** | Windows 11 Enterprise Eval (Build 26300, 64-bit) | Sistema operativo de la máquina donde se ejecuta el agente. |
+| **OS / Build** | Windows NT 10.0.26300.0 (64-bit) | Windows 11 Enterprise Evaluation (Build 26300). |
 | **Manufacturer / Model** | `innotek GmbH` / `VirtualBox` | **Confirma que el entorno actual es un Guest de VirtualBox**. |
-| **HypervisorPresent** | `True` | **El sistema invitado detecta un hipervisor expuesto**. No acredita hardware ni configuración del host físico L0. |
-| **CPU Virtual** | Intel Core i7-7700HQ @ 2.80GHz (4 vCPU) | Procesador virtual asignado a este guest. |
+| **HypervisorPresent** | `True` | El SO invitado detecta un hipervisor expuesto; no acredita hardware del host físico L0. |
+| **CPU Virtual** | Intel Core i7-7700HQ @ 2.80GHz (4 vCPUs) | Procesador virtual asignado a este guest. |
 | **VirtualizationFirmwareEnabled** | `False` | **Virtualización anidada no habilitada / no expuesta** a este guest. |
-| **SLAT Extensions** | `False` | Extensiones de traducción de segundo nivel no expuestas al guest. |
-| **Memoria RAM** | 3.98 GB utilizables (~0.45 GB libres) | Memoria asignada a este guest; insuficiente para hospedar otra VM. |
+| **Extensiones SLAT / Monitor** | `False`, `False` | Extensiones de traducción de segundo nivel no expuestas al guest. |
+| **Memoria RAM** | 3.98 GB utilizables (~0.39 GB libres) | Memoria asignada a este guest; insuficiente para hospedar otra VM. |
 | **Disco C:** | 24.9 GB libres (de 78.9 GB totales) | Espacio ajustado para albergar imágenes de disco virtual anidadas. |
 | **TPM / SecureBoot** | Acceso denegado (Standard user token) | No modificable desde el contexto de usuario estándar. |
-| **Herramientas de Virtualización** | `vmms`, `Get-VM`, VirtualBox, VMware ausentes | Ningún hipervisor operativo dentro del guest. |
+| **Hipervisores Locales** | `vmms`, Hyper-V, VirtualBox, VMware ausentes | Ningún hipervisor operativo dentro del guest. |
 | **Clasificación Oficial** | **`GUEST DETECTED — L0 NOT VERIFIED`** | **El entorno no puede actuar como anfitrión de VM de pruebas.** |
 
 ### 5.2 Modelo de Topologías y Estimaciones de Recursos
@@ -303,36 +312,29 @@ flowchart TD
     end
 ```
 
-- **Requisitos del SO Invitado (Windows 11):** 4 GB vRAM, 2 vCPU, 64 GB almacenamiento, TPM 2.0 y Secure Boot.
 - **Topología Recomendada:** **Topología B**. Provisión de VM directa en el host físico del propietario (~16 GB de RAM física total estimada en el anfitrión), evitando el overhead crítico y la inestabilidad de la virtualización anidada en tres capas.
 
 ---
 
 ## 6. Cadena de Custodia Criptográfica del Artefacto MSIX
 
-Se formaliza la separación estricta de hashes entre las etapas del ciclo de vida:
+Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida:
 
 1. **Fase de Compilación (Build Stage — Fuera de la VM):**
    - Compilación unsigned con `scripts/build-msix.ps1 -Configuration Release-Store -ValidateStoreIdentity`.
-   - Se registran en `BUILD-PROVENANCE.json`:
-     - SHA del commit Git canónico.
-     - Versión del .NET SDK y Windows SDK utilizados.
-     - **SHA-256 del archivo `.msix` unsigned generado.**
-     - **SHA-256 de los ensamblados en staging (`win-x64`).**
-     - SHA-256 de `AppxManifest.xml` y `resources.pri`.
+   - Registro en `BUILD-PROVENANCE.json`: commit Git, SDK versions, SHA-256 del `.msix` unsigned, SHA-256 de binarios `win-x64`, y hashes de `AppxManifest.xml` y `resources.pri`.
 2. **Fase de Transferencia y Test-Signing (Exclusivamente Dentro del Guest VM):**
    - Transferencia a la VM (en red aislada).
-   - Verificación de correspondencia del SHA-256 unsigned recibido contra la proveniencia de build.
-   - Firma con `SignTool.exe` en el snapshot `SNAP-02-TEST-CERT` usando certificado autofirmado confinado a la VM.
-   - **Registro del nuevo SHA-256 del archivo `.msix` firmado resultante.**
-   - Registro del Thumbprint del certificado de prueba y confirmación de que dicho certificado no existe en el host físico.
+   - Verificación de hash unsigned contra proveniencia de build.
+   - Firma con `SignTool.exe` en snapshot `SNAP-02-TEST-CERT` usando certificado autofirmado confinado a la VM.
+   - **Registro del nuevo SHA-256 del archivo `.msix` firmado resultante** y Thumbprint del certificado de prueba.
 
 ---
 
 ## 7. Actualización del Runbook Dinámico 8B.1A.7.2 (TEST-01 a TEST-11)
 
 > [!IMPORTANT]
-> **Estado de Ejecución Dinámica:** Todas las pruebas dinámicas (TEST-01 a TEST-11) permanecen formalmente en estado **`LAB HOLD / NOT RUN`**. No se han ejecutado en el entorno de desarrollo actual debido a la clasificación `GUEST DETECTED — L0 NOT VERIFIED`. Las especificaciones a continuación constituyen el protocolo experimental falsable a ejecutar cuando la VM aislada sea provista en el host físico (Topología B).
+> **Estado de Ejecución Dinámica:** Todas las pruebas dinámicas (TEST-01 a TEST-11, incluido TEST-09.7) permanecen formalmente en estado **`LAB HOLD / NOT RUN`**. No se han ejecutado en el entorno de desarrollo actual debido a la clasificación `GUEST DETECTED — L0 NOT VERIFIED`.
 
 ### Gate de Seguridad Previo a Pruebas Destructivas (TEST-06 / TEST-07)
 - Red en modo aislado y dispositivos físicos (cámaras/micrófonos) desconectados/no compartidos.
@@ -343,7 +345,7 @@ Se formaliza la separación estricta de hashes entre las etapas del ciclo de vid
 1. **TEST-01 (Equivalencia y Rutas Físicas Efectivas en AppData) — `LAB HOLD / NOT RUN`:**
    - Registrar y comparar rutas devueltas por `Environment.GetFolderPath`, `%LOCALAPPDATA%`, `%USERPROFILE%\AppData\Local` y `ProfileImagePath` en `ProfileList\<SID>`.
    - Ejecutar PrivGvard en ambas ediciones (Store y Standalone) y capturar con Process Monitor (ProcMon) las rutas físicas efectivas donde se crean y modifican `state.json`, `privacy-session-v1.json` y `active-session-v1.marker`.
-   - Inspeccionar `Packages\<PFN>\LocalCache` para documentar la presencia o ausencia de virtualización o carpetas privadas.
+   - Inspeccionar `Packages\<PFN>\LocalCache` para documentar presencia o ausencia de virtualización o carpetas privadas.
 2. **TEST-02 (Trazas ProcMon de Operaciones de Archivo) — `LAB HOLD / NOT RUN`:**
    - Capturar con Process Monitor llamadas Win32 `CreateFileW`, `WriteFile`, `ReplaceFileW`/renombrado y `DeleteFileW`. Comparar rutas entre Store y Standalone.
 3. **TEST-03 (Reemplazo Atómico `File.Replace`) — `LAB HOLD / NOT RUN`:**
@@ -366,19 +368,51 @@ Se formaliza la separación estricta de hashes entre las etapas del ciclo de vid
      - *Etapa 1 (Apertura de Handle):* Comprobar si `CreateMutexExW` tiene éxito o si la DACL deniega el acceso arrojando `UnauthorizedAccessException` en el constructor antes de `WaitOne`. Inspeccionar DACL en `\BaseNamedObjects` (WinObj/Process Explorer).
      - *Etapa 2 (Sincronización en `WaitOne(0)` si handle abierto):* Comprobar contención normal (`false`), adquisición (`true`) o abandono.
    - **TEST-09.3 — Evento de Handoff `Local\` en FUS (Caminos A a F):**
-     - Evaluar experimentalmente en VM los 6 caminos modelados en la Sección 4.4:
-       - *Camino A:* Handoff exitoso en misma sesión (evento `Local\` visible, señal entregada, liberación, reintento de guard exitoso).
-       - *Camino B:* Timeout con retención activa en misma sesión o FUS (mutex retenido todo el plazo -> error explícito).
-       - *Camino C:* Liberación prematura en FUS con reintento exitoso (`requestSent == false`, UserA termina antes de timeout, probe adquiere, libera probe handle, guard adquiere ambos mutexes -> ÉXITO).
-       - *Camino D:* Liberación prematura con reintento fallido por contención/carrera (guard retorna `false` -> error explícito).
-       - *Camino E:* Denegación por DACL / Excepción al abrir handle en probe mutex (`UnauthorizedAccessException` propaga a `Program.Main` -> crash report, fatal log, user error feedback, exit code 1).
-       - *Camino F:* Mutex abandonado por terminación abrupta de UserA (`AbandonedMutexException` capturada en probe, reintento de guard adquiere).
+     - Evaluar experimentalmente en VM los caminos de handoff modelados en la Sección 4.4.
    - **TEST-09.4 — Resistencia a Precreación (*Mutex Squatting*):**
      - Proceso no privilegiado precrea `Global\PrivLock_SingleInstance` con DACL restrictiva.
      - *Ruta A (Inicio Normal):* Bloque `catch` en `WindowsSingleInstanceGuard` captura la denegación, registra error en Serilog y retorna `false` (*DoE fail-closed*).
      - *Ruta B (Flujo Safe Uninstall):* `new Mutex(...)` fuera de try-catch en `TryRequestRunningInstanceAndAcquire` arroja `UnauthorizedAccessException`, propagándose al `catch` de `Program.Main`, generando crash report, fatal log, diálogo de error y exit code 1.
    - **TEST-09.5 — Mutex Abandonado y Recuperación de Ownership:** Forzar `taskkill /F` en `UserA`; iniciar `UserB` y verificar adquisición y recuperación sin bloqueos huérfanos.
    - **TEST-09.6 — Impacto Funcional, Fallback Fail-Closed y Observabilidad:** Registrar fallbacks fail-closed en logs de Serilog (`%LOCALAPPDATA%\PrivGvard\Logs\`).
+   - **TEST-09.7 — FUS Handoff Release-Order Race (SingleInstance Released Before UninstallGate) — `LAB HOLD / NOT RUN`:**
+     - **Objetivo:** Comprobar si el proceso UserB en FUS puede despertar sobre `Global\PrivLock_SingleInstance` después de que UserA lo libera pero antes de que UserA libere `Global\PrivLock_UninstallGate`, provocando que el reintento de guard de UserB falle y aborte prematuramente el handoff.
+     - **Precondiciones:**
+       1. VM Windows 11 aislada en host físico L0 con snapshots limpios.
+       2. Dos cuentas estándar de prueba: `UserA` y `UserB`.
+       3. Dos sesiones interactivas independientes mediante Fast User Switching.
+       4. Una cuenta administrativa separada para instrumentación.
+       5. Instrumentación de procesos, handles y logs de Serilog disponible.
+       6. Dispositivos de cámara y micrófono virtuales o descartables (sin hardware físico).
+     - **Escenario Controlado (Método de Pausa):**
+       - Se pausará el proceso de UserA inmediatamente entre:
+         ```csharp
+         ReleaseMutexCore(ref _mutex, ref _hasAcquired, "single-instance");
+         // PAUSA CONTROLADA AQUÍ
+         ReleaseUninstallGateCore();
+         ```
+       - Puede implementarse en laboratorio mediante una sesión de depuración (breakpoint en Visual Studio / WinDbg) o un harness de laboratorio aislado.
+       - UserB ejecuta únicamente el método de handoff, sin invocar el desinstalador Inno ni borrar archivos.
+     - **Pasos de la Prueba Futura:**
+       1. Iniciar PrivGvard en `UserA` y confirmar que posee ambos mutexes globales.
+       2. Cambiar a `UserB` mediante FUS (sin cerrar `UserA`).
+       3. Confirmar que UserB no puede abrir el evento `Local\` de `UserA` (`requestSent == false`).
+       4. Dejar a `UserB` esperando sobre `Global\PrivLock_SingleInstance` en `TryRequestRunningInstanceAndAcquire`.
+       5. En `UserA`, iniciar el cierre y pausar la ejecución inmediatamente después de liberar `SingleInstance` y antes de liberar `UninstallGate`.
+       6. Permitir que `UserB` continúe.
+       7. Capturar: resultado de `WaitOne` del sondeo, liberación del handle de sondeo, intento de `TryAcquireSingleInstance()`, fallo en `_uninstallGate.WaitOne(0)`, valor de `requestSent`, mensaje de error devuelto, logs de Serilog de la guarda, y PIDs/SIDs/Session IDs de ambos procesos.
+       8. Verificar que `TryRequestRunningInstanceAndAcquire()` devuelve `false` con el mensaje especial de gate owned antes de que `UserA` libere el uninstall gate.
+       9. Reanudar `UserA` y confirmar la liberación del uninstall gate.
+       10. Restaurar snapshot limpio de la VM.
+     - **Controles Comparativos:**
+       - *Control 09.7-A (Liberación Completa Previa):* UserA libera ambos mutexes antes de que UserB salga de la espera. Resultado esperado: reintento adquiere ambos y retorna `true`.
+       - *Control 09.7-B (Retención Activa Continua):* UserA retiene `SingleInstance` durante todo el plazo. Resultado esperado: timeout del sondeo.
+       - *Control 09.7-C (Tercer Proceso):* El mutex de sondeo se libera, pero un tercer proceso adquiere alguno de los mutexes antes del reintento. Resultado esperado: fallo por contención independiente.
+       - *Control 09.7-D (DACL Restrictiva):* DACL impide abrir el mutex de sondeo. Resultado esperado: excepción en constructor/apertura, no resultado de `WaitOne`.
+     - **Criterios de Dictamen:**
+       - **REPRODUCIDO (PASS de la prueba de carrera):** UserA libera `SingleInstance`, UserA todavía conserva `UninstallGate`, UserB adquiere y libera sondeo, reintento de UserB falla en `UninstallGate`, `requestSent == false`, y `TryRequestRunningInstanceAndAcquire()` retorna `false` antes de que UserA libere `UninstallGate`.
+       - **NO REPRODUCIDO:** El reintento adquiere ambos mutexes o el scheduler no permite la intercalación en ejecuciones sin pausa.
+       - **INCONCLUSIVE:** La ejecución no logra aislar la ventana temporal requerida.
 10. **TEST-10 (Coexistencia con Edición Standalone y Jurisdicción de Desinstaladores) — `LAB HOLD / NOT RUN`:**
     - Concurrencia Store/Standalone en misma sesión y entre sesiones; ejecución secuencial e inspección de rutas en AppData; handoff de desinstalación; y ratificación de que Inno Setup carece de autoridad sobre el paquete MSIX.
 11. **TEST-11 (Recuperación tras Caída Simulada) — `LAB HOLD / NOT RUN`:**
@@ -395,7 +429,7 @@ Se formaliza la separación estricta de hashes entre las etapas del ciclo de vid
 - **Decisión D-05:** **Pendiente** de formalización e integración en los stores reales.
 - **Microsoft Store:** **`CONDITIONAL HOLD`** (publicación bloqueada).
 - **Fase 8B.1C:** **`BLOCKED / NOT AUTHORIZED`** (desarrollo prohibido).
-- **Fase 8B.1A.7.2 / R2:** **Rebaseline completado — `PASS — R2 STATE-MACHINE RECONCILED` / `LAB HOLD`** (bloqueada por entorno de laboratorio).
+- **Fase 8B.1A.7.2 / R3:** **Rebaseline completado — `PASS — R3 DOCUMENTATION AND RACE ANALYSIS RECONCILED` / `LAB HOLD`** (bloqueada por entorno de laboratorio).
 
 ---
 
@@ -406,8 +440,9 @@ Se formaliza la separación estricta de hashes entre las etapas del ciclo de vid
      - Requerimiento obligatorio de Pull Request antes de fusionar en `main`.
      - Required status checks asociados a los jobs esenciales del workflow de CI (`CI / build-test (windows-latest)` y comprobación de packaging MSIX Store).
      - Bloqueo estricto de `force-push` y de eliminación de la rama `main`.
+     - No exigir reviewer adicional si el flujo corresponde a un desarrollador único.
    - *Nota de auditoría:* Esta recomendación se formula con fines de planificación y no fue ejecutada en esta fase para respetar la frontera documental y de no alteración de configuraciones.
-2. **Consolidación Local en Rama R2:** Mantener la rama local `docs/8b1a7-2-r2-fus-handoff-state-machine` con los cambios documentales y de auditoría estática reconciliados, en estricto cumplimiento de la directiva de no realizar push remoto ni abrir Pull Requests sin autorización previa.
+2. **Consolidación Local en Rama R3:** Mantener la rama local `docs/8b1a7-2-r3-release-order-race` con los cambios documentales y de sincronización reconciliados.
 3. **Acción del Propietario en el Host Físico (L0):** Aprovisionar una máquina virtual Windows 11 independiente en el host físico según las especificaciones de la Topología B (sección 5.2).
 4. **Generación de Artefactos desde HEAD Vigente:** Tras disponer de la VM, compilar el paquete `Release-Store` desde el HEAD canónico actual y registrar la doble proveniencia criptográfica (unsigned en build stage y signed tras test-signing dentro de la VM).
-5. **Ejecución del Runbook 8B.1A.7.2:** Llevar a cabo los tests normativos TEST-01 a TEST-11 en la VM aislada con capturas de ProcMon.
+5. **Ejecución del Runbook 8B.1A.7.2:** Llevar a cabo los tests normativos TEST-01 a TEST-11, con prioridad sobre la verificación experimental de TEST-09.7, TEST-09 y TEST-10 en la VM aislada con capturas de ProcMon.
