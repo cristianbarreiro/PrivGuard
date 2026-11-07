@@ -1,10 +1,11 @@
 # PrivGuard — Informe de Auditoría y Verificación: Sprint 1.2
-## CI Gate para Validación de Empaquetado Release-Store en GitHub Actions (Postflight Factual)
+## CI Gate para Validación de Empaquetado Release-Store en GitHub Actions (Postflight Factual y Reconciliación)
 
 **Fecha de emisión:** 2026-11-07<br />
 **Fecha de actualización postflight:** 2026-11-07<br />
-**Rama de trabajo postflight:** `docs/sprint-1-2-postflight-correction`<br />
-**Base:** `origin/main` (`d8ca7acc703397cabec8d5cbba92f39329fa940a`)<br />
+**Rama de trabajo de reconciliación:** `docs/reconcile-sprint-1-2-postflight-state`<br />
+**Base histórica de la rama de trabajo original:** `d8ca7acc703397cabec8d5cbba92f39329fa940a`<br />
+**HEAD remoto actual de main:** `b9d4b8f1627c74b70b977f509cbc56acc7989ad0`<br />
 **Autor:** Antigravity AI Pair Programmer (Rol: Senior .NET / Windows Packaging & CI Adversarial Reviewer)<br />
 **Estado / Veredicto Sprint 1.2:** **PASS — CI/packaging scope only**<br />
 **Estado Microsoft Store:** **CONDITIONAL HOLD**<br />
@@ -16,18 +17,23 @@
 
 El Sprint 1.2 incorporó al flujo de integración continua (`.github/workflows/ci.yml`) una validación automatizada y obligatoria para la configuración `Release-Store` en runners Windows (`windows-latest`). El gate compila la solución en `Release-Store`, genera el paquete MSIX x64 mediante `scripts/build-msix.ps1` con `-ValidateStoreIdentity`, e inspecciona el `AppxManifest.xml` extraído del contenedor `.msix` empaquetado real utilizando `scripts/verify-store-msix.ps1` y el motor `StoreMsixManifestVerifier`.
 
-Este informe documenta la evidencia verificable posterior a la integración en `main`, registrando con neutralidad la forma real de integración, los resultados de ejecución en GitHub Actions, el conteo exacto de pruebas y los límites formales de esta comprobación técnica.
+Este informe documenta la reconciliación factual del estado del repositorio posterior a la integración directa en `main` tanto del código del sprint como de sus revisiones documentales, registrando los resultados de ejecución de los runs #89 y #90 en GitHub Actions, el conteo exacto de pruebas y los límites formales de esta comprobación técnica.
 
 ---
 
 ## 2. Baseline de Control de Versiones y Forma Real de Integración
 
-### A. Forma Real de Integración de Sprint 1.2
-- **Integración Directa en `main`:** El commit de implementación de Sprint 1.2 fue integrado directamente en la rama `main`:
+### A. Forma Real de Integración de Sprint 1.2 y Postflight Documental
+- **Integración Directa del Código de Sprint 1.2 en `main`:**
   - **Commit SHA:** `d8ca7acc703397cabec8d5cbba92f39329fa940a`
   - **Mensaje:** `ci(store): validate Release-Store MSIX in Windows pipeline`
   - **Fecha de commit:** 2026-11-07
-- **Ausencia de PR Específica para Sprint 1.2:** La auditoría de la API de GitHub confirma que no existió una Pull Request previa ni una rama remota dedicada para fusionar Sprint 1.2. Se registra esta desviación de proceso de manera factual.
+- **Integración Posterior de Commits Documentales en `main`:**
+  - `dded99c75ec3a15f355a3bf4cda268dee62634d4` (`docs: correct Sprint 1.2 postflight evidence`)
+  - `b9d4b8f1627c74b70b977f509cbc56acc7989ad0` (`docs: tighten Sprint 1.2 postflight claims`)
+  Ambos commits documentales quedaron incorporados directamente en `main` sin una Pull Request documental propia.
+- **Ausencia de Ramas Remotas de Sprint 1.2:** La rama local `docs/sprint-1-2-postflight-correction` fue la rama de trabajo empleada durante la preparación documental, pero no aparece como rama remota en el repositorio GitHub. No existió una Pull Request previa ni una rama remota dedicada para fusionar Sprint 1.2 o sus correcciones. Se registra esta desviación de proceso de manera factual.
+- **Configuración de Protección de Ramas:** La rama `main` presenta `protected: false` y los required status checks están deshabilitados en el repositorio GitHub, permitiendo pushes directos a `main`.
 
 ### B. Desacoplamiento de la PR #11
 - La **PR #11** (`https://github.com/cristianbarreiro/PrivGuard/pull/11`) corresponde al Sprint anterior (Sprint 1.0 / 1.1: `feature/sprint-1-store-profile-guards-d01-d02`).
@@ -40,7 +46,7 @@ Este informe documenta la evidencia verificable posterior a la integración en `
 
 ## 3. Evidencia Verificable de GitHub Actions
 
-### A. Ejecución del Workflow CI (Run #89)
+### A. Ejecución Inicial del Workflow CI (Run #89)
 - **Workflow Run ID:** `42379421580`
 - **URL:** [https://github.com/cristianbarreiro/PrivGuard/actions/runs/42379421580](https://github.com/cristianbarreiro/PrivGuard/actions/runs/42379421580)
 - **Commit analizado:** `d8ca7acc703397cabec8d5cbba92f39329fa940a`
@@ -48,24 +54,20 @@ Este informe documenta la evidencia verificable posterior a la integración en `
 - **Evento disparador:** `push`
 - **Estado:** `completed`
 - **Conclusión:** `success`
+- **Jobs:** 7/7 jobs exitosos. En `windows-latest`, el paso `Validate Release-Store MSIX Packaging (Windows)` finalizó en `success`. En Ubuntu y macOS, fue omitido correctamente (`skipped`).
 
-### B. Matriz de Jobs Ejecutados (7/7 Exitosos)
+### B. Revalidación CI Posterior (Run #90)
+- **Workflow Run ID:** `42384884759`
+- **URL:** [https://github.com/cristianbarreiro/PrivGuard/actions/runs/42384884759](https://github.com/cristianbarreiro/PrivGuard/actions/runs/42384884759)
+- **Commit analizado:** `b9d4b8f1627c74b70b977f509cbc56acc7989ad0` (HEAD documental de `main`)
+- **Rama:** `main`
+- **Evento disparador:** `push`
+- **Estado:** `completed`
+- **Conclusión:** `success`
+- **Jobs:** 7/7 jobs exitosos. El paso `Validate Release-Store MSIX Packaging (Windows)` se ejecutó y finalizó en `success` en Windows, y fue omitido (`skipped`) en Ubuntu/macOS.
 
-| Job ID | Nombre del Job | Runner / Target | Estado | Conclusión | Comportamiento del Gate Release-Store |
-|---|---|---|---|---|---|
-| `128423706121` | Build & Test (ubuntu-latest) | Linux Ubuntu | completed | success | Paso `Validate Release-Store...` omitido (`skipped`) |
-| `128423706325` | Build & Test (macos-latest) | macOS | completed | success | Paso `Validate Release-Store...` omitido (`skipped`) |
-| `128423706329` | Build & Test (windows-latest) | Windows | completed | success | Paso `Validate Release-Store...` ejecutado con éxito (`success`) |
-| `128424247825` | Publish Single-File (linux-x64) | Linux x64 | completed | success | No aplica (publish job independiente) |
-| `128424247826` | Publish Single-File (osx-arm64) | macOS ARM64 | completed | success | No aplica (publish job independiente) |
-| `128424247857` | Publish Single-File (win-arm64) | Windows ARM64 | completed | success | No aplica (publish job independiente) |
-| `128424247948` | Publish Single-File (win-x64) | Windows x64 | completed | success | No aplica (publish job independiente) |
-
-### C. Detalle del Paso Windows `Validate Release-Store MSIX Packaging (Windows)`
-En el job `Build & Test (windows-latest)` (ID `128423706329`), el paso número 10 ejecutó secuencialmente:
-1. `dotnet build PrivGvard.sln -c Release-Store --no-restore` -> Exitoso (código 0).
-2. `./scripts/build-msix.ps1 -Architecture x64 -Configuration Release-Store -ValidateStoreIdentity -OutputDir $outputDir` -> Exitoso (código 0). Generó `PrivGuard-2.0.0.0-x64.msix`.
-3. `./scripts/verify-store-msix.ps1 -PackageDir $outputDir` -> Exitoso (código 0). Verificó `AppxManifest.xml` interno.
+### C. Ausencia de Ejecución en Evento `pull_request`
+Se enfatiza formalmente que tanto el Run #89 como el Run #90 fueron eventos de tipo `push` sobre la rama `main`. Ninguno de ellos acredita la ejecución real del workflow en el trigger `pull_request`. La validación del evento `pull_request` permanece pendiente y solo podrá considerarse demostrada cuando exista una ejecución real en GitHub Actions con `event = pull_request`, asociada a una PR y a su SHA, con resultado exitoso.
 
 ---
 
@@ -138,7 +140,7 @@ La suite de pruebas `tests/PrivLock.Platform.Windows.Tests/StoreMsixPackageVerif
 
 Es imperativo delimitar con exactitud lo que esta evidencia técnica demuestra y lo que **no** demuestra:
 
-1. **Evento `push` vs. `pull_request`:** El run #89 (`42379421580`) fue disparado por un evento `push` sobre `main`. Por sí solo, **no demuestra** que el evento `pull_request` ejecute el workflow de manera idéntica. La validación del evento `pull_request` permanece pendiente. Solo podrá considerarse completada cuando exista una ejecución real del workflow asociada a una PR contra `main`, con el SHA correspondiente y resultado satisfactorio en GitHub Actions.
+1. **Evento `push` vs. `pull_request`:** Los runs #89 (`42379421580`) y #90 (`42384884759`) fueron disparados por eventos `push` sobre `main`. Por sí solos, **no demuestran** que el evento `pull_request` ejecute el workflow de manera idéntica. La validación del evento `pull_request` permanece pendiente. Solo podrá considerarse completada cuando exista una ejecución real del workflow asociada a una PR contra `main`, con el SHA correspondiente y resultado satisfactorio en GitHub Actions.
 2. **Comprobación Estática y de Empaque vs. Validación Dinámica en VM:** La generación e inspección de un paquete MSIX en CI comprueba que el compilador, las herramientas del Windows SDK (`makeappx`, `makepri`) y los esquemas XML son conformes. **No equivale ni sustituye la validación dinámica en VM** de la Fase 8B.1A.7.2.
 3. **No Demuestra Certificación ni Aprobación de Microsoft Store:** El paso no ejecuta Windows App Certification Kit (WACK), no valida cuentas de Partner Center ni autoriza la publicación en la tienda.
 4. **No Resuelve D-03, D-04 ni D-05:** La existencia de un paquete Store válido no aprueba la coexistencia entre ediciones (D-03), la modalidad de supervisión (D-04) ni la topología definitiva de almacenamiento (D-05).
@@ -151,9 +153,14 @@ Es imperativo delimitar con exactitud lo que esta evidencia técnica demuestra y
 ### Veredicto del Sprint 1.2
 **PASS — CI/packaging scope only**
 
-El objetivo técnico delimitado del Sprint 1.2 (incorporar el gate de CI para `Release-Store`, empaquetar MSIX x64, inspeccionar el manifiesto interno y verificar casos positivos/negativos) fue implementado y verificado mediante GitHub Actions run #89, cuyo pipeline completó satisfactoriamente los 7 jobs correspondientes.
+El objetivo técnico delimitado del Sprint 1.2 (incorporar el gate de CI para `Release-Store`, empaquetar MSIX x64, inspeccionar el manifiesto interno y verificar casos positivos/negativos) fue implementado y verificado mediante GitHub Actions runs #89 y #90, completando satisfactoriamente los 7 jobs correspondientes.
 
 ### Estado Global de Salvaguardas y Roadmap
 - **Microsoft Store:** **CONDITIONAL HOLD**. Continúa bloqueado para publicación hasta resolver el aislamiento de datos y la validación en VM.
 - **Fase 8B.1C:** **BLOCKED / NOT AUTHORIZED**. No se autoriza su desarrollo hasta completar los pre-requisitos de laboratorio y formalización de decisiones.
-- **Próximo Paso Recomendado:** Publicar la rama documental y abrir la Pull Request hacia `main` para que GitHub Actions ejecute los checks en el evento `pull_request`, y posteriormente proceder con la preparación del entorno aislado para la validación dinámica de la Fase 8B.1A.7.2.
+- **Decisiones D-03 / D-04 / D-05:** D-03 permanece con aprobación parcial (aislamiento de datos aprobado en principio; integración real y coordinación de ownership pendientes de validación). D-04 y D-05 continúan pendientes.
+- **Fase 8B.1A.7.2 (Laboratorio VM):** Pendiente/bloqueada por disponibilidad de un entorno de laboratorio viable (host con nested virtualization y recursos suficientes). El paquete MSIX y la proveniencia de HEAD `9f856c0` no deben reutilizarse y deberán reconstruirse desde el HEAD vigente de `main`.
+
+### Próximos Pasos Recomendados
+1. **Configuración de Branch Protection en GitHub Settings:** Configurar una regla para `main` que exija Pull Request antes de merge y required status checks (`Build & Test (windows-latest)`, `Build & Test (ubuntu-latest)`, `Build & Test (macos-latest)`), prohibiendo force-push y borrado de `main`.
+2. **Preparación del Laboratorio Aislado 8B.1A.7.2:** Cuando el propietario proporcione un host o hipervisor viable con soporte para virtualización anidada y snapshots, reconstruir el paquete MSIX y proveniencia desde el HEAD vigente de `main` y ejecutar el runbook de validación dinámica de almacenamiento.

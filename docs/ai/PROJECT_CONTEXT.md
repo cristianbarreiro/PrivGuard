@@ -2,7 +2,7 @@
 schema: privgvard.project-context.v1
 kind: canonical-open-knowledge
 product_name: PrivGvard
-repository_name: CamMicroBlocker
+repository_name: PrivGuard
 current_code_identity: PrivLock
 status_date: 2026-11-07
 source_of_truth: repository-code-and-tests
@@ -27,14 +27,14 @@ PrivGvard is a transparent, reversible privacy utility designed to provide users
   - Portable distribution: `PrivGvard-Portable-2.0.0.zip`.
   - CI build artifacts: `PrivGvard-win-x64`, `PrivGvard-win-arm64`, `PrivGvard-linux-x64`, `PrivGvard-osx-arm64`.
 - **Internal Historical Code Identifiers**:
-  - Repository name: `Cam&MicroBlocker` (GitHub: `cristianbarreiro/PrivGvard`).
+  - Repository name: `PrivGuard` (historically `Cam&MicroBlocker`, GitHub: `cristianbarreiro/PrivGuard`).
   - Solution file: `PrivGvard.sln` (formerly `CamMicBlocker.sln`).
   - Namespaces and projects: `PrivLock.*` (`PrivLock.Domain`, `PrivLock.Platform.Abstractions`, `PrivLock.Infrastructure.Common`, `PrivLock.Application`, `PrivLock.UI`, `PrivLock.Platform.Windows`, `PrivLock.Platform.Linux`, `PrivLock.Platform.MacOS`, `PrivLock.Desktop`).
   - Registry keys: `SOFTWARE\PrivLock\PrivilegedOwnership\v2`.
   - IPC/Mutex primitives: `Global\PrivLock_SingleInstance`, `Global\PrivLock_UninstallGate`.
   - *Note*: Internal identifiers remain intentionally stable for code continuity, backward compatibility, and atomic migration safety.
 
-The requested product name is **PrivGvard**. The current repository is still named `Cam&MicroBlocker`, the solution is `PrivGvard.sln`, namespaces and assemblies use `PrivLock`, and the Windows executable is `PrivLock.dll`/`PrivLock.exe` depending on build output. This naming mismatch is a documentation and branding migration item, not an instruction to rename code automatically.
+The requested product name is **PrivGvard**. The repository is named `PrivGuard` (historically `Cam&MicroBlocker`, GitHub: `cristianbarreiro/PrivGuard`), the solution is `PrivGvard.sln` (historically `CamMicBlocker.sln`), namespaces and assemblies use `PrivLock`, and the Windows desktop host produces `PrivGvard.exe` / `PrivGvard`. This naming convention reflects code continuity and branding alignment, not an instruction to rename code automatically.
 
 ## 2. Current verified state
 
@@ -46,7 +46,7 @@ The requested product name is **PrivGvard**. The current repository is still nam
 | Linux | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported | High |
 | macOS | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported; secure provider methods are currently no-op success paths | High |
 | Tests | All active test suites pass across Domain, Infrastructure, Application, and Windows Platform | High |
-| CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix, selected publish targets, and Windows Release-Store MSIX packaging gate (run #89) | High; native privacy behavior and VM dynamics are not proven by CI |
+| CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix, selected publish targets, and Windows Release-Store MSIX packaging gate (verified on push runs #89 and #90) | High; pull_request trigger is unverified by push runs, and native privacy/VM dynamics are not proven by CI |
 | Legacy code | Archived at `legacy/CamMicBlocker` and `legacy/tests/CamMicBlocker.Tests`; build-guarded, not part of active solution | High |
 
 ### Active Host vs Legacy Quarantine
@@ -147,7 +147,7 @@ These invariants are mandatory for every implementation and AI-assisted change:
 - **Legacy Quarantine**: Resolved. Archived WPF code quarantined under `legacy/CamMicBlocker` with compile-time build guard.
 - **Linux & macOS Mutation Guarding**: Maintained. Capability providers explicitly declare `CapabilityLevel.None` and register `UnsupportedPrivacySessionPlatformAdapter`.
 - **Volatile Test Counts**: Removed from canonical documentation in favor of dynamic test suite validation.
-- **Release-Store MSIX CI Gate (Sprint 1.2)**: Implemented in `.github/workflows/ci.yml`. Builds `Release-Store`, generates x64 MSIX via `build-msix.ps1`, and validates internal `AppxManifest.xml` (`cdevstudios.PrivGuard`, `runFullTrust` sole restricted capability, no elevation) via `StoreMsixManifestVerifier` and `verify-store-msix.ps1`. Validated in CI run #89 (push event). Comprobación técnica de empaquetado; no sustituye validación en VM ni autoriza publicación (Microsoft Store permanece en `CONDITIONAL HOLD`).
+- **Release-Store MSIX CI Gate (Sprint 1.2)**: Implemented in `.github/workflows/ci.yml`. Builds `Release-Store`, generates x64 MSIX via `build-msix.ps1`, and validates internal `AppxManifest.xml` (`cdevstudios.PrivGuard`, `runFullTrust` sole restricted capability, no elevation) via `StoreMsixManifestVerifier` and `verify-store-msix.ps1`. Validated in CI push runs #89 (ID: `42379421580`) and #90 (ID: `42384884759`). Comprobación técnica de empaquetado; el trigger `pull_request` no ha sido demostrado empíricamente, no sustituye validación en VM ni autoriza publicación (Microsoft Store permanece en `CONDITIONAL HOLD`).
 
 ---
 
