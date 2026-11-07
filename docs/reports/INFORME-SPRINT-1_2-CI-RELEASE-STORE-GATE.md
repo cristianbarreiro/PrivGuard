@@ -138,7 +138,7 @@ La suite de pruebas `tests/PrivLock.Platform.Windows.Tests/StoreMsixPackageVerif
 
 Es imperativo delimitar con exactitud lo que esta evidencia técnica demuestra y lo que **no** demuestra:
 
-1. **Evento `push` vs. `pull_request`:** El run #89 (`42379421580`) fue disparado por un evento `push` sobre `main`. Por sí solo, **no demuestra** que el evento `pull_request` ejecute el workflow de manera idéntica. Esta validación se completa mediante la apertura de la PR documental.
+1. **Evento `push` vs. `pull_request`:** El run #89 (`42379421580`) fue disparado por un evento `push` sobre `main`. Por sí solo, **no demuestra** que el evento `pull_request` ejecute el workflow de manera idéntica. La validación del evento `pull_request` permanece pendiente. Solo podrá considerarse completada cuando exista una ejecución real del workflow asociada a una PR contra `main`, con el SHA correspondiente y resultado satisfactorio en GitHub Actions.
 2. **Comprobación Estática y de Empaque vs. Validación Dinámica en VM:** La generación e inspección de un paquete MSIX en CI comprueba que el compilador, las herramientas del Windows SDK (`makeappx`, `makepri`) y los esquemas XML son conformes. **No equivale ni sustituye la validación dinámica en VM** de la Fase 8B.1A.7.2.
 3. **No Demuestra Certificación ni Aprobación de Microsoft Store:** El paso no ejecuta Windows App Certification Kit (WACK), no valida cuentas de Partner Center ni autoriza la publicación en la tienda.
 4. **No Resuelve D-03, D-04 ni D-05:** La existencia de un paquete Store válido no aprueba la coexistencia entre ediciones (D-03), la modalidad de supervisión (D-04) ni la topología definitiva de almacenamiento (D-05).
@@ -151,9 +151,9 @@ Es imperativo delimitar con exactitud lo que esta evidencia técnica demuestra y
 ### Veredicto del Sprint 1.2
 **PASS — CI/packaging scope only**
 
-El objetivo técnico delimitado del Sprint 1.2 (incorporar el gate de CI para `Release-Store`, empaquetar MSIX x64, inspeccionar el manifiesto interno y verificar casos positivos/negativos) ha sido implementado, probado localmente y verificado de forma remota en GitHub Actions run #89 con resultado verde en todos los jobs.
+El objetivo técnico delimitado del Sprint 1.2 (incorporar el gate de CI para `Release-Store`, empaquetar MSIX x64, inspeccionar el manifiesto interno y verificar casos positivos/negativos) fue implementado y verificado mediante GitHub Actions run #89, cuyo pipeline completó satisfactoriamente los 7 jobs correspondientes.
 
 ### Estado Global de Salvaguardas y Roadmap
 - **Microsoft Store:** **CONDITIONAL HOLD**. Continúa bloqueado para publicación hasta resolver el aislamiento de datos y la validación en VM.
 - **Fase 8B.1C:** **BLOCKED / NOT AUTHORIZED**. No se autoriza su desarrollo hasta completar los pre-requisitos de laboratorio y formalización de decisiones.
-- **Próximo Paso Recomendado:** Ejecutar la PR documental para validar el evento `pull_request` en GitHub Actions, y proceder con la preparación del entorno aislado para la validación dinámica de la Fase 8B.1A.7.2.
+- **Próximo Paso Recomendado:** Publicar la rama documental y abrir la Pull Request hacia `main` para que GitHub Actions ejecute los checks en el evento `pull_request`, y posteriormente proceder con la preparación del entorno aislado para la validación dinámica de la Fase 8B.1A.7.2.
