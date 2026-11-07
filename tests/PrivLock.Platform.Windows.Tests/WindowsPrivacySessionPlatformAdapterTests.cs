@@ -4,8 +4,14 @@ using Xunit;
 
 namespace PrivLock.Platform.Windows.Tests;
 
-public sealed class WindowsPrivacySessionPlatformAdapterTests
+[Collection("WindowsPrivilegedSessionState")]
+public sealed class WindowsPrivacySessionPlatformAdapterTests : IDisposable
 {
+    public void Dispose()
+    {
+        WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
+    }
+
     [Fact]
     public void SuppressRecoveryPassCompletion_PreventsCompleteRecoveryPassFromClosingSession()
     {

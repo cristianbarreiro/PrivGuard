@@ -84,13 +84,13 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
                     "Secure Protection resource capture is not supported in the Microsoft Store edition.");
             }
 
-            if (target == BlockTarget.Camera)
+            if (target is BlockTarget.Camera or BlockTarget.Both)
             {
                 throw new InvalidOperationException(
                     "Direct camera ConsentStore capture is not supported in the Microsoft Store edition.");
             }
 
-            if (target is BlockTarget.Microphone or BlockTarget.Both)
+            if (target == BlockTarget.Microphone)
             {
                 CaptureStandardAudioEndpoints(resources, operationId);
             }

@@ -63,9 +63,12 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 "Standard Protection is blocked because the runtime edition profile is untrusted or indeterminate."));
         }
 
-        if (_profileResolver.Profile == EditionProfile.Store && target == BlockTarget.Camera)
+        if (_profileResolver.Profile == EditionProfile.Store &&
+            target is BlockTarget.Camera or BlockTarget.Both)
         {
-            Log.Warning("Rejected direct camera Standard Protection mutation in Store edition.");
+            Log.Warning(
+                "Rejected direct camera Standard Protection mutation in Store edition (Target={Target}).",
+                target);
             return Task.FromResult(OperationResult.Fail(
                 "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead."));
         }
@@ -133,7 +136,8 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 "Standard Protection teardown is blocked because the runtime edition profile is untrusted or indeterminate."));
         }
 
-        if (_profileResolver.Profile == EditionProfile.Store && target == BlockTarget.Camera)
+        if (_profileResolver.Profile == EditionProfile.Store &&
+            target is BlockTarget.Camera or BlockTarget.Both)
         {
             return Task.FromResult(OperationResult.Fail(
                 "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead."));

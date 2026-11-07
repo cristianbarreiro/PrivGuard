@@ -146,10 +146,7 @@ public sealed class ProtectionService
         }
 
         var launchResult = await _privacySettingsLauncher.OpenPrivacySettingsAsync(target, cancellationToken);
-        if (_protectionProvider != null)
-        {
-            await PublishVerifiedStateAsync(cancellationToken);
-        }
+        await PublishVerifiedStateAsync(cancellationToken);
 
         return launchResult;
     }

@@ -16,6 +16,7 @@ using Xunit;
 
 namespace PrivLock.Platform.Windows.Tests;
 
+[Collection("WindowsPrivilegedSessionState")]
 public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
 {
     private readonly string _tempDir;
@@ -24,10 +25,12 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"PrivGuard_Sprint1Tests_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
+        WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
     }
 
     public void Dispose()
     {
+        WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
         try
         {
             if (Directory.Exists(_tempDir))
@@ -57,6 +60,7 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
         var services = new ServiceCollection();
         try
         {
+            WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
             Program.ConfigureServices(services, storeDetector, storeResolver);
 
             using var provider = services.BuildServiceProvider();
@@ -71,6 +75,7 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
 
             Assert.Same(storeDetector, resolvedDetector);
             Assert.Same(storeResolver, resolvedProfile);
+            Assert.Same(storeResolver, WindowsPrivilegedSession.Instance.ProfileResolver);
             Assert.Equal(EditionProfile.Store, resolvedProfile.Profile);
             Assert.False(resolvedProfile.SupportsPrivilegedOperations);
             Assert.IsType<WindowsPrivacySettingsLauncher>(settingsLauncher);
@@ -90,10 +95,84 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
         }
         finally
         {
-            var standaloneFallback = new DefaultEditionProfileResolver(
-                new StubPackageIdentityDetector(PackageIdentityKind.NotPackaged),
-                _tempDir);
-            WindowsPrivilegedSession.ConfigureDefaultProfileResolver(standaloneFallback);
+            WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
+        }
+    }
+
+    [Fact]
+    public async Task WindowsPrivilegedSession_ProfileResolver_IsReadOnlyProperty_AndWriteOnceConfigured()
+    {
+        var prop = typeof(WindowsPrivilegedSession).GetProperty(nameof(WindowsPrivilegedSession.ProfileResolver));
+        Assert.NotNull(prop);
+        Assert.False(prop!.CanWrite);
+        Assert.Null(prop.SetMethod);
+
+        var storeDetector = new StubPackageIdentityDetector(PackageIdentityKind.AuthenticStorePackage);
+        var storeResolver = new DefaultEditionProfileResolver(storeDetector, _tempDir);
+        var standaloneDetector = new StubPackageIdentityDetector(PackageIdentityKind.NotPackaged);
+        var standaloneResolver = new DefaultEditionProfileResolver(standaloneDetector, _tempDir);
+
+        try
+        {
+            WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
+            WindowsPrivilegedSession.ConfigureDefaultProfileResolver(storeResolver);
+
+            // Idempotent repeat call with the exact same snapshot instance is allowed
+            WindowsPrivilegedSession.ConfigureDefaultProfileResolver(storeResolver);
+            Assert.Same(storeResolver, WindowsPrivilegedSession.Instance.ProfileResolver);
+            Assert.Equal(EditionProfile.Store, WindowsPrivilegedSession.Instance.ProfileResolver.Profile);
+
+            // Attempting to replace the configured resolver with a different instance must throw
+            Assert.Throws<InvalidOperationException>(() =>
+                WindowsPrivilegedSession.ConfigureDefaultProfileResolver(standaloneResolver));
+
+            // Profile remains Store and continues blocking privileged worker execution
+            Assert.Same(storeResolver, WindowsPrivilegedSession.Instance.ProfileResolver);
+            var execResult = await WindowsPrivilegedSession.Instance.ExecuteCommandAsync("ping", "");
+            Assert.False(execResult.Success);
+            Assert.Equal(0, WindowsPrivilegedSession.Instance.ElevationLaunchCount);
+            Assert.False(WindowsPrivilegedSession.Instance.IsSessionActive);
+        }
+        finally
+        {
+            WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
+        }
+    }
+
+    [Fact]
+    public async Task WindowsPrivilegedSession_ActiveSession_CannotHaveProfileReplacedMidSession()
+    {
+        var standaloneDetector = new StubPackageIdentityDetector(PackageIdentityKind.NotPackaged);
+        var standaloneResolver = new DefaultEditionProfileResolver(standaloneDetector, _tempDir);
+        var storeDetector = new StubPackageIdentityDetector(PackageIdentityKind.AuthenticStorePackage);
+        var storeResolver = new DefaultEditionProfileResolver(storeDetector, _tempDir);
+
+        try
+        {
+            WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
+            WindowsPrivilegedSession.ConfigureDefaultProfileResolver(standaloneResolver);
+
+            var session = WindowsPrivilegedSession.Instance;
+            session.CustomWorkerLauncher = () => Task.CompletedTask;
+            session.CustomCommandExecutor = (_, _) => Task.FromResult(OperationResult.Ok());
+
+            using (session.BeginDeferredScope())
+            {
+                var cmdResult = await session.ExecuteCommandAsync("apply-policy", "camera");
+                Assert.True(cmdResult.Success);
+                Assert.True(session.IsSessionActive);
+                Assert.Equal(1, session.ElevationLaunchCount);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                    WindowsPrivilegedSession.ConfigureDefaultProfileResolver(storeResolver));
+
+                Assert.Same(standaloneResolver, session.ProfileResolver);
+                Assert.Equal(EditionProfile.Standalone, session.ProfileResolver.Profile);
+            }
+        }
+        finally
+        {
+            WindowsPrivilegedSession.ResetDefaultConfigurationForTesting();
         }
     }
 
@@ -241,6 +320,91 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
         Assert.True(stateAfterUserChange.Camera.StandardIsVerified);
         Assert.Equal(StandardProtectionState.Active, stateAfterUserChange.Camera.StandardState);
         Assert.Equal(0, harness.ConsentStoreWriteCount);
+    }
+
+    [Fact]
+    public async Task StoreProfile_LowLevelProviderAndAdapter_RejectCameraAndBoth_WithZeroPartialExecution()
+    {
+        var harness = new WindowsBoundaryTestHarness(PackageIdentityKind.AuthenticStorePackage, _tempDir);
+        harness.FakeCoreAudio.SetSimulatedEndpoints(
+            isMuted: false,
+            AudioEndpointHardwareMuteSupport.Supported);
+
+        // 1. Direct WindowsPrivacySessionPlatformAdapter.CaptureAsync checks for Camera and Both in Store
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            harness.SessionAdapter.CaptureAsync(ProtectionLayer.Standard, BlockTarget.Camera, "op-cam"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            harness.SessionAdapter.CaptureAsync(ProtectionLayer.Standard, BlockTarget.Both, "op-both"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            harness.SessionAdapter.CaptureAsync(ProtectionLayer.Secure, BlockTarget.Both, "op-sec-both"));
+
+        // Seed a valid active session containing a microphone endpoint resource so that if
+        // WindowsProtectionProvider.EnableStandardProtectionAsync(BlockTarget.Both) did not reject Both
+        // upfront, it would partially execute the microphone WASAPI mute and return Ok.
+        var micResources = await harness.SessionAdapter.CaptureAsync(
+            ProtectionLayer.Standard,
+            BlockTarget.Microphone,
+            "op-seeded");
+        Assert.Single(micResources);
+        harness.SessionStore.Save(new PrivacySession
+        {
+            IsActive = true,
+            Status = PrivacySessionStatus.Active,
+            OwnerProcessId = Environment.ProcessId,
+            LastOperationId = "op-seeded",
+            Resources = micResources.ToList()
+        });
+
+        // 2. Direct WindowsProtectionProvider checks for Camera and Both in Store
+        var providerEnableCam = await harness.ProtectionProvider.EnableStandardProtectionAsync(BlockTarget.Camera);
+        var providerEnableBoth = await harness.ProtectionProvider.EnableStandardProtectionAsync(BlockTarget.Both);
+        var providerDisableCam = await harness.ProtectionProvider.DisableStandardProtectionAsync(BlockTarget.Camera);
+        var providerDisableBoth = await harness.ProtectionProvider.DisableStandardProtectionAsync(BlockTarget.Both);
+
+        Assert.False(providerEnableCam.Success);
+        Assert.False(providerEnableBoth.Success);
+        Assert.False(providerDisableCam.Success);
+        Assert.False(providerDisableBoth.Success);
+        Assert.Contains("ms-settings:privacy-webcam", providerEnableCam.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ms-settings:privacy-webcam", providerEnableBoth.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ms-settings:privacy-webcam", providerDisableCam.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ms-settings:privacy-webcam", providerDisableBoth.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+
+        // Verify zero partial microphone WASAPI execution and zero forbidden calls
+        Assert.Equal(0, harness.FakeCoreAudio.MuteWriteCount);
+        Assert.False(harness.FakeCoreAudio.IsMuted);
+        Assert.Equal(0, harness.ConsentStoreWriteCount);
+        Assert.Equal(0, harness.HklmWriteCount);
+        Assert.Equal(0, harness.PnpMutationCount);
+        Assert.Equal(0, harness.ElevationLaunchCount);
+
+        // 3. Direct ProtectionService checks for Both in Store
+        var serviceEnableBoth = await harness.ProtectionService.EnableStandardProtectionAsync(BlockTarget.Both);
+        var serviceDisableBoth = await harness.ProtectionService.DisableStandardProtectionAsync(BlockTarget.Both);
+        var serviceBlockBoth = await harness.ProtectionService.BlockDeviceAsync(BlockTarget.Both);
+        var serviceUnblockBoth = await harness.ProtectionService.UnblockDeviceAsync(BlockTarget.Both);
+
+        Assert.False(serviceEnableBoth.Success);
+        Assert.False(serviceDisableBoth.Success);
+        Assert.False(serviceBlockBoth.Success);
+        Assert.False(serviceUnblockBoth.Success);
+
+        Assert.Equal(0, harness.FakeCoreAudio.MuteWriteCount);
+        Assert.False(harness.FakeCoreAudio.IsMuted);
+        Assert.Equal(0, harness.ConsentStoreWriteCount);
+        Assert.Equal(0, harness.HklmWriteCount);
+        Assert.Equal(0, harness.PnpMutationCount);
+        Assert.Equal(0, harness.ElevationLaunchCount);
+
+        // 4. Confirm direct Microphone Standard on WindowsProtectionProvider still succeeds via WASAPI only
+        var providerEnableMic = await harness.ProtectionProvider.EnableStandardProtectionAsync(BlockTarget.Microphone);
+        Assert.True(providerEnableMic.Success);
+        Assert.Equal(1, harness.FakeCoreAudio.MuteWriteCount);
+        Assert.True(harness.FakeCoreAudio.IsMuted);
+        Assert.Equal(0, harness.ConsentStoreWriteCount);
+        Assert.Equal(0, harness.HklmWriteCount);
+        Assert.Equal(0, harness.PnpMutationCount);
+        Assert.Equal(0, harness.ElevationLaunchCount);
     }
 
     [Fact]
@@ -416,11 +580,15 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
         var blockCamStd = await standaloneProtectionService.EnableStandardProtectionAsync(BlockTarget.Camera);
         var blockMicStd = await standaloneProtectionService.EnableStandardProtectionAsync(BlockTarget.Microphone);
         var blockCamSec = await standaloneProtectionService.EnableSecureProtectionAsync(BlockTarget.Camera);
+        var unblockBothStd = await standaloneProtectionService.DisableStandardProtectionAsync(BlockTarget.Both);
+        var blockBothStd = await standaloneProtectionService.EnableStandardProtectionAsync(BlockTarget.Both);
 
         Assert.True(blockCamStd.Success);
         Assert.True(blockMicStd.Success);
         Assert.True(blockCamSec.Success);
-        Assert.Equal(2, standaloneSim.StandardEnableCalls);
+        Assert.True(unblockBothStd.Success);
+        Assert.True(blockBothStd.Success);
+        Assert.Equal(3, standaloneSim.StandardEnableCalls);
         Assert.Equal(1, standaloneSim.SecureEnableCalls);
     }
 
@@ -647,6 +815,7 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
         public SpyDeviceController SpyDeviceController { get; }
         public WindowsDeviceController RealDeviceController { get; }
         public WindowsPrivilegedSession PrivilegedSession { get; }
+        public InMemoryPrivacySessionStore SessionStore { get; }
         public WindowsPrivacySessionPlatformAdapter SessionAdapter { get; }
         public WindowsProtectionProvider ProtectionProvider { get; }
         public WindowsPrivacySettingsLauncher SettingsLauncher { get; }
@@ -686,7 +855,7 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
             var detector = new StubDeviceDetector();
             var elevationProvider = new StubElevationProvider();
             var capabilityProvider = new WindowsCapabilityProvider(elevationProvider, ProfileResolver);
-            var sessionStore = new InMemoryPrivacySessionStore();
+            SessionStore = new InMemoryPrivacySessionStore();
 
             ProtectionProvider = new WindowsProtectionProvider(
                 detector,
@@ -695,7 +864,7 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
                 SpyPolicyManager,
                 UserPrivacyManager,
                 elevationProvider,
-                sessionStore,
+                SessionStore,
                 ProfileResolver);
 
             SessionAdapter = new WindowsPrivacySessionPlatformAdapter(
@@ -704,7 +873,7 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
                 FakeCoreAudio,
                 ProfileResolver);
 
-            var sessionService = new PrivacySessionService(sessionStore, SessionAdapter);
+            var sessionService = new PrivacySessionService(SessionStore, SessionAdapter);
             var stateStore = new InMemoryStateStore();
             SettingsLauncher = new WindowsPrivacySettingsLauncher(
                 ProfileResolver,
@@ -1043,20 +1212,36 @@ public sealed class Sprint1StoreProfileAndCapabilityGuardsTests : IDisposable
             string operationId,
             CancellationToken cancellationToken = default)
         {
-            IReadOnlyList<PrivacyResourceState> resources =
-            [
-                new OriginalAudioEndpointState
+            var list = new List<PrivacyResourceState>();
+            if (target is BlockTarget.Camera or BlockTarget.Both)
+            {
+                list.Add(new OriginalAudioEndpointState
                 {
-                    ResourceId = $"sim:{layer}:{target}",
+                    ResourceId = $"sim:{layer}:{BlockTarget.Camera}",
                     OperationId = operationId,
                     Layer = layer,
-                    Target = target == BlockTarget.Both ? BlockTarget.Microphone : target,
-                    EndpointId = $"ep-{target}",
+                    Target = BlockTarget.Camera,
+                    EndpointId = $"ep-{BlockTarget.Camera}",
                     OriginalMutedState = false,
                     ProtectedMutedState = true
-                }
-            ];
-            return Task.FromResult(resources);
+                });
+            }
+
+            if (target is BlockTarget.Microphone or BlockTarget.Both)
+            {
+                list.Add(new OriginalAudioEndpointState
+                {
+                    ResourceId = $"sim:{layer}:{BlockTarget.Microphone}",
+                    OperationId = operationId,
+                    Layer = layer,
+                    Target = BlockTarget.Microphone,
+                    EndpointId = $"ep-{BlockTarget.Microphone}",
+                    OriginalMutedState = false,
+                    ProtectedMutedState = true
+                });
+            }
+
+            return Task.FromResult<IReadOnlyList<PrivacyResourceState>>(list);
         }
 
         public Task<PrivacyResourceObservation> ObserveAsync(

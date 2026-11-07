@@ -44,7 +44,7 @@ public static class WindowsPrivilegedExecutor
         IEditionProfileResolver? profileResolver = null)
     {
         var resolvedProfile = profileResolver
-            ?? WindowsPrivilegedSession.Instance.ProfileResolver
+            ?? WindowsPrivilegedSession.ActiveOrConfiguredProfileResolver
             ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
         if (resolvedProfile.Profile != EditionProfile.Standalone || !resolvedProfile.SupportsPrivilegedOperations)
         {
