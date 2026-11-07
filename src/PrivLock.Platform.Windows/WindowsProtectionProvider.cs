@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
+using PrivLock.Infrastructure.Common.Storage;
 using PrivLock.Platform.Abstractions;
 using PrivLock.Platform.Windows.Devices;
 using PrivLock.Platform.Windows.Elevation;
+using PrivLock.Platform.Windows.System;
 using PrivLock.Platform.Windows.Policies;
 using PrivLock.Platform.Windows.Privileged;
 using Serilog;
@@ -13,8 +15,8 @@ namespace PrivLock.Platform.Windows;
 /// <summary>
 /// Native Windows implementation of IDeviceProtectionProvider.
 /// Supports clean two-tier protection:
-/// 1. Standard Protection: HKCU Capability Consent Store (Packaged & NonPackaged) + Windows Core Audio WASAPI Mute (0 elevation).
-/// 2. Secure Protection: HKLM Group Policy & CfgMgr32 PnP hardware device node disable (on-demand UAC elevation, single prompt).
+/// 1. Standard Protection: HKCU Capability Consent Store (Packaged & NonPackaged, Standalone only) + Windows Core Audio WASAPI Mute (0 elevation).
+/// 2. Secure Protection: HKLM Group Policy & CfgMgr32 PnP hardware device node disable (Standalone only, on-demand UAC elevation, single prompt).
 /// </summary>
 public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
 {
@@ -27,6 +29,7 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
     private readonly WindowsUserPrivacyManager _userPrivacyManager;
     private readonly IElevationProvider _elevationProvider;
     private readonly IPrivacySessionStore _privacySessionStore;
+    private readonly IEditionProfileResolver _profileResolver;
 
     public WindowsProtectionProvider(
         IDeviceDetector deviceDetector,
@@ -35,7 +38,8 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         WindowsPolicyManager policyManager,
         WindowsUserPrivacyManager userPrivacyManager,
         IElevationProvider elevationProvider,
-        IPrivacySessionStore privacySessionStore)
+        IPrivacySessionStore privacySessionStore,
+        IEditionProfileResolver? profileResolver = null)
     {
         _deviceDetector = deviceDetector;
         _deviceController = deviceController;
@@ -44,26 +48,53 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         _userPrivacyManager = userPrivacyManager;
         _elevationProvider = elevationProvider;
         _privacySessionStore = privacySessionStore;
+        _profileResolver = profileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
     }
 
     public Task<OperationResult> EnableStandardProtectionAsync(BlockTarget target, CancellationToken cancellationToken = default)
     {
-        Log.Information("Enabling Windows Standard Protection: Target={Target}", target);
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            Log.Warning(
+                "Rejected EnableStandardProtectionAsync(Target={Target}) because EditionProfile is UntrustedOrIndeterminate.",
+                target);
+            return Task.FromResult(OperationResult.Fail(
+                "Standard Protection is blocked because the runtime edition profile is untrusted or indeterminate."));
+        }
+
+        if (_profileResolver.Profile == EditionProfile.Store &&
+            target is BlockTarget.Camera or BlockTarget.Both)
+        {
+            Log.Warning(
+                "Rejected direct camera Standard Protection mutation in Store edition (Target={Target}).",
+                target);
+            return Task.FromResult(OperationResult.Fail(
+                "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead."));
+        }
+
+        Log.Information(
+            "Enabling Windows Standard Protection: Target={Target}, Profile={Profile}",
+            target,
+            _profileResolver.Profile);
         var details = new List<DeviceOperationDetail>();
         try
         {
             var session = LoadTrackedSession();
 
-            // Apply each captured value independently. CompareAndApplyProtected repeats the
-            // comparison immediately before the native write.
-            foreach (var policy in GetTrackedResources<OriginalPolicyState>(
-                         session, ProtectionLayer.Standard, target).Where(resource => resource.RequiresModification))
+            if (_profileResolver.Profile == EditionProfile.Standalone)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var result = WindowsRegistryValueCodec.CompareAndApplyProtected(policy);
-                details.Add(ToResourceDetail(policy, result, "Windows privacy consent value"));
-                if (!result.Success)
-                    return Task.FromResult(FailForResource(result, details));
+                // Apply each captured value independently. CompareAndApplyProtected repeats the
+                // comparison immediately before the native write.
+                foreach (var policy in GetTrackedResources<OriginalPolicyState>(
+                             session, ProtectionLayer.Standard, target).Where(resource => resource.RequiresModification))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = WindowsRegistryValueCodec.CompareAndApplyProtected(policy);
+                    details.Add(ToResourceDetail(policy, result, "Windows privacy consent value"));
+                    if (!result.Success)
+                        return Task.FromResult(FailForResource(result, details));
+                }
             }
 
             if (target is BlockTarget.Microphone or BlockTarget.Both)
@@ -99,6 +130,19 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
 
     public Task<OperationResult> DisableStandardProtectionAsync(BlockTarget target, CancellationToken cancellationToken = default)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return Task.FromResult(OperationResult.Fail(
+                "Standard Protection teardown is blocked because the runtime edition profile is untrusted or indeterminate."));
+        }
+
+        if (_profileResolver.Profile == EditionProfile.Store &&
+            target is BlockTarget.Camera or BlockTarget.Both)
+        {
+            return Task.FromResult(OperationResult.Fail(
+                "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead."));
+        }
+
         Log.Error("Rejected non-reversible Windows Standard teardown for Target={Target}", target);
         return Task.FromResult(OperationResult.Fail(
             "Windows protection must be disabled through PrivacySessionService so exact original state is restored."));
@@ -106,6 +150,16 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
 
     public async Task<OperationResult> EnableSecureProtectionAsync(BlockTarget target, CancellationToken cancellationToken = default)
     {
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected EnableSecureProtectionAsync(Target={Target}) because EditionProfile is {Profile}.",
+                target,
+                _profileResolver.Profile);
+            return OperationResult.Fail(
+                $"Secure Protection (PnP + HKLM Group Policy) is not supported in the {_profileResolver.Profile} edition profile.");
+        }
+
         var sw = Stopwatch.StartNew();
         Log.Information("Enabling Windows Secure Protection: Target={Target}, IsElevated={IsElevated}",
             target, _elevationProvider.IsElevated);
@@ -155,6 +209,16 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
     public async Task<OperationResult> DisableSecureProtectionAsync(BlockTarget target, CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected DisableSecureProtectionAsync(Target={Target}) because EditionProfile is {Profile}.",
+                target,
+                _profileResolver.Profile);
+            return OperationResult.Fail(
+                $"Secure Protection (PnP + HKLM Group Policy) is not supported in the {_profileResolver.Profile} edition profile.");
+        }
+
         Log.Error("Rejected non-reversible Windows Secure teardown for Target={Target}", target);
         return OperationResult.Fail(
             "Windows protection must be disabled through PrivacySessionService so exact original state is restored.");
@@ -162,42 +226,97 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
 
     public async Task<FullProtectionState> GetProtectionStateAsync(CancellationToken cancellationToken = default)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            const string untrustedMsg = "Protection state is unavailable because the runtime edition profile is untrusted or indeterminate.";
+            return new FullProtectionState
+            {
+                Camera = new TargetProtectionStatus
+                {
+                    Target = BlockTarget.Camera,
+                    StandardState = StandardProtectionState.Unknown,
+                    SecureState = SecureProtectionState.Unknown,
+                    Availability = TargetDeviceAvailability.Unknown,
+                    StandardIsVerified = false,
+                    SecureIsVerified = false,
+                    IsVerified = false,
+                    StatusMessage = untrustedMsg
+                },
+                Microphone = new TargetProtectionStatus
+                {
+                    Target = BlockTarget.Microphone,
+                    StandardState = StandardProtectionState.Unknown,
+                    SecureState = SecureProtectionState.Unknown,
+                    Availability = TargetDeviceAvailability.Unknown,
+                    EndpointAvailability = AudioEndpointAvailability.Unknown,
+                    StandardIsVerified = false,
+                    SecureIsVerified = false,
+                    IsVerified = false,
+                    StatusMessage = untrustedMsg
+                }
+            };
+        }
+
+        var isStoreEdition = _profileResolver.Profile == EditionProfile.Store;
+
         // Derive every displayed state from current Windows state. DesiredState is a preference,
         // never proof that a privacy mechanism is effectively active.
         var camUserPrivacy = _userPrivacyManager.GetCameraUserPrivacyStatus();
         var micUserPrivacy = _userPrivacyManager.GetMicrophoneUserPrivacyStatus();
-        var camPolicy = _policyManager.GetCameraPolicyStatus();
-        var micPolicy = _policyManager.GetMicrophonePolicyStatus();
         var microphoneEndpoints = _coreAudioController.GetMicrophoneMuteStates();
 
         var cameras = await _deviceDetector.DetectCamerasAsync(cancellationToken);
         var mics = await _deviceDetector.DetectMicrophonesAsync(cancellationToken);
 
-        var camDeviceStateKnown = cameras.All(IsCleanOrExplicitlyDisabled);
-        var micDeviceStateKnown = mics.All(IsCleanOrExplicitlyDisabled);
-        var camDeviceBlocked = cameras.Count > 0 && cameras.All(device =>
-            device.ConfigurationProblemCode == CfgMgrInterop.CM_PROB_DISABLED);
-        var micDeviceBlocked = mics.Count > 0 && mics.All(device =>
-            device.ConfigurationProblemCode == CfgMgrInterop.CM_PROB_DISABLED);
-        var camDevicesEnabled = cameras.Count > 0 && cameras.All(device =>
-            device.ConfigurationProblemCode == 0);
-        var micDevicesEnabled = mics.Count > 0 && mics.All(device =>
-            device.ConfigurationProblemCode == 0);
-
-        var camSecureEvaluation = EvaluateSecureState(
-            camPolicy, cameras.Count, camDeviceStateKnown, camDeviceBlocked, camDevicesEnabled);
-        var micSecureEvaluation = EvaluateSecureState(
-            micPolicy, mics.Count, micDeviceStateKnown, micDeviceBlocked, micDevicesEnabled);
-
         var camStandardState = ToStandardState(camUserPrivacy);
-        var micStandardState = ToStandardState(EvaluateMicrophoneStandardStatus(
-            micUserPrivacy,
-            microphoneEndpoints.Success,
-            microphoneEndpoints.States));
-        var camSecureState = ToSecureState(
-            camSecureEvaluation.IsActive, camSecureEvaluation.IsUnknown, camStandardState);
-        var micSecureState = ToSecureState(
-            micSecureEvaluation.IsActive, micSecureEvaluation.IsUnknown, micStandardState);
+        var micStandardState = isStoreEdition
+            ? ToStandardState(EvaluateStoreMicrophoneStandardStatus(
+                microphoneEndpoints.Success,
+                microphoneEndpoints.States))
+            : ToStandardState(EvaluateMicrophoneStandardStatus(
+                micUserPrivacy,
+                microphoneEndpoints.Success,
+                microphoneEndpoints.States));
+
+        SecureProtectionState camSecureState;
+        SecureProtectionState micSecureState;
+        bool camSecureIsVerified;
+        bool micSecureIsVerified;
+
+        if (isStoreEdition)
+        {
+            camSecureState = SecureProtectionState.Unavailable;
+            micSecureState = SecureProtectionState.Unavailable;
+            camSecureIsVerified = true;
+            micSecureIsVerified = true;
+        }
+        else
+        {
+            var camPolicy = _policyManager.GetCameraPolicyStatus();
+            var micPolicy = _policyManager.GetMicrophonePolicyStatus();
+
+            var camDeviceStateKnown = cameras.All(IsCleanOrExplicitlyDisabled);
+            var micDeviceStateKnown = mics.All(IsCleanOrExplicitlyDisabled);
+            var camDeviceBlocked = cameras.Count > 0 && cameras.All(device =>
+                device.ConfigurationProblemCode == CfgMgrInterop.CM_PROB_DISABLED);
+            var micDeviceBlocked = mics.Count > 0 && mics.All(device =>
+                device.ConfigurationProblemCode == CfgMgrInterop.CM_PROB_DISABLED);
+            var camDevicesEnabled = cameras.Count > 0 && cameras.All(device =>
+                device.ConfigurationProblemCode == 0);
+            var micDevicesEnabled = mics.Count > 0 && mics.All(device =>
+                device.ConfigurationProblemCode == 0);
+
+            var camSecureEvaluation = EvaluateSecureState(
+                camPolicy, cameras.Count, camDeviceStateKnown, camDeviceBlocked, camDevicesEnabled);
+            var micSecureEvaluation = EvaluateSecureState(
+                micPolicy, mics.Count, micDeviceStateKnown, micDeviceBlocked, micDevicesEnabled);
+
+            camSecureState = ToSecureState(
+                camSecureEvaluation.IsActive, camSecureEvaluation.IsUnknown, camStandardState);
+            micSecureState = ToSecureState(
+                micSecureEvaluation.IsActive, micSecureEvaluation.IsUnknown, micStandardState);
+            camSecureIsVerified = camSecureState != SecureProtectionState.Unknown;
+        }
 
         AudioHardwareMuteSummary? micHwSummary = null;
         if (microphoneEndpoints.Success && microphoneEndpoints.States.Count > 0)
@@ -219,23 +338,33 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
             mics.Count,
             micEndpointAvailability);
 
-        var micStandardIsVerified = micStandardState != StandardProtectionState.Unknown &&
-                                    micEndpointAvailability != AudioEndpointAvailability.Unknown;
-        var micSecureIsVerified = micSecureState != SecureProtectionState.Unknown &&
+        if (!isStoreEdition)
+        {
+            micSecureIsVerified = micSecureState != SecureProtectionState.Unknown &&
                                   micHardwareAvailability != TargetDeviceAvailability.Unknown;
+        }
+        else
+        {
+            micSecureIsVerified = micHardwareAvailability != TargetDeviceAvailability.Unknown;
+        }
+
+        var micStandardIsVerified = EvaluateMicrophoneStandardVerification(
+            micStandardState,
+            micEndpointAvailability,
+            micHwSummary);
         var micIsVerified = micStandardIsVerified && micSecureIsVerified;
 
         var micStatusMessage = DetermineMicrophoneStatusMessage(
             micHardwareAvailability,
             micEndpointAvailability,
             micStandardState,
-            micSecureState);
+            micSecureState,
+            micHwSummary);
 
         var camAvailability = cameras.Count > 0
             ? TargetDeviceAvailability.Available
             : TargetDeviceAvailability.NotDetected;
         var camStandardIsVerified = camStandardState != StandardProtectionState.Unknown;
-        var camSecureIsVerified = camSecureState != SecureProtectionState.Unknown;
         var camIsVerified = camStandardIsVerified && camSecureIsVerified;
         var camStatusMessage = camAvailability == TargetDeviceAvailability.NotDetected
             ? "No camera detected."
@@ -270,6 +399,28 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
                 StatusMessage = micStatusMessage
             }
         };
+    }
+
+    internal static bool EvaluateMicrophoneStandardVerification(
+        StandardProtectionState standardState,
+        AudioEndpointAvailability endpointAvailability,
+        AudioHardwareMuteSummary? hardwareMuteSummary)
+    {
+        if (standardState == StandardProtectionState.Unknown ||
+            endpointAvailability == AudioEndpointAvailability.Unknown)
+        {
+            return false;
+        }
+
+        if (endpointAvailability == AudioEndpointAvailability.NotDetected)
+        {
+            return true;
+        }
+
+        return hardwareMuteSummary is { TotalCount: > 0 } &&
+               hardwareMuteSummary.SupportedCount == hardwareMuteSummary.TotalCount &&
+               hardwareMuteSummary.NotSupportedCount == 0 &&
+               hardwareMuteSummary.UnknownCount == 0;
     }
 
     internal static AudioEndpointAvailability DetermineAudioEndpointAvailability(
@@ -310,7 +461,8 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         TargetDeviceAvailability availability,
         AudioEndpointAvailability endpointAvailability,
         StandardProtectionState standardState,
-        SecureProtectionState secureState)
+        SecureProtectionState secureState,
+        AudioHardwareMuteSummary? hardwareMuteSummary = null)
     {
         if (availability == TargetDeviceAvailability.NotDetected &&
             endpointAvailability == AudioEndpointAvailability.NotDetected)
@@ -325,6 +477,21 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
             standardState == StandardProtectionState.Unknown ||
             secureState == SecureProtectionState.Unknown)
             return "Windows microphone protection state is partial or could not be fully verified.";
+
+        if (secureState != SecureProtectionState.Active &&
+            endpointAvailability == AudioEndpointAvailability.Available &&
+            hardwareMuteSummary is { TotalCount: > 0 })
+        {
+            if (hardwareMuteSummary.UnknownCount > 0)
+            {
+                return "Windows microphone hardware mute support could not be verified for all capture endpoints; exclusive-mode protection is not verified.";
+            }
+
+            if (hardwareMuteSummary.NotSupportedCount > 0)
+            {
+                return "Software mute only: one or more capture endpoints do not support hardware mute (exclusive-mode streams may bypass software mute).";
+            }
+        }
 
         return null;
     }
@@ -365,6 +532,20 @@ public sealed class WindowsProtectionProvider : IDeviceProtectionProvider
         if (consentStatus == BlockStatus.Blocked && allMuted)
             return BlockStatus.Blocked;
         if (consentStatus == BlockStatus.Allowed && allUnmuted)
+            return BlockStatus.Allowed;
+        return BlockStatus.Unknown;
+    }
+
+    internal static BlockStatus EvaluateStoreMicrophoneStandardStatus(
+        bool endpointQuerySucceeded,
+        IReadOnlyList<WindowsAudioEndpointMuteState> endpoints)
+    {
+        if (!endpointQuerySucceeded || endpoints.Count == 0)
+            return BlockStatus.Unknown;
+
+        if (endpoints.All(endpoint => endpoint.IsMuted))
+            return BlockStatus.Blocked;
+        if (endpoints.All(endpoint => !endpoint.IsMuted))
             return BlockStatus.Allowed;
         return BlockStatus.Unknown;
     }

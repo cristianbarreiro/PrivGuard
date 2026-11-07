@@ -4,19 +4,46 @@ using System.Text;
 using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Devices;
 
 /// <summary>
 /// Direct in-process PnP hardware device controller using CfgMgr32.dll on Windows.
+/// Device node mutations are strictly restricted to Standalone edition (D-01 / D-02).
 /// </summary>
 public class WindowsDeviceController
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsDeviceController>();
 
-    internal Task<OperationResult> DisableDevicesAsync(IEnumerable<DeviceInfo> devices)
+    private readonly IEditionProfileResolver _editionProfileResolver;
+
+    public WindowsDeviceController()
+        : this(new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector()))
     {
+    }
+
+    public WindowsDeviceController(IEditionProfileResolver editionProfileResolver)
+    {
+        ArgumentNullException.ThrowIfNull(editionProfileResolver);
+        _editionProfileResolver = editionProfileResolver;
+    }
+
+    public virtual Task<OperationResult> DisableDevicesAsync(IEnumerable<DeviceInfo> devices)
+    {
+        if (_editionProfileResolver.Profile != EditionProfile.Standalone ||
+            !_editionProfileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected PnP device disable attempt under edition profile {Profile}",
+                _editionProfileResolver.ProfileName);
+            return Task.FromResult(OperationResult.Fail(
+                $"PnP device node disablement is prohibited under edition profile '{_editionProfileResolver.ProfileName}'."));
+        }
+
         var deviceList = devices.ToList();
         if (deviceList.Count == 0)
         {
@@ -64,8 +91,18 @@ public class WindowsDeviceController
         return Task.FromResult(OperationResult.Ok(details));
     }
 
-    internal Task<OperationResult> EnableDevicesAsync(IEnumerable<DeviceInfo> devices)
+    public virtual Task<OperationResult> EnableDevicesAsync(IEnumerable<DeviceInfo> devices)
     {
+        if (_editionProfileResolver.Profile != EditionProfile.Standalone ||
+            !_editionProfileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected PnP device enable attempt under edition profile {Profile}",
+                _editionProfileResolver.ProfileName);
+            return Task.FromResult(OperationResult.Fail(
+                $"PnP device node management is prohibited under edition profile '{_editionProfileResolver.ProfileName}'."));
+        }
+
         var deviceList = devices.ToList();
         if (deviceList.Count == 0)
         {
@@ -117,8 +154,13 @@ public class WindowsDeviceController
     /// Reads the authoritative Configuration Manager state for one stable PnP Instance ID.
     /// A missing device is distinct from a query failure and remains retryable by recovery.
     /// </summary>
-    public WindowsDeviceNodeState GetDeviceNodeState(string instanceId)
+    public virtual WindowsDeviceNodeState GetDeviceNodeState(string instanceId)
     {
+        if (_editionProfileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return WindowsDeviceNodeState.Failed("Cannot query PnP device node state under untrusted or indeterminate profile.");
+        }
+
         if (string.IsNullOrWhiteSpace(instanceId))
         {
             return WindowsDeviceNodeState.Failed("Device Instance ID is empty.");

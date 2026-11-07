@@ -13,7 +13,7 @@
     Target architecture: 'x64' (default), 'arm64', or 'all' (builds both and creates a bundle).
 
 .PARAMETER Configuration
-    Build configuration: 'Release' (default) or 'Debug'.
+    Build configuration: 'Release' (default), 'Release-Store' (default when -ValidateStoreIdentity is specified), or 'Debug'.
 
 .PARAMETER PackageVersion
     Four-part version (Major.Minor.Build.Revision). Defaults to reading PackageVersion from Directory.Build.props.
@@ -61,7 +61,7 @@
 
 .EXAMPLE
     .\scripts\build-msix.ps1 -Architecture x64 -ValidateStoreIdentity
-    Builds a Release x64 MSIX package and validates Store identity compliance.
+    Builds a Release-Store x64 MSIX package and validates Store identity compliance.
 
 .EXAMPLE
     .\scripts\build-msix.ps1 -Architecture all -CreateBundle -ValidateStoreIdentity
@@ -76,7 +76,7 @@ param (
     [ValidateSet("x64", "arm64", "all")]
     [string]$Architecture = "x64",
 
-    [ValidateSet("Release", "Debug")]
+    [ValidateSet("Release", "Release-Store", "Debug")]
     [string]$Configuration = "Release",
 
     [string]$PackageVersion,
@@ -102,6 +102,10 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($ValidateStoreIdentity -and -not $PSBoundParameters.ContainsKey("Configuration")) {
+    $Configuration = "Release-Store"
+}
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -171,9 +175,12 @@ if ($ValidateStoreIdentity) {
 if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
     if (Test-Path -LiteralPath $PropsPath) {
         $propsXml = [xml](Get-Content -LiteralPath $PropsPath -Raw)
-        $PackageVersion = $propsXml.Project.PropertyGroup.PackageVersion
+        $PackageVersion = $propsXml.Project.PropertyGroup.PackageVersion | Where-Object { $_ } | Select-Object -First 1
         if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
-            $PackageVersion = $propsXml.Project.PropertyGroup.Version + ".0"
+            $ver = $propsXml.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+            if ($ver) {
+                $PackageVersion = "$ver.0"
+            }
         }
     }
     if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
@@ -338,6 +345,32 @@ function Test-MsixPackageArchive {
             }
         }
 
+        # 2b. Verify D-01 Store Capability Profile (runFullTrust only; forbid allowElevation & unvirtualizedResources)
+        if ($manifestContent -match "allowElevation") {
+            throw "Package verification failed in ${PackagePath} - Forbidden capability 'allowElevation' is present in AppxManifest.xml (violates D-01)."
+        }
+        if ($manifestContent -match "unvirtualizedResources") {
+            throw "Package verification failed in ${PackagePath} - Forbidden capability 'unvirtualizedResources' is present in AppxManifest.xml (violates D-01)."
+        }
+
+        $capabilitiesNode = $pkgXml.Package.Capabilities
+        if (-not $capabilitiesNode) {
+            throw "Package verification failed in ${PackagePath} - <Capabilities> node is missing from AppxManifest.xml."
+        }
+
+        $capabilityElements = @($capabilitiesNode.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element })
+        if ($capabilityElements.Count -ne 1) {
+            $declaredNames = ($capabilityElements | ForEach-Object { $_.GetAttribute("Name") }) -join ", "
+            throw "Package verification failed in ${PackagePath} - Expected exactly 1 capability (runFullTrust), found $($capabilityElements.Count): [$declaredNames]."
+        }
+
+        $soleCapability = $capabilityElements[0]
+        $soleCapabilityName = $soleCapability.GetAttribute("Name")
+        if ($soleCapability.LocalName -ne "Capability" -or $soleCapabilityName -ne "runFullTrust") {
+            throw "Package verification failed in ${PackagePath} - Expected sole capability 'runFullTrust', got '$($soleCapability.Name)' Name='$soleCapabilityName'."
+        }
+        Write-Host "   Capabilities (D-01):             runFullTrust (sole capability verified)" -ForegroundColor DarkGray
+
         # 3. Check PrivGvard.exe presence
         if (-not $entryNames.Contains("PrivGvard.exe")) {
             throw "Package verification failed in ${PackagePath} - PrivGvard.exe is missing from package entries."
@@ -378,7 +411,7 @@ function Test-MsixPackageArchive {
                 throw "Package verification failed in ${PackagePath} - Referenced asset '$asset' (normalized: '$normalized') was not found in package entries."
             }
         }
-        Write-Host "   Verification: PASS (Identity, Version, Architecture, Executable, PRI & $($referencedAssets.Count) Visual Assets)" -ForegroundColor Green
+        Write-Host "   Verification: PASS (Identity, Version, Architecture, D-01 Capabilities, Executable, PRI & $($referencedAssets.Count) Visual Assets)" -ForegroundColor Green
     }
     finally {
         $zip.Dispose()
@@ -445,7 +478,7 @@ function Test-MsixBundleArchive {
                 -ExpectedArch $pkgArch `
                 -ExpectedVersion $ExpectedVersion `
                 -ExpectedName $ExpectedName `
-                -ExpectedPublisher $ExpectedPublisher `
+                -ExpectedPublisher $Publisher `
                 -ExpectedPublisherDisplayName $ExpectedPublisherDisplayName `
                 -EnforceStore $EnforceStore
         }
@@ -482,6 +515,10 @@ foreach ($arch in $architecturesToBuild) {
         "-p:PublishSingleFile=false",
         "-o", $stagingDir
     )
+
+    if ($Configuration -eq "Release-Store" -or $ValidateStoreIdentity) {
+        $publishArgs += "-p:DefineConstants=STORE_EDITION"
+    }
 
     Write-Host "dotnet $($publishArgs -join ' ')" -ForegroundColor DarkGray
     & dotnet @publishArgs

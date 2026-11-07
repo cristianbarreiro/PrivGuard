@@ -22,6 +22,8 @@ public sealed class ProtectionService
     private readonly IStateStore _stateStore;
     private readonly PrivacySessionService _privacySessions;
     private readonly ILegacyArtifactDetector _legacyDetector;
+    private readonly IEditionProfileResolver? _profileResolver;
+    private readonly IPrivacySettingsLauncher _privacySettingsLauncher;
     private readonly bool _allowUntrackedMutations;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private int _shutdownStarted;
@@ -30,16 +32,21 @@ public sealed class ProtectionService
 
     public PlatformCapabilities Capabilities => _capabilityProvider.Capabilities;
     public PlatformInfo PlatformInfo => _capabilityProvider.PlatformInfo;
+    public EditionProfile EditionProfile => _profileResolver?.Profile ?? EditionProfile.Standalone;
+    public bool IsStoreEdition => EditionProfile == EditionProfile.Store;
+    public bool IsUntrustedOrIndeterminate => EditionProfile == EditionProfile.UntrustedOrIndeterminate;
     public bool IsShutdownStarted => Volatile.Read(ref _shutdownStarted) != 0;
     internal bool HasPendingDesiredStateCleanup => false;
-    public bool IsAdvancedProtectionEnabled => _stateStore.Load().AdvancedProtectionEnabled;
+    public bool IsAdvancedProtectionEnabled => !IsStoreEdition && !IsUntrustedOrIndeterminate && _stateStore.Load().AdvancedProtectionEnabled;
 
     public ProtectionService(
         IDeviceProtectionProvider protectionProvider,
         IDeviceDetector deviceDetector,
         IPlatformCapabilityProvider capabilityProvider,
         IStateStore stateStore,
-        PrivacySessionService privacySessions)
+        PrivacySessionService privacySessions,
+        IEditionProfileResolver? profileResolver = null,
+        IPrivacySettingsLauncher? privacySettingsLauncher = null)
         : this(
             protectionProvider,
             deviceDetector,
@@ -47,7 +54,9 @@ public sealed class ProtectionService
             stateStore,
             privacySessions,
             legacyDetector: null,
-            allowUntrackedMutations: false)
+            allowUntrackedMutations: false,
+            profileResolver: profileResolver,
+            privacySettingsLauncher: privacySettingsLauncher)
     {
     }
 
@@ -57,7 +66,9 @@ public sealed class ProtectionService
         IPlatformCapabilityProvider capabilityProvider,
         IStateStore stateStore,
         PrivacySessionService privacySessions,
-        ILegacyArtifactDetector? legacyDetector)
+        ILegacyArtifactDetector? legacyDetector,
+        IEditionProfileResolver? profileResolver = null,
+        IPrivacySettingsLauncher? privacySettingsLauncher = null)
         : this(
             protectionProvider,
             deviceDetector,
@@ -65,7 +76,9 @@ public sealed class ProtectionService
             stateStore,
             privacySessions,
             legacyDetector,
-            allowUntrackedMutations: false)
+            allowUntrackedMutations: false,
+            profileResolver: profileResolver,
+            privacySettingsLauncher: privacySettingsLauncher)
     {
     }
 
@@ -76,7 +89,9 @@ public sealed class ProtectionService
         IStateStore stateStore,
         PrivacySessionService privacySessions,
         ILegacyArtifactDetector? legacyDetector,
-        bool allowUntrackedMutations)
+        bool allowUntrackedMutations,
+        IEditionProfileResolver? profileResolver = null,
+        IPrivacySettingsLauncher? privacySettingsLauncher = null)
     {
         _protectionProvider = protectionProvider;
         _deviceDetector = deviceDetector;
@@ -85,17 +100,21 @@ public sealed class ProtectionService
         _privacySessions = privacySessions;
         _legacyDetector = legacyDetector ?? new PrivLock.Infrastructure.Common.Storage.DefaultLegacyArtifactDetector();
         _allowUntrackedMutations = allowUntrackedMutations;
+        _profileResolver = profileResolver;
+        _privacySettingsLauncher = privacySettingsLauncher ?? new PrivLock.Infrastructure.Common.Packaging.NoOpPrivacySettingsLauncher();
     }
 
     /// <summary>
     /// Compatibility constructor for platform-agnostic callers/tests that do not opt into an exact
-    /// platform recovery adapter. Production DI uses the five-argument constructor.
+    /// platform recovery adapter. Production DI uses the constructor with PrivacySessionService.
     /// </summary>
     public ProtectionService(
         IDeviceProtectionProvider protectionProvider,
         IDeviceDetector deviceDetector,
         IPlatformCapabilityProvider capabilityProvider,
-        IStateStore stateStore)
+        IStateStore stateStore,
+        IEditionProfileResolver? profileResolver = null,
+        IPrivacySettingsLauncher? privacySettingsLauncher = null)
         : this(
             protectionProvider,
             deviceDetector,
@@ -105,14 +124,65 @@ public sealed class ProtectionService
                 new VolatilePrivacySessionStore(),
                 new UnsupportedPrivacySessionPlatformAdapter()),
             legacyDetector: null,
-            allowUntrackedMutations: true)
+            allowUntrackedMutations: true,
+            profileResolver: profileResolver,
+            privacySettingsLauncher: privacySettingsLauncher)
     {
+    }
+
+    /// <summary>
+    /// Opens the operating-system privacy settings page for the specified target (e.g. ms-settings:privacy-webcam)
+    /// without mutating DesiredState or the recovery journal, then refreshes observed OS state.
+    /// Opening Settings is never treated as proof that a permission changed.
+    /// </summary>
+    public async Task<OperationResult> OpenPrivacySettingsAsync(
+        BlockTarget target,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Opening Windows Settings is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        var launchResult = await _privacySettingsLauncher.OpenPrivacySettingsAsync(target, cancellationToken);
+        await PublishVerifiedStateAsync(cancellationToken);
+
+        return launchResult;
+    }
+
+    private static bool CanApplyStandardProtection(TargetProtectionStatus status)
+    {
+        if (status.StandardState == StandardProtectionState.Unknown)
+            return false;
+
+        if (status.StandardIsVerified)
+            return true;
+
+        // Software-only mute usability: when WASAPI capture endpoints are actively present and
+        // their mute state is known, allow toggling software mute even if HardwareMuteSupport is
+        // NotSupported or Unknown (StandardIsVerified remains false so Exclusive Mode protection is never claimed).
+        return status.Target == BlockTarget.Microphone &&
+               status.EndpointAvailability == AudioEndpointAvailability.Available &&
+               status.HardwareMuteSummary is { TotalCount: > 0 };
     }
 
     public async Task<OperationResult> EnableStandardProtectionAsync(
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Standard Protection is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        if (IsStoreEdition && target is BlockTarget.Camera or BlockTarget.Both)
+        {
+            return OperationResult.Fail(
+                "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead.");
+        }
+
         var operationId = CreateOperationId("StdEn");
         using var context = LogContext.PushProperty("OperationId", operationId);
         return await RunSerializedUserOperationAsync(async () =>
@@ -120,8 +190,8 @@ public sealed class ProtectionService
             var current = await _protectionProvider.GetProtectionStateAsync(cancellationToken);
 
             // Fail-closed verification guards: reject new Standard mutations if target state is unverified or unknown
-            bool camUnverified = !current.Camera.StandardIsVerified || current.Camera.StandardState == StandardProtectionState.Unknown;
-            bool micUnverified = !current.Microphone.StandardIsVerified || current.Microphone.StandardState == StandardProtectionState.Unknown;
+            bool camUnverified = !CanApplyStandardProtection(current.Camera);
+            bool micUnverified = !CanApplyStandardProtection(current.Microphone);
 
             if (target is BlockTarget.Camera or BlockTarget.Both && camUnverified)
             {
@@ -197,15 +267,28 @@ public sealed class ProtectionService
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Standard Protection teardown is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        if (IsStoreEdition && target is BlockTarget.Camera or BlockTarget.Both)
+        {
+            return OperationResult.Fail(
+                "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead.");
+        }
+
         var operationId = CreateOperationId("StdDis");
         using var context = LogContext.PushProperty("OperationId", operationId);
         return await RunSerializedUserOperationAsync(async () =>
         {
-            // Standard teardown also owns Secure changes. Legacy/unsupported providers are only
-            // called when verified state says Secure is active, preserving prior API behavior.
+            // Standard teardown also owns Secure changes in Standalone. In Store edition, Secure
+            // protection does not exist and must never be invoked.
             var secureResult = PrivacyRecoveryResult.NothingToRestore();
-            if (_privacySessions.SupportsPersistentRecovery ||
-                await IsSecureActiveAsync(target, cancellationToken))
+            if (!IsStoreEdition &&
+                (_privacySessions.SupportsPersistentRecovery ||
+                 await IsSecureActiveAsync(target, cancellationToken)))
             {
                 secureResult = await RestoreScopeAsync(
                     ProtectionLayer.Secure,
@@ -237,6 +320,18 @@ public sealed class ProtectionService
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Secure Protection is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        if (IsStoreEdition || (_profileResolver != null && !_profileResolver.SupportsPrivilegedOperations))
+        {
+            return OperationResult.Fail(
+                "Secure Protection (PnP + HKLM Group Policy) is not supported in the Microsoft Store edition.");
+        }
+
         var operationId = CreateOperationId("SecEn");
         using var context = LogContext.PushProperty("OperationId", operationId);
         return await RunSerializedUserOperationAsync(async () =>
@@ -252,7 +347,7 @@ public sealed class ProtectionService
                         $"You must enable Standard Protection before enabling Secure Protection for {targetName}.");
                 }
 
-                if (!status.StandardIsVerified)
+                if (!CanApplyStandardProtection(status))
                 {
                     return (false, false,
                         $"Secure protection for {targetName} cannot be enabled because Standard protection is unverified.");
@@ -407,6 +502,18 @@ public sealed class ProtectionService
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Secure Protection teardown is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        if (IsStoreEdition || (_profileResolver != null && !_profileResolver.SupportsPrivilegedOperations))
+        {
+            return OperationResult.Fail(
+                "Secure Protection (PnP + HKLM Group Policy) is not supported in the Microsoft Store edition.");
+        }
+
         var operationId = CreateOperationId("SecDis");
         using var context = LogContext.PushProperty("OperationId", operationId);
         return await RunSerializedUserOperationAsync(async () =>
@@ -455,7 +562,7 @@ public sealed class ProtectionService
 
             bool CanSecure(TargetProtectionStatus status) =>
                 status.StandardState == StandardProtectionState.Active &&
-                status.StandardIsVerified &&
+                CanApplyStandardProtection(status) &&
                 status.SecureIsVerified &&
                 status.SecureState is SecureProtectionState.Available or SecureProtectionState.Failed;
 
@@ -600,13 +707,25 @@ public sealed class ProtectionService
         bool enable,
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Advanced Protection is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        if (IsStoreEdition || (_profileResolver != null && !_profileResolver.SupportsPrivilegedOperations))
+        {
+            return OperationResult.Fail(
+                "Advanced Protection (PnP + HKLM Group Policy) is not supported in the Microsoft Store edition.");
+        }
+
         if (enable)
         {
             var currentState = await _protectionProvider.GetProtectionStateAsync(cancellationToken);
 
             bool CanSecure(TargetProtectionStatus status) =>
                 status.StandardState == StandardProtectionState.Active &&
-                status.StandardIsVerified &&
+                CanApplyStandardProtection(status) &&
                 status.SecureIsVerified &&
                 status.SecureState is SecureProtectionState.Available or SecureProtectionState.Failed;
 
@@ -725,6 +844,17 @@ public sealed class ProtectionService
     public async Task<PrivacyRecoveryResult> RecoverPreviousSessionAsync(
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return new PrivacyRecoveryResult
+            {
+                TrackingSupported = false,
+                IsComplete = false,
+                FailedCount = 1,
+                ErrorMessage = "Session recovery is blocked because the runtime edition profile is untrusted or indeterminate."
+            };
+        }
+
         await _operationGate.WaitAsync(cancellationToken);
         try
         {
@@ -758,6 +888,12 @@ public sealed class ProtectionService
         PrivacyRecoveryResult? recoveryResult = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsUntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Startup reconciliation is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         if (IsShutdownStarted)
             return OperationResult.Fail("PrivGvard is shutting down; startup reconciliation was not performed.");
 
@@ -779,8 +915,9 @@ public sealed class ProtectionService
 
             // Fail-closed reconciliation guards: verify target state explicitly before any mutation.
             // Do NOT convert Unknown into permission to mutate or assume it is Inactive/Available.
-            if (desired.CameraStandard == StandardProtectionState.Active &&
-                (!actual.Camera.StandardIsVerified || actual.Camera.StandardState == StandardProtectionState.Unknown))
+            if (!IsStoreEdition &&
+                desired.CameraStandard == StandardProtectionState.Active &&
+                !CanApplyStandardProtection(actual.Camera))
             {
                 unverifiedOrUnknownFailures.Add("Camera standard protection could not be reconciled: state is unverified or unknown.");
                 unverifiedDetails.Add(new DeviceOperationDetail
@@ -795,7 +932,7 @@ public sealed class ProtectionService
             }
 
             if (desired.MicrophoneStandard == StandardProtectionState.Active &&
-                (!actual.Microphone.StandardIsVerified || actual.Microphone.StandardState == StandardProtectionState.Unknown))
+                !CanApplyStandardProtection(actual.Microphone))
             {
                 unverifiedOrUnknownFailures.Add("Microphone standard protection could not be reconciled: state is unverified or unknown.");
                 unverifiedDetails.Add(new DeviceOperationDetail
@@ -809,18 +946,21 @@ public sealed class ProtectionService
                 });
             }
 
-            var cameraNeedsStandard = desired.CameraStandard == StandardProtectionState.Active &&
-                                      actual.Camera.StandardIsVerified &&
+            var cameraNeedsStandard = !IsStoreEdition &&
+                                      desired.CameraStandard == StandardProtectionState.Active &&
+                                      CanApplyStandardProtection(actual.Camera) &&
                                       actual.Camera.StandardState == StandardProtectionState.Inactive;
 
             var micNeedsStandard = desired.MicrophoneStandard == StandardProtectionState.Active &&
-                                   actual.Microphone.StandardIsVerified &&
+                                   CanApplyStandardProtection(actual.Microphone) &&
                                    actual.Microphone.StandardState == StandardProtectionState.Inactive;
 
-            var cameraWantsSecure = desired.CameraStandard == StandardProtectionState.Active &&
+            var cameraWantsSecure = !IsStoreEdition &&
+                                    desired.CameraStandard == StandardProtectionState.Active &&
                                     (desired.AdvancedProtectionEnabled || desired.CameraSecure == SecureProtectionState.Active);
 
-            var micWantsSecure = desired.MicrophoneStandard == StandardProtectionState.Active &&
+            var micWantsSecure = !IsStoreEdition &&
+                                 desired.MicrophoneStandard == StandardProtectionState.Active &&
                                  (desired.AdvancedProtectionEnabled || desired.MicrophoneSecure == SecureProtectionState.Active);
 
             var cameraNeedsSecure = cameraWantsSecure &&
@@ -898,7 +1038,7 @@ public sealed class ProtectionService
 
                 var cameraStandardActive = cameraNeedsStandard
                     ? !failures.Any(f => f.Contains("Camera standard protection"))
-                    : (actual.Camera.StandardIsVerified && actual.Camera.StandardState == StandardProtectionState.Active);
+                    : (CanApplyStandardProtection(actual.Camera) && actual.Camera.StandardState == StandardProtectionState.Active);
 
                 var elevationDenied = false;
 
@@ -954,7 +1094,7 @@ public sealed class ProtectionService
 
                 var micStandardActive = micNeedsStandard
                     ? !failures.Any(f => f.Contains("Microphone standard protection"))
-                    : (actual.Microphone.StandardIsVerified && actual.Microphone.StandardState == StandardProtectionState.Active);
+                    : (CanApplyStandardProtection(actual.Microphone) && actual.Microphone.StandardState == StandardProtectionState.Active);
 
                 if (micNeedsSecure && micStandardActive)
                 {
@@ -1032,6 +1172,17 @@ public sealed class ProtectionService
         CancellationToken cancellationToken = default)
     {
         SignalShutdown();
+        if (IsUntrustedOrIndeterminate)
+        {
+            return new PrivacyRecoveryResult
+            {
+                TrackingSupported = false,
+                IsComplete = false,
+                FailedCount = 1,
+                ErrorMessage = "Shutdown restoration is blocked because the runtime edition profile is untrusted or indeterminate."
+            };
+        }
+
         await _operationGate.WaitAsync(cancellationToken);
         try
         {
@@ -1385,13 +1536,13 @@ public sealed class ProtectionService
         if (target is BlockTarget.Camera or BlockTarget.Both)
         {
             desired.CameraStandard = StandardProtectionState.Active;
-            if (desired.CameraSecure == SecureProtectionState.Unavailable)
+            if (!IsStoreEdition && desired.CameraSecure == SecureProtectionState.Unavailable)
                 desired.CameraSecure = SecureProtectionState.Available;
         }
         if (target is BlockTarget.Microphone or BlockTarget.Both)
         {
             desired.MicrophoneStandard = StandardProtectionState.Active;
-            if (desired.MicrophoneSecure == SecureProtectionState.Unavailable)
+            if (!IsStoreEdition && desired.MicrophoneSecure == SecureProtectionState.Unavailable)
                 desired.MicrophoneSecure = SecureProtectionState.Available;
         }
         _stateStore.Save(desired);

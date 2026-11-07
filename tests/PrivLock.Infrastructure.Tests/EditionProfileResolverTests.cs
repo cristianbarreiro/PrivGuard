@@ -1,3 +1,4 @@
+using PrivLock.Domain.Models;
 using PrivLock.Infrastructure.Common.Packaging;
 using PrivLock.Infrastructure.Common.Storage;
 using PrivLock.Platform.Abstractions;
@@ -89,14 +90,20 @@ public sealed class EditionProfileResolverTests : IDisposable
         Assert.True(resolver.SupportsPrivilegedOperations);
     }
 
-    [Fact]
-    public void Resolve_WhenUnexpectedPackage_ReturnsUntrustedProfileAndRejectsPathsAndPrivileges()
+    [Theory]
+    [InlineData(PackageIdentityKind.DetectionFailed)]
+    [InlineData(PackageIdentityKind.UnexpectedPackage)]
+    [InlineData(PackageIdentityKind.UnsignedDevPackage)]
+    [InlineData(PackageIdentityKind.UnverifiedPublisherPackage)]
+    [InlineData((PackageIdentityKind)999)]
+    public void Resolve_WhenNonAuthenticOrNonStandaloneIdentity_ReturnsUntrustedProfileAndRejectsPathsAndPrivileges(
+        PackageIdentityKind identityKind)
     {
         var detector = new FakePackageIdentityDetector
         {
-            Kind = PackageIdentityKind.UnexpectedPackage,
-            PackageFamilyName = "unrelated.application_1234567890abc",
-            PackageFullName = "unrelated.application_1.0.0.0_x64__1234567890abc"
+            Kind = identityKind,
+            PackageFamilyName = "cdevstudios.PrivGuard_1234567890abc",
+            PackageFullName = "cdevstudios.PrivGuard_1.0.0.0_x64__1234567890abc"
         };
 
         var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
@@ -113,46 +120,16 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
-    public void Resolve_WhenDetectionFailed_ReturnsUntrustedProfileAndRejectsPathsAndPrivileges()
+    public void Resolve_WhenDetectorThrowsException_FailsClosedToUntrustedOrIndeterminate()
     {
-        var detector = new FakePackageIdentityDetector
-        {
-            Kind = PackageIdentityKind.DetectionFailed,
-            PackageFamilyName = null,
-            PackageFullName = null
-        };
+        var detector = new ThrowingPackageIdentityDetector();
 
         var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
 
         Assert.Equal(EditionProfile.UntrustedOrIndeterminate, resolver.Profile);
         Assert.Equal("UntrustedOrIndeterminate", resolver.ProfileName);
         Assert.False(resolver.SupportsPrivilegedOperations);
-
         Assert.Throws<InvalidOperationException>(() => resolver.DataDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.RecoveryDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.LogsDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.CrashReportsDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.SingleInstanceMutexName);
-    }
-
-    [Fact]
-    public void Resolve_WhenUnknownPackageIdentityKind_ResolvesUntrustedAndRejectsPathsAndPrivileges()
-    {
-        var detector = new FakePackageIdentityDetector
-        {
-            Kind = (PackageIdentityKind)999
-        };
-
-        var resolver = new DefaultEditionProfileResolver(detector, _testRoot);
-
-        Assert.Equal(EditionProfile.UntrustedOrIndeterminate, resolver.Profile);
-        Assert.Equal("UntrustedOrIndeterminate", resolver.ProfileName);
-        Assert.False(resolver.SupportsPrivilegedOperations);
-
-        Assert.Throws<InvalidOperationException>(() => resolver.DataDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.RecoveryDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.LogsDirectory);
-        Assert.Throws<InvalidOperationException>(() => resolver.CrashReportsDirectory);
         Assert.Throws<InvalidOperationException>(() => resolver.SingleInstanceMutexName);
     }
 
@@ -200,6 +177,18 @@ public sealed class EditionProfileResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task NoOpPrivacySettingsLauncher_FailsClosedOnAllTargets()
+    {
+        var launcher = NoOpPrivacySettingsLauncher.Instance;
+
+        var camResult = await launcher.OpenPrivacySettingsAsync(BlockTarget.Camera);
+        var micResult = await launcher.OpenPrivacySettingsAsync(BlockTarget.Microphone);
+
+        Assert.False(camResult.Success);
+        Assert.False(micResult.Success);
+    }
+
+    [Fact]
     public void Resolve_DefaultConstructor_UsesCanonicalPrivGuardFolder()
     {
         var detector = new FakePackageIdentityDetector
@@ -222,5 +211,14 @@ public sealed class EditionProfileResolverTests : IDisposable
         public string? PackageFamilyName { get; set; }
 
         public bool HasExpectedPackageIdentity() => Kind == PackageIdentityKind.AuthenticStorePackage;
+    }
+
+    private sealed class ThrowingPackageIdentityDetector : IPackageIdentityDetector
+    {
+        public PackageIdentityKind Kind => throw new InvalidOperationException("Simulated native P/Invoke failure");
+        public string? PackageFullName => throw new InvalidOperationException("Simulated native P/Invoke failure");
+        public string? PackageFamilyName => throw new InvalidOperationException("Simulated native P/Invoke failure");
+
+        public bool HasExpectedPackageIdentity() => throw new InvalidOperationException("Simulated native P/Invoke failure");
     }
 }

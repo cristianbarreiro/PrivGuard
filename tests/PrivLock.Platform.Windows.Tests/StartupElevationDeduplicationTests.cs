@@ -14,6 +14,7 @@ namespace PrivLock.Platform.Windows.Tests;
 /// Ensures that during startup, at most a single elevated worker process is launched
 /// (ElevationLaunchCount &lt;= 1) and that Camera and Microphone share that single worker.
 /// </summary>
+[Collection("WindowsPrivilegedSessionState")]
 public sealed class StartupElevationDeduplicationTests : IDisposable
 {
     private readonly string _testRootDirectory;

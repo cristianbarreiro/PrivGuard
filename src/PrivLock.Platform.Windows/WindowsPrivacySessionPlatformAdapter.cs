@@ -1,8 +1,10 @@
 using System.Text.Json;
 using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
+using PrivLock.Infrastructure.Common.Storage;
 using PrivLock.Platform.Abstractions;
 using PrivLock.Platform.Windows.Devices;
+using PrivLock.Platform.Windows.System;
 using PrivLock.Platform.Windows.Policies;
 using PrivLock.Platform.Windows.Privileged;
 using Serilog;
@@ -11,36 +13,53 @@ namespace PrivLock.Platform.Windows;
 
 /// <summary>
 /// Exact Windows state adapter for HKCU ConsentStore, Core Audio mute, HKLM AppPrivacy,
-/// and Configuration Manager PnP nodes.
+/// and Configuration Manager PnP nodes. Enforces edition profile capability boundaries.
 /// </summary>
 public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatformAdapter
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsPrivacySessionPlatformAdapter>();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly WindowsDeviceDetector _deviceDetector;
+    private readonly IDeviceDetector _deviceDetector;
     private readonly WindowsDeviceController _deviceController;
     private readonly WindowsCoreAudioController _coreAudioController;
+    private readonly IEditionProfileResolver _profileResolver;
 
-    public bool SupportsPersistentRecovery => true;
+    public bool SupportsPersistentRecovery =>
+        _profileResolver.Profile is EditionProfile.Standalone or EditionProfile.Store;
 
     public Task<OperationResult> EnsureMutationQuiescenceAsync(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return Task.FromResult(OperationResult.Fail(
+                "Mutation quiescence check is blocked because the runtime edition profile is untrusted or indeterminate."));
+        }
+
+        if (_profileResolver.Profile == EditionProfile.Store || !_profileResolver.SupportsPrivilegedOperations)
+        {
+            return Task.FromResult(OperationResult.Ok());
+        }
+
         _ = WindowsPrivilegedSession.Instance.CloseSession();
         var remaining = WindowsPrivilegedExecutor.WaitForPreviousPrivilegedOperation(TimeSpan.FromSeconds(30));
         return Task.FromResult(remaining);
     }
 
     public WindowsPrivacySessionPlatformAdapter(
-        WindowsDeviceDetector deviceDetector,
+        IDeviceDetector deviceDetector,
         WindowsDeviceController deviceController,
-        WindowsCoreAudioController coreAudioController)
+        WindowsCoreAudioController coreAudioController,
+        IEditionProfileResolver? profileResolver = null)
     {
         _deviceDetector = deviceDetector;
         _deviceController = deviceController;
         _coreAudioController = coreAudioController;
+        _profileResolver = profileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
     }
 
     public async Task<IReadOnlyList<PrivacyResourceState>> CaptureAsync(
@@ -49,33 +68,42 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
         string operationId,
         CancellationToken cancellationToken = default)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            throw new InvalidOperationException(
+                "Cannot capture privacy resources because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         var resources = new List<PrivacyResourceState>();
+
+        if (_profileResolver.Profile == EditionProfile.Store)
+        {
+            if (layer == ProtectionLayer.Secure)
+            {
+                throw new InvalidOperationException(
+                    "Secure Protection resource capture is not supported in the Microsoft Store edition.");
+            }
+
+            if (target is BlockTarget.Camera or BlockTarget.Both)
+            {
+                throw new InvalidOperationException(
+                    "Direct camera ConsentStore capture is not supported in the Microsoft Store edition.");
+            }
+
+            if (target == BlockTarget.Microphone)
+            {
+                CaptureStandardAudioEndpoints(resources, operationId);
+            }
+
+            return resources;
+        }
 
         if (layer == ProtectionLayer.Standard)
         {
             CaptureStandardRegistry(resources, target, operationId);
             if (target is BlockTarget.Microphone or BlockTarget.Both)
             {
-                var endpointQuery = _coreAudioController.GetMicrophoneMuteStates();
-                if (!endpointQuery.Success)
-                    throw new InvalidOperationException(endpointQuery.ErrorMessage ?? "Could not snapshot Core Audio endpoints.");
-
-                foreach (var endpoint in endpointQuery.States)
-                {
-                    var now = DateTimeOffset.UtcNow;
-                    resources.Add(new OriginalAudioEndpointState
-                    {
-                        ResourceId = $"audio-mute:{endpoint.EndpointId}",
-                        OperationId = operationId,
-                        Layer = ProtectionLayer.Standard,
-                        Target = BlockTarget.Microphone,
-                        CapturedAtUtc = now,
-                        LastUpdatedAtUtc = now,
-                        EndpointId = endpoint.EndpointId,
-                        OriginalMutedState = endpoint.IsMuted,
-                        ProtectedMutedState = true
-                    });
-                }
+                CaptureStandardAudioEndpoints(resources, operationId);
             }
         }
         else
@@ -87,11 +115,45 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
         return resources;
     }
 
+    private void CaptureStandardAudioEndpoints(
+        ICollection<PrivacyResourceState> resources,
+        string operationId)
+    {
+        var endpointQuery = _coreAudioController.GetMicrophoneMuteStates();
+        if (!endpointQuery.Success)
+            throw new InvalidOperationException(endpointQuery.ErrorMessage ?? "Could not snapshot Core Audio endpoints.");
+
+        foreach (var endpoint in endpointQuery.States)
+        {
+            var now = DateTimeOffset.UtcNow;
+            resources.Add(new OriginalAudioEndpointState
+            {
+                ResourceId = $"audio-mute:{endpoint.EndpointId}",
+                OperationId = operationId,
+                Layer = ProtectionLayer.Standard,
+                Target = BlockTarget.Microphone,
+                CapturedAtUtc = now,
+                LastUpdatedAtUtc = now,
+                EndpointId = endpoint.EndpointId,
+                OriginalMutedState = endpoint.IsMuted,
+                ProtectedMutedState = true
+            });
+        }
+    }
+
     public async Task<PrivacyResourceObservation> ObserveAsync(
         PrivacyResourceState resource,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return new PrivacyResourceObservation(
+                PrivacyResourceObservationKind.Error,
+                "Resource observation is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         if (resource is OriginalAudioEndpointState endpoint)
         {
             // A PnP capture endpoint can take a short time to re-register with Core Audio after
@@ -122,6 +184,14 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return new PrivacyOwnershipAttestation(
+                PrivacyOwnershipAttestationKind.Error,
+                "Ownership attestation verification is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         var command = resource switch
         {
             OriginalPolicyState { RegistryHive: PrivacyRegistryHive.LocalMachine } => "verify-policy-ownership",
@@ -130,6 +200,17 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
         };
         if (command == null)
             return new PrivacyOwnershipAttestation(PrivacyOwnershipAttestationKind.Unsupported);
+
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected privileged ownership attestation verification ({Command}) in {Profile} edition.",
+                command,
+                _profileResolver.Profile);
+            return new PrivacyOwnershipAttestation(
+                PrivacyOwnershipAttestationKind.Error,
+                $"Privileged ownership attestation verification is not supported in the {_profileResolver.Profile} edition profile.");
+        }
 
         var payload = EncodePayload(resource);
         var result = await WindowsPrivilegedExecutor.InvokeOnDemandElevationAsync(command, payload);
@@ -154,6 +235,26 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Resource restoration is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
+        if (_profileResolver.Profile == EditionProfile.Store)
+        {
+            return resource switch
+            {
+                OriginalAudioEndpointState endpoint => RestoreAudioEndpoint(endpoint),
+                OriginalPolicyState => OperationResult.Fail(
+                    "Registry policy or ConsentStore restoration is not permitted in the Microsoft Store edition."),
+                OriginalDeviceState => OperationResult.Fail(
+                    "PnP device restoration is not permitted in the Microsoft Store edition."),
+                _ => OperationResult.Fail($"Unsupported Windows privacy resource type: {resource.GetType().Name}.")
+            };
+        }
+
         return resource switch
         {
             OriginalPolicyState policy => await RestorePolicyAsync(policy),
@@ -165,16 +266,27 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
 
     private readonly Stack<IDisposable> _legacyScopeTokens = new();
 
-    public IDisposable BeginDeferredElevationScope() =>
-        WindowsPrivilegedSession.Instance.BeginDeferredScope();
+    public IDisposable BeginDeferredElevationScope()
+    {
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+            return NoOpScope.Instance;
+
+        return WindowsPrivilegedSession.Instance.BeginDeferredScope();
+    }
 
     public void CompleteRecoveryPass()
     {
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+            return;
+
         WindowsPrivilegedSession.Instance.ReleaseSession();
     }
 
     public void SuppressRecoveryPassCompletion()
     {
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+            return;
+
         lock (_legacyScopeTokens)
         {
             _legacyScopeTokens.Push(WindowsPrivilegedSession.Instance.BeginDeferredScope());
@@ -183,6 +295,9 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
 
     public void ResumeRecoveryPassCompletion()
     {
+        if (_profileResolver.Profile != EditionProfile.Standalone || !_profileResolver.SupportsPrivilegedOperations)
+            return;
+
         IDisposable? token = null;
         lock (_legacyScopeTokens)
         {
@@ -190,6 +305,12 @@ public sealed class WindowsPrivacySessionPlatformAdapter : IPrivacySessionPlatfo
                 token = _legacyScopeTokens.Pop();
         }
         token?.Dispose();
+    }
+
+    private sealed class NoOpScope : IDisposable
+    {
+        public static readonly NoOpScope Instance = new();
+        public void Dispose() { }
     }
 
     private static void CaptureStandardRegistry(
