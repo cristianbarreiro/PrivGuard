@@ -94,7 +94,8 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
         TimeSpan timeout,
         out string? error,
         string requestEventName = RequestEventName,
-        string instanceMutexName = WindowsSingleInstanceGuard.MutexName)
+        string instanceMutexName = WindowsSingleInstanceGuard.MutexName,
+        TimeSpan? pollInterval = null)
     {
         ArgumentNullException.ThrowIfNull(singleInstanceGuard);
         if (timeout <= TimeSpan.Zero)
@@ -103,6 +104,9 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
         error = null;
         var stopwatch = Stopwatch.StartNew();
         var requestSent = false;
+        var probeAcquiredAtLeastOnce = false;
+        var effectivePollInterval = pollInterval ?? PollInterval;
+        var detailedGuard = singleInstanceGuard as IWindowsDetailedSingleInstanceGuard;
         using var instanceMutex = new Mutex(initiallyOwned: false, instanceMutexName);
 
         while (stopwatch.Elapsed < timeout)
@@ -119,7 +123,7 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
                 break;
 
             var waitInterval = TimeSpan.FromMilliseconds(
-                Math.Min(PollInterval.TotalMilliseconds, remaining.TotalMilliseconds));
+                Math.Min(effectivePollInterval.TotalMilliseconds, remaining.TotalMilliseconds));
             var instanceMutexAvailable = false;
             try
             {
@@ -133,22 +137,47 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
             if (!instanceMutexAvailable)
                 continue;
 
+            probeAcquiredAtLeastOnce = true;
             instanceMutex.ReleaseMutex();
-            if (singleInstanceGuard.TryAcquireSingleInstance())
+
+            // Attempt full single-instance admission.
+            // When retrying, suppress verbose duplicate logs to avoid Serilog flooding.
+            var outcome = detailedGuard != null
+                ? detailedGuard.TryAcquireSingleInstanceDetail(suppressLogging: true)
+                : (singleInstanceGuard.TryAcquireSingleInstance()
+                    ? WindowsSingleInstanceAcquisitionResult.Acquired
+                    : WindowsSingleInstanceAcquisitionResult.SingleInstanceBusy);
+
+            if (outcome == WindowsSingleInstanceAcquisitionResult.Acquired)
                 return true;
 
-            if (!requestSent)
+            if (outcome == WindowsSingleInstanceAcquisitionResult.AccessOrCreationError)
             {
-                error = "The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request.";
+                error = "Failed to create or acquire single-instance mutex on Windows.";
                 return false;
             }
 
-            Thread.Sleep(PollInterval);
+            // The probe mutex was available, but full acquisition was temporarily denied
+            // (e.g. release-order race in FUS where UninstallGate is still owned by the exiting instance,
+            // or transient third-process contention).
+            // Do not abort prematurely; sleep a bounded interval and retry until timeout.
+            remaining = timeout - stopwatch.Elapsed;
+            if (remaining <= TimeSpan.Zero)
+                break;
+
+            var sleepTime = TimeSpan.FromMilliseconds(
+                Math.Min(effectivePollInterval.TotalMilliseconds, remaining.TotalMilliseconds));
+            if (sleepTime > TimeSpan.Zero)
+            {
+                Thread.Sleep(sleepTime);
+            }
         }
 
         error = requestSent
             ? "The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."
-            : "No running PrivGvard instance accepted the uninstall shutdown request.";
+            : probeAcquiredAtLeastOnce
+                ? "The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."
+                : "No running PrivGvard instance accepted the uninstall shutdown request.";
         return false;
     }
 

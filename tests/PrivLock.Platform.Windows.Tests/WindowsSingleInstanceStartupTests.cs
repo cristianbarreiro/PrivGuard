@@ -3,6 +3,12 @@ using Xunit;
 
 namespace PrivLock.Platform.Windows.Tests;
 
+/// <summary>
+/// Unit tests for single-instance startup admission and concurrency.
+/// Note: These tests demonstrate mutual exclusion between concurrent tasks sharing process memory space
+/// with test-isolated Local\ mutexes. They do not simulate distinct OS processes, different user SIDs,
+/// Fast User Switching sessions, or Global\ object DACL behavior (which are validated in VM acceptance tests).
+/// </summary>
 public sealed class WindowsSingleInstanceStartupTests
 {
     [Fact]
