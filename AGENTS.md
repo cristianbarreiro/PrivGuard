@@ -4,7 +4,7 @@ This document provides operational context, safety rules, architectural conventi
 
 > **Repository Identity:**
 > - **Public Product Identity**: **PrivGvard** (produces `PrivGvard.exe` on Windows, `PrivGvard` on Linux/macOS).
-> - **Internal Historical Identifiers**: The solution file is `CamMicBlocker.sln`, and internal namespaces/projects use `PrivLock.*` for backward compatibility and stability.
+> - **Internal Historical Identifiers**: The solution file is `PrivGvard.sln` (formerly `CamMicBlocker.sln`), and internal namespaces/projects use `PrivLock.*` for backward compatibility and stability.
 > - **Canonical Project Context**: [docs/ai/PROJECT_CONTEXT.md](docs/ai/PROJECT_CONTEXT.md).
 > - **Audit & Evolution Roadmap**: [docs/ai/AUDIT-ROADMAP.md](docs/ai/AUDIT-ROADMAP.md).
 > - **Do not perform a global rename of internal namespaces or solution files unless the task explicitly requests an internal code migration.**

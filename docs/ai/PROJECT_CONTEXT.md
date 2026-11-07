@@ -4,7 +4,7 @@ kind: canonical-open-knowledge
 product_name: PrivGvard
 repository_name: CamMicroBlocker
 current_code_identity: PrivLock
-status_date: 2026-09-12
+status_date: 2026-11-07
 source_of_truth: repository-code-and-tests
 primary_supported_platform: Windows
 target_platforms: [Windows, Linux, macOS]
@@ -28,7 +28,7 @@ PrivGvard is a transparent, reversible privacy utility designed to provide users
   - CI build artifacts: `PrivGvard-win-x64`, `PrivGvard-win-arm64`, `PrivGvard-linux-x64`, `PrivGvard-osx-arm64`.
 - **Internal Historical Code Identifiers**:
   - Repository name: `Cam&MicroBlocker` (GitHub: `cristianbarreiro/PrivGvard`).
-  - Solution file: `CamMicBlocker.sln`.
+  - Solution file: `PrivGvard.sln` (formerly `CamMicBlocker.sln`).
   - Namespaces and projects: `PrivLock.*` (`PrivLock.Domain`, `PrivLock.Platform.Abstractions`, `PrivLock.Infrastructure.Common`, `PrivLock.Application`, `PrivLock.UI`, `PrivLock.Platform.Windows`, `PrivLock.Platform.Linux`, `PrivLock.Platform.MacOS`, `PrivLock.Desktop`).
   - Registry keys: `SOFTWARE\PrivLock\PrivilegedOwnership\v2`.
   - IPC/Mutex primitives: `Global\PrivLock_SingleInstance`, `Global\PrivLock_UninstallGate`.
@@ -46,7 +46,7 @@ The requested product name is **PrivGvard**. The current repository is still nam
 | Linux | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported | High |
 | macOS | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported; secure provider methods are currently no-op success paths | High |
 | Tests | All active test suites pass across Domain, Infrastructure, Application, and Windows Platform | High |
-| CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix and selected publish targets | High; native privacy behavior is not proven by CI |
+| CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix, selected publish targets, and Windows Release-Store MSIX packaging gate (run #89) | High; native privacy behavior and VM dynamics are not proven by CI |
 | Legacy code | Archived at `legacy/CamMicBlocker` and `legacy/tests/CamMicBlocker.Tests`; build-guarded, not part of active solution | High |
 
 ### Active Host vs Legacy Quarantine
@@ -147,6 +147,7 @@ These invariants are mandatory for every implementation and AI-assisted change:
 - **Legacy Quarantine**: Resolved. Archived WPF code quarantined under `legacy/CamMicBlocker` with compile-time build guard.
 - **Linux & macOS Mutation Guarding**: Maintained. Capability providers explicitly declare `CapabilityLevel.None` and register `UnsupportedPrivacySessionPlatformAdapter`.
 - **Volatile Test Counts**: Removed from canonical documentation in favor of dynamic test suite validation.
+- **Release-Store MSIX CI Gate (Sprint 1.2)**: Implemented in `.github/workflows/ci.yml`. Builds `Release-Store`, generates x64 MSIX via `build-msix.ps1`, and validates internal `AppxManifest.xml` (`cdevstudios.PrivGuard`, `runFullTrust` sole restricted capability, no elevation) via `StoreMsixManifestVerifier` and `verify-store-msix.ps1`. Validated in CI run #89 (push event). Comprobación técnica de empaquetado; no sustituye validación en VM ni autoriza publicación (Microsoft Store permanece en `CONDITIONAL HOLD`).
 
 ---
 
