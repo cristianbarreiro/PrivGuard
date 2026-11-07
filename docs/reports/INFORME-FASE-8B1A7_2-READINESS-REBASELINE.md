@@ -1,4 +1,4 @@
-# PrivGuard — Fase 8B.1A.7.2-R5: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Endurecimiento de Reintento FUS (Reconciliación Post-Push #100, Hardening R5, Mutexes Reales `Local\` y Criterios TEST-09.7 Post-Fix)
+# PrivGuard — Fase 8B.1A.7.2-R6: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Endurecimiento de Reintento FUS (Reconciliación Post-Push #101, Hardening R5, Mutexes Reales `Local\` y Criterios TEST-09.7 Post-Fix)
 
 **Fecha de emisión original:** 2026-11-07<br />
 **Fecha de revisión factual R1:** 2026-11-07<br />
@@ -6,13 +6,15 @@
 **Fecha de revisión factual R3:** 2026-11-07<br />
 **Fecha de revisión factual R4:** 2026-11-07<br />
 **Fecha de revisión factual R5:** 2026-11-07<br />
+**Fecha de reconciliación post-push R6:** 2026-11-07<br />
 **Autor:** Principal .NET / Windows Security Engineer, Auditor de Sincronización Interproceso y Responsable de Calidad de Evidencia<br />
 **Rama activa de trabajo:** `fix/8b1a7-2-r5-retry-contract-hardening`<br />
 **Baseline de código inicial auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
-**HEAD remoto canónico (`origin/main`):** `86d6adcef9234b579e9313215673cf540e9fa52b`<br />
-**Parent directo en `main`:** `4d674ebd933f70edd2a1be789df2e3414e1b59f0`<br />
-**Último workflow CI:** Run #100 (ID: `42435675882`, commit `86d6adcef9234b579e9313215673cf540e9fa52b`, evento `push`, **7/7 jobs `success`**)<br />
+**HEAD remoto canónico (`origin/main`):** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`<br />
+**Parent directo en `main` (Commit R4):** `86d6adcef9234b579e9313215673cf540e9fa52b`<br />
+**Último workflow CI:** Run #101 (ID: `42438637184`, commit `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`, evento `push`, **7/7 jobs `success`**)<br />
 **Workflows CI previos relevantes (SHAs completos verificados vía GitHub Actions API):**<br />
+- Run #100 (ID: `42435675882`, commit `86d6adcef9234b579e9313215673cf540e9fa52b`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #99 (ID: `42432585253`, commit `4d674ebd933f70edd2a1be789df2e3414e1b59f0`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #98 (ID: `42429999278`, commit `2f1281b0df0fa4906f14f690d95be42beadf15aa`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #97 (ID: `42428357398`, commit `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`, evento `push`, **7/7 jobs `success`**)<br />
@@ -25,7 +27,7 @@
 - Run #90 (ID: `42384884759`, commit `b9d4b8f1627c74b70b977f509cbc56acc7989ad0`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #89 (ID: `42379421580`, commit `d8ca7acc703397cabec8d5cbba92f39329fa940a`, evento `push`, **7/7 jobs `success`**)<br />
 - Runs #87 y #86 (IDs: `42346415046` y `42342850877`, commits `391d79e9255cb07f87f6e13748225cd55fc6f514` y `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246`, evento `pull_request`, `head_branch`: `feature/sprint-1-store-profile-guards-d01-d02`, destino: `main`, PR #11, **7/7 jobs `success`**)<br />
-**Veredicto de Rebaseline R5:** **PASS — R5 FUS HANDOFF RETRY HARDENING, REAL NAMED-MUTEX TESTS AND TEST-09.7 POST-FIX CRITERIA COMPLETE**<br />
+**Veredicto de Rebaseline R6:** **R6 PASS — R5 REMOTE RECONCILIATION COMPLETE — CI R5 PASS — LAB HOLD**<br />
 **Clasificación de Host Preflight:** **GUEST DETECTED — L0 NOT VERIFIED**<br />
 **Readiness del Laboratorio VM:** **HOLD — Requiere aprovisionamiento/acción del propietario en Hipervisor L0**<br />
 **Estado Microsoft Store:** **CONDITIONAL HOLD**<br />
@@ -180,11 +182,25 @@ Los informes y runbooks previos de virtualización (Fases 8B.1A.5, 8B.1A.6 y 8B.
      - **Sección 6.3 (Controles Negativos):** Retención hasta agotar timeout (`UninstallGateBusy`), contención en `SingleInstance` (`SingleInstanceBusy`), error de DACL (`AccessOrCreationError`) y timeout sin adquirir nunca el sondeo.
    - `TEST-09.7` permanece estrictamente en **`LAB HOLD / NOT RUN`**.
 
+#### Addendum R6: Reconciliación Post-Push Run #101, Verificación CI por SHA, Auditoría de Diffs R5 y Gate Pre-Laboratorio
+1. **Reconciliación Factual Post-Push de `85d3f71d` y Trazabilidad Remota:**
+   - La consulta directa a la API de GitHub Actions y a las referencias remotas (`git ls-remote`) confirma que el commit funcional + documental R5 `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` (`fix(windows): harden FUS handoff retry contract and add real mutex tests`, parent `86d6adcef9234b579e9313215673cf540e9fa52b`) se encuentra publicado en la rama `main` de `origin/main` y desencadenó el workflow **Run #101** (ID: `42438637184`, evento `push`), completando **7/7 jobs con conclusión `success`** (616 tests superados en la solución: 25 Domain, 167 Application, 90 Infrastructure, 334 Windows Platform).
+   - Se reconcilia formalmente la declaración histórica `"ZERO PUSH EJECUTADO"` / `"LOCAL ONLY"` del informe R5: describía rigurosamente el ámbito local de los comandos en la sesión del agente al emitir el informe, pero la realidad observable posterior en el remoto demuestra que el commit R5 fue publicado en `main`. No se formula ninguna inferencia sobre el actor, cliente o sincronización externa que haya producido dicha publicación.
+   - En el workflow Run #101 se publicaron 4 ejecutables single-file (`PrivGvard-win-arm64`, `PrivGvard-win-x64`, `PrivGvard-osx-arm64`, `PrivGvard-linux-x64`). **CI no publicó ningún paquete MSIX descargable ni el archivo `BUILD-PROVENANCE.json`**.
+2. **Auditoría Estática de Diffs R5 y Validación de Cero Regresiones:**
+   - El diff `86d6adcef9234b579e9313215673cf540e9fa52b..85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` afectó a 6 archivos (`WindowsUninstallRequestListener.cs`, `WindowsSingleInstanceStartupTests.cs`, `WindowsUninstallRequestListenerTests.cs`, `AUDIT-ROADMAP.md`, `PROJECT_CONTEXT.md` e `INFORME-FASE-8B1A7_2-READINESS-REBASELINE.md`). `WindowsSingleInstanceGuard.cs` no fue modificado en R5.
+   - Se ratifican los 15 puntos estáticos de la remediación: signatura pública original de 5 parámetros preservada, sobrecarga `internal` de 6 parámetros para pruebas, validación pre-handle de `timeout` y `pollInterval` contra valores `<= 0`, sub-milisegundo, `-1 ms` y `> int.MaxValue`, acotamiento de 1ms en esperas residuales contra busy-spin, diagnósticos diferenciados de `UninstallGateBusy`, `SingleInstanceBusy` y timeout neutral sin presuponer instancias activas, y ausencia total de hooks de depuración en producción.
+3. **Reproducibilidad Local Exacta y Forense de `task-9809`:**
+   - La suite completa de 616 pruebas reproduce 100% PASS localmente en `.NET SDK 10.0.403` bajo ejecución serializada por proyecto (`dotnet test PrivGvard.sln -c Release --no-build -m:1`), coincidiendo con la topología de CI.
+   - Se reconcilia el fallo observado en el intento previo `task-9809` de la sesión R5 en `SimulatedGuard_NoEventPermanentUninstallGateContention_FailsClosedAtTimeoutWithoutBusySpin`: la ausencia inicial de límite inferior `MinWaitHandleInterval = 1 ms` en las esperas residuales provocaba que un remanente `< 1 ms` se truncase a `0 ms` (`Thread.Sleep(0)`), inflando el conteo de reintentos a 30 (fuera del rango 1–20); el commit R5 solventó esto acotando a 1ms, estabilizando los intentos entre 8 y 9.
+4. **Gate Pre-Laboratorio:**
+   - Todo el código de producción y pruebas se encuentra reconciliado, verificado en CI (Run #101) y reproducido localmente. El entorno de desarrollo actual permanece como `GUEST DETECTED — L0 NOT VERIFIED`, por lo que el conjunto de pruebas dinámicas (TEST-01 a TEST-11, incluido TEST-09.7) permanece formalmente bajo **`LAB HOLD / NOT RUN`**, a la espera de que el propietario del repositorio aprovisione una VM aislada directa en el hipervisor físico L0 (Topología B).
+
 ### 1.2 Veredicto Oficial
 
-$$\mathbf{VEREDICTO:\ REBASELINE\ R5\ PASS\ —\ RETRY\ CONTRACT\ HARDENED\ \&\ REAL\ MUTEX\ TESTS\ COMPLETE\ —\ LAB\ HOLD}$$
+$$\mathbf{VEREDICTO:\ REBASELINE\ R6\ PASS\ —\ R5\ REMOTE\ RECONCILIATION\ COMPLETE\ —\ CI\ R5\ PASS\ —\ LAB\ HOLD}$$
 
-- **Rebaseline, Reconciliación Run #100 y Hardening R5:** **PASS**. Se reconcilia el commit `86d6adcef9234b579e9313215673cf540e9fa52b` en `origin/main` y el Run #100 (`42435675882`), se preserva la signatura pública de 5 parámetros de `TryRequestRunningInstanceAndAcquire`, se blinda la validación de `timeout` y `pollInterval` (incluyendo `Timeout.InfiniteTimeSpan` y truncamiento sub-milisegundo), se diferencian con exactitud los diagnósticos de timeout según la última causa de contención observada, se añaden pruebas con mutexes con nombre reales `Local\` entre hilos del SO (616 tests pasando en la solución), y se actualiza el runbook `TEST-09.7` con los criterios de aceptación post-remediación.
+- **Rebaseline, Reconciliación Run #101 y Hardening R5:** **PASS**. Se reconcilia el commit `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` en `origin/main` y el Run #101 (`42438637184`), se valida la integridad del diff R5 (6 archivos modificados, 0 regresiones), se confirman 7/7 jobs exitosos en CI, se reproduce la suite de 616 pruebas locales al 100% PASS, se reconcilia forensemente el intento previo `task-9809`, y se actualizan los literales exactos de timeout y los 16 nombres de métodos de prueba en la documentación canónica.
 - **Readiness del Laboratorio VM:** **HOLD**. El host permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED` (Guest VirtualBox con 3.98 GB RAM visible y ~0.39 GB libre, sin nested VT-x). Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
 - **Salvaguardas Invariantes:** Microsoft Store en `CONDITIONAL HOLD`, Fase 8B.1C en `BLOCKED / NOT AUTHORIZED`.
 
@@ -195,10 +211,10 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R5\ PASS\ —\ RETRY\ CONTRACT\ HARDENED\ \&\ 
 ### 2.1 Verificación de Git y Remoto
 - **Repositorio:** `cristianbarreiro/PrivGuard`
 - **Rama activa de trabajo:** `fix/8b1a7-2-r5-retry-contract-hardening`
-- **HEAD Remoto Canónico (`origin/main`):** `86d6adcef9234b579e9313215673cf540e9fa52b`
-- **Parent directo en `main`:** `4d674ebd933f70edd2a1be789df2e3414e1b59f0`
+- **HEAD Remoto Canónico (`origin/main`):** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`
+- **Parent directo en `main`:** `86d6adcef9234b579e9313215673cf540e9fa52b`
 - **Baseline de código inicial auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`
-- **Historial `d8ca7acc..86d6adce` (12 commits documentales + 1 commit funcional R4 en `main`):**
+- **Historial `d8ca7acc..85d3f71d` (12 commits documentales + 2 commits funcionales R4 y R5 en `main`):**
   1. `dded99c` — Documental: corrección de evidencia Sprint 1.2 postflight.
   2. `b9d4b8f` — Documental: ajuste de afirmaciones Sprint 1.2 postflight.
   3. `07e4188` — Documental: reconciliación Sprint 1.2 con estado remoto.
@@ -211,19 +227,21 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R5\ PASS\ —\ RETRY\ CONTRACT\ HARDENED\ \&\ 
   10. `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` — Documental: reconciliación post-push R1 y precisión de cobertura de tests.
   11. `2f1281b0df0fa4906f14f690d95be42beadf15aa` — Documental: reconciliación R2 de máquina de estados FUS y preflight de host.
   12. `4d674ebd933f70edd2a1be789df2e3414e1b59f0` — Documental: reconciliación R3 de carrera de liberación y diseño TEST-09.7.
-  13. `86d6adcef9234b579e9313215673cf540e9fa52b` — Funcional + Documental (R4): remediación de reintento FUS ante contención transitoria en uninstall-gate y tests unitarios (HEAD canónico en `origin/main`).
-- **Ramas Remotas en `origin`:** `main` (`86d6adc...`), `dev` (`85d028e...`), `feature/sprint-1-store-profile-guards-d01-d02` (`391d79e...`). No existe rama remota R4.
+  13. `86d6adcef9234b579e9313215673cf540e9fa52b` — Funcional + Documental (R4): remediación de reintento FUS ante contención transitoria en uninstall-gate y tests unitarios.
+  14. `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` — Funcional + Documental (R5): hardening de contrato de reintento, preservación de signatura pública de 5 parámetros, diagnósticos de timeout diferenciados y tests con mutexes reales `Local\` (HEAD canónico en `origin/main`).
+- **Ramas Remotas en `origin`:** `main` (`85d3f71...`), `dev` (`85d028e...`), `feature/sprint-1-store-profile-guards-d01-d02` (`391d79e...`). No existen ramas remotas para R4 ni R5.
 - **Forma Real de Integración en Remoto:** Integración directa mediante push sin Pull Request. La API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. No existen Pull Requests abiertas actualmente (`0` open PRs).
-- **Estado del Árbol de Trabajo:** Modificado localmente en la rama `fix/8b1a7-2-r5-retry-contract-hardening` (solo local, sin push ni rama remota).
-- **Código Funcional y Pruebas Modificados (en `fix/8b1a7-2-r5-retry-contract-hardening`):**
+- **Estado del Árbol de Trabajo:** Modificado localmente en la rama `fix/8b1a7-2-r5-retry-contract-hardening` (sincronización documental de R6, sin push ni PR).
+- **Código Funcional y Pruebas Reconciliados en `main` (`85d3f71d`):**
   - `src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs` (restauración de sobrecarga pública de 5 parámetros + sobrecarga `internal` con `TimeSpan pollInterval`, validación estricta de `timeout` y `pollInterval` incluyendo `Timeout.InfiniteTimeSpan` e intervalos `< 1 ms`, acotamiento mínimo de 1ms contra truncamiento a `0 ms`, y diagnósticos de timeout diferenciados según `lastContentionOutcome`).
-  - `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (3 nuevos tests con mutexes con nombre reales `Local\` entre hilos dedicados del SO verificando `UninstallGateBusy`, `SingleInstanceBusy` con liberación de gate y `Acquired` + `Release()`).
-  - `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (ampliado a 16 métodos de prueba / 20 casos ejecutables incluyendo reflexión de signatura pública de 5 parámetros, validación de intervalos inválidos, diagnósticos por última causa observada, verificación en hilo separado de mutex abandonado y test de integración intra-sesión con mutexes reales `Local\` para la carrera de orden de liberación).
+  - `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (3 tests con mutexes con nombre reales `Local\` entre hilos dedicados del SO verificando `UninstallGateBusy`, `SingleInstanceBusy` con liberación de gate y `Acquired` + `Release()`).
+  - `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (16 métodos de prueba / 20 casos ejecutables incluyendo reflexión de signatura pública de 5 parámetros, validación de intervalos inválidos, diagnósticos por última causa observada, verificación en hilo separado de mutex abandonado y test de integración intra-sesión con mutexes reales `Local\` para la carrera de orden de liberación).
 
-### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #100)
+### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #101)
 
 | Run ID | Commit SHA (40 caracteres verificados vía API) | Rama / Ref | Evento | Conclusión | Jobs Exitosos | Artefactos Publicados |
 |---|---|---|---|---|---|---|
+| **42438637184** (#101) | `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42435675882** (#100) | `86d6adcef9234b579e9313215673cf540e9fa52b` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42432585253** (#99) | `4d674ebd933f70edd2a1be789df2e3414e1b59f0` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42429999278** (#98) | `2f1281b0df0fa4906f14f690d95be42beadf15aa` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
@@ -240,7 +258,7 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R5\ PASS\ —\ RETRY\ CONTRACT\ HARDENED\ \&\ 
 | **42342850877** (#86) | `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246` | `feature/sprint-1-store-profile-guards-d01-d02` | `pull_request` (PR #11) | `success` | 7/7 | 4 Single-File executables (SHA rectificado) |
 
 > [!NOTE]
-> **Trazabilidad de Triggers:** El evento `pull_request` fue probado y superado con éxito en los Runs #86 y #87 durante la tramitación de la PR #11. Los 13 commits posteriores (`d8ca7acc..86d6adce`, formados por 12 commits documentales y el commit funcional R4 `86d6adcef9234b579e9313215673cf540e9fa52b`) fueron integrados mediante eventos de tipo `push` directo sobre `main` (Runs #89 al #100).
+> **Trazabilidad de Triggers:** El evento `pull_request` fue probado y superado con éxito en los Runs #86 y #87 durante la tramitación de la PR #11. Los 14 commits posteriores (`d8ca7acc..85d3f71d`, formados por 12 commits documentales y 2 commits funcionales R4 y R5) fueron integrados mediante eventos de tipo `push` directo sobre `main` (Runs #89 al #101).
 
 ---
 
@@ -286,11 +304,12 @@ Al auditar directamente el desinstalador Inno Setup ([`installer/setup.iss#L18-L
 - `setup.iss` enumera los perfiles interactivos desde `ProfileList` en HKLM y bloquea la desinstalación (*fail-closed*) si detecta un diario o marcador activo.
 - **Límite Estricto:** Esta protección es exclusiva del instalador Standalone Inno Setup. **No tiene intervención ni capacidad para bloquear la desinstalación del paquete MSIX por parte de Windows**.
 
-### 4.3 Cuantificación de Commits (`9f856c0..86d6adce`)
+### 4.3 Cuantificación de Commits (`9f856c0..85d3f71d`)
 El historial se divide en:
 1. **Rango `9f856c0..d8ca7acc` (5 commits funcionales / CI / merge):** `7066b3b` (Docs 8B.1A), `0a270a1` (Sprint 1.0 D-01/D-02), `391d79e` (Sprint 1.1 Inmutabilidad), `ffc2273` (Merge PR #11), `d8ca7ac` (Sprint 1.2 CI Gate).
 2. **Rango `d8ca7acc..4d674ebd` (12 commits exclusivamente documentales):** `dded99c`, `b9d4b8f`, `07e4188`, `653be31` (baseline de código auditado), `3f08f12`, `54fb446` (`54fb44670c55...`), `aedd19c` (`aedd19c819dd...`), `fc345eb`, `11a7e49`, `405f948d`, `2f1281b0` y `4d674ebd933f70edd2a1be789df2e3414e1b59f0`.
-3. **Commit funcional + documental R4 en `origin/main`:** `86d6adcef9234b579e9313215673cf540e9fa52b` (remediación de reintento FUS y tests unitarios deterministas; HEAD remoto canónico).
+3. **Commit funcional + documental R4 en `origin/main`:** `86d6adcef9234b579e9313215673cf540e9fa52b` (remediación de reintento FUS y tests unitarios deterministas; parent directo de R5).
+4. **Commit funcional + documental R5 en `origin/main`:** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` (endurecimiento del contrato de reintento FUS, preservación de signatura pública, diagnósticos de timeout diferenciados y tests con mutexes reales `Local\`; HEAD canónico en `origin/main`).
 
 ### 4.4 Mutex Global, DACL, Dos Mutexes en Guard, Release-Order Race y Máquina de Estados FUS
 La auditoría estática adversarial sobre los objetos de sincronización y control de instancia en Windows (`net10.0-windows10.0.19041.0`) establece las siguientes precisiones técnicas rigurosas:
@@ -406,11 +425,12 @@ Para resolver la *Release-Order Race* y la contención transitoria sin alterar l
    - El bucle registra `lastContentionOutcome` (`UninstallGateBusy` o `SingleInstanceBusy`) en cada intento de la guarda posterior al sondeo.
    - Si el sondeo adquiere `instanceMutex`, pero el reintento de la guarda devuelve `UninstallGateBusy` o `SingleInstanceBusy`, duerme `sleepTime` y reintenta dentro de la ventana global `timeout`.
    - Si la guarda devuelve `AccessOrCreationError`, **termina inmediatamente (*fail-closed*)** sin esperar al timeout, devolviendo `error = "Failed to create or acquire single-instance mutex on Windows."`.
-   - Si el plazo expira (`stopwatch.Elapsed >= timeout`), `FormatTimeoutError(requestSent, lastContentionOutcome)` devuelve:
+   - Si el plazo expira (`stopwatch.Elapsed >= timeout`), `FormatTimeoutError(requestSent, lastContentionOutcome)` devuelve los literales exactos implementados en [`WindowsUninstallRequestListener.cs#L214-L227`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs#L214-L227):
      - Con `requestSent == true`: `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."`
-     - Con `requestSent == false` y `lastContentionOutcome == UninstallGateBusy`: `"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request (last observed contention: UninstallGateBusy; does not guarantee mutex state after timeout)."`
-     - Con `requestSent == false` y `lastContentionOutcome == SingleInstanceBusy`: `"The Windows single-instance mutex remained busy after probe release, and no running PrivGvard instance accepted a shutdown request (last observed contention: SingleInstanceBusy; does not guarantee mutex state after timeout)."`
-     - Con `requestSent == false` y `lastContentionOutcome == null` (el mutex de sondeo nunca llegó a adquirirse): `"Timed out waiting for Windows single-instance admission after no running PrivGvard instance accepted the uninstall shutdown request."`
+     - Con `requestSent == false` y `lastContentionOutcome == UninstallGateBusy`: `"The Windows uninstall gate remained busy before the uninstall handoff expired, and no local shutdown request could be delivered (last observed contention: UninstallGateBusy; mutex state is not guaranteed after timeout)."`
+     - Con `requestSent == false` y `lastContentionOutcome == SingleInstanceBusy`: `"The Windows single-instance mutex remained busy before the uninstall handoff expired, and no local shutdown request could be delivered (last observed contention: SingleInstanceBusy; mutex state is not guaranteed after timeout)."`
+     - Con `requestSent == false` y `lastContentionOutcome == null` (`_`, el mutex de sondeo nunca llegó a adquirirse): `"Single-instance admission was not obtained before the uninstall handoff expired, and the local shutdown request signal could not be delivered."`
+   - Adicionalmente, el bucle `while (stopwatch.Elapsed < timeout)` respeta un plazo suave acotado (*soft deadline*): en cada iteración de espera sobre el mutex de sondeo, calcula `waitInterval = Math.Min(effectivePollInterval, remainingTime)` (donde `remainingTime = timeout - stopwatch.Elapsed`), garantizando que la espera sobre el WaitHandle no exceda el presupuesto remanente del timeout.
 
 ##### B. Tabla Comparativa Antes vs. Después para los Caminos A–G (R3 -> R4 -> R5)
 
@@ -584,7 +604,7 @@ Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida
 11. **TEST-11 (Recuperación tras Caída Simulada) — `LAB HOLD / NOT RUN`:**
     - Forzar terminación del proceso (`taskkill /F`) con marcador activo presente; reiniciar y verificar recuperación automática del WAL.
 
-### 7.2 Cobertura de Pruebas Unitarias e Intra-Sesión Automatizadas (Fase 8B.1A.7.2-R5)
+### 7.2 Cobertura de Pruebas Unitarias e Intra-Sesión Automatizadas (Fase 8B.1A.7.2-R6)
 
 > [!NOTE]
 > **Delimitación Estricta de Evidencia Automatizada:** Los tests prefijados con `SimulatedGuard_` o `FakeGuard_` ejercitan determinísticamente la máquina de estados mediante dobles de prueba. Los tests prefijados con `RealNamedMutexes_` utilizan **mutexes con nombre reales de Windows en `Local\`** a través de hilos dedicados del sistema operativo dentro de la sesión de logon actual. **Ninguna prueba automatizada intra-sesión simula Fast User Switching (FUS) entre sesiones distintas de Windows, tokens/SIDs de múltiples usuarios ni fronteras DACL en `Global\`, los cuales permanecen sujetos a `TEST-09` / `TEST-09.7` (`LAB HOLD / NOT RUN`).**
@@ -595,21 +615,20 @@ Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida
 |---|---|---|---|
 | `PublicApi_TryRequestRunningInstanceAndAcquire_PreservesFiveParameterSignature` | Reflexión de Metadatos | **R5-02:** Verifica que existe un único método público `TryRequestRunningInstanceAndAcquire` con exactamente los 5 parámetros originales y valores por defecto intactos. | **SUPERADO** |
 | `PollIntervalValidation_ZeroNegativeOrInfinite_ThrowsArgumentOutOfRangeImmediatelyWithoutCreatingProbeMutex` (3 casos) | Validación Pre-Handle | **R5-01:** Verifica que `pollInterval` con `0 ms`, `-1 ms` (`Timeout.InfiniteTimeSpan`) o `-250 ms` lanza `ArgumentOutOfRangeException("pollInterval")` inmediatamente sin crear el mutex de sondeo ni invocar la guarda. | **SUPERADO** |
-| `PollIntervalValidation_SubMillisecondOrExceedingWaitHandleLimit_ThrowsArgumentOutOfRangeImmediately` | Validación Pre-Handle | **R5-01:** Verifica que intervalos sub-milisegundo (`TimeSpan.FromTicks(100)`, truncables a `0 ms`) o `TimeSpan.MaxValue` lanzan `ArgumentOutOfRangeException("pollInterval")` de inmediato. | **SUPERADO** |
+| `PollIntervalValidation_SubMillisecondOrExceedingWaitHandleLimit_ThrowsArgumentOutOfRangeImmediately` (2 casos) | Validación Pre-Handle | **R5-01:** Verifica que intervalos sub-milisegundo (`TimeSpan.FromTicks(100)`, truncables a `0 ms`) o `TimeSpan.MaxValue` lanzan `ArgumentOutOfRangeException("pollInterval")` de inmediato. | **SUPERADO** |
 | `TimeoutValidation_ZeroNegativeOrInfinite_ThrowsArgumentOutOfRangeImmediatelyWithoutCreatingProbeMutex` (3 casos) | Validación Pre-Handle | **R5-01:** Verifica que `timeout` con `0 ms`, `-1 ms` (`Timeout.InfiniteTimeSpan`) o `-500 ms` lanza `ArgumentOutOfRangeException("timeout")` sin abrir handles. | **SUPERADO** |
-| `TimeoutValidation_ExceedingWaitHandleLimit_ThrowsArgumentOutOfRangeImmediately` | Validación Pre-Handle | **R5-01:** Verifica que `timeout = TimeSpan.MaxValue` lanza `ArgumentOutOfRangeException("timeout")` de inmediato. | **SUPERADO** |
 | `RunningInstanceReceivesSafeShutdownRequestAndReleasesSingleInstanceAdmission` | `WindowsSingleInstanceGuard` real (`Local\`) | Handoff normal en misma sesión (`requestSent == true`): instancia activa libera ambos mutexes y el solicitante adquiere ambos. | **SUPERADO** |
-| `FakeGuard_BusyUninstallGateWithoutRunningInstanceFailsExplicitly` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Instancia ausente y `UninstallGateBusy` permanente: reintenta hasta agotar timeout y reporta `"The Windows uninstall gate is owned... (last observed contention: UninstallGateBusy...)"`. | **SUPERADO** |
-| `FakeGuard_BusySingleInstanceWithoutRunningInstance_ReportsSingleInstanceContentionNotUninstallGate` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Cuando el reintento falla por `SingleInstanceBusy` (`requestSent == false`), el mensaje de timeout reporta contención en `SingleInstance` y **nunca** afirma que `UninstallGate` está ocupado. | **SUPERADO** |
-| `FakeGuard_MixedContentionSequenceEndingInSingleInstanceBusy_ReportsLastObservedContentionCause` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Secuencia mixta (`UninstallGateBusy` -> `SingleInstanceBusy`): el diagnóstico final refleja la última causa observada y aclara que no garantiza el estado posterior al timeout. | **SUPERADO** |
-| `RunningInstanceThatDoesNotReleaseAdmissionTimesOutExplicitly` | `WindowsSingleInstanceGuard` real (`Local\`) | Con `requestSent == true` y mutex retenido, preserva intacto el mensaje `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."` | **SUPERADO** |
-| `NoEventAndProbeMutexNeverAcquired_ReturnsNeutralTimeoutDiagnostic` | `WindowsSingleInstanceGuard` real (`Local\`) | **R5-03:** Cuando `requestSent == false` y el mutex de sondeo nunca se libera durante el plazo, devuelve diagnóstico neutral de timeout sin inferir si había o no un proceso aceptante. | **SUPERADO** |
-| `SimulatedGuard_NoEventTransientUninstallGateContentionThenRecovery_ReturnsSuccessOnlyAfterBothLocksAcquired` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Simulación determinista de máquina de estados para contención transitoria en `UninstallGateBusy` seguida de `Acquired`. | **SUPERADO** |
-| `SimulatedGuard_NoEventPermanentUninstallGateContention_FailsClosedAtTimeoutWithoutBusySpin` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Verifica ausencia de *busy-spin* (incluyendo el último milisegundo del plazo gracias al acotamiento mínimo de 1ms) ante contención permanente. | **SUPERADO** |
-| `SimulatedGuard_PermanentAccessOrCreationError_TerminatesPromptlyWithoutRetryingToTimeout` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Verifica terminación *fail-closed* inmediata en el primer intento ante `AccessOrCreationError`. | **SUPERADO** |
-| `SimulatedGuard_ThirdProcessSingleInstanceContention_RetriesUntilAdmission` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Simulación determinista de contención transitoria `SingleInstanceBusy` y recuperación posterior. | **SUPERADO** |
-| `AbandonedMutex_OnProbeHandle_PreservesOwnershipReleasesProbeBeforeGuardAndLeavesNoExtraHoldCount` | `SingleInstanceGuard` + Hilo del SO abandonando Mutex (`Local\`) | Verifica desde un hilo separado del SO que tras capturar `AbandonedMutexException`, el handle de sondeo se libera antes de adquirir la guarda y deja recuento recursivo cero tras `guard.Release()`. | **SUPERADO** |
-| `RealNamedMutexes_ReleaseOrderInterleaving_RetriesWhileUninstallGateHeldAndAcquiresBothWhenGateReleased` | **Dos `WindowsSingleInstanceGuard` reales (`Local\`) en hilos separados del SO** | **Reproducción intra-sesión real de la ventana R3/R4:** Hilo A libera `SingleInstance` pero retiene `UninstallGate`; Hilo B despierta del sondeo, observa `UninstallGateBusy` sobre el mutex real, reintenta, y cuando Hilo A libera `UninstallGate`, Hilo B adquiere ambos mutexes reales y los libera limpiamente. | **SUPERADO** |
+| `FakeGuardNeverAcquires_WithoutRunningInstance_TimesOutWithSingleInstanceBusyDiagnostic` | `NeverAcquireSingleInstanceGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Guarda opaca que nunca adquiere (`requestSent == false`): el timeout atribuye la contención a `SingleInstanceBusy` y **nunca** afirma falsamente que `UninstallGate` está ocupado. | **SUPERADO** |
+| `RunningInstanceThatDoesNotReleaseAdmissionTimesOutExplicitly` | `NeverAcquireSingleInstanceGuard` + Listener real (`Local\`) | Con `requestSent == true` y mutex retenido, preserva intacto el mensaje `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."` | **SUPERADO** |
+| `SimulatedGuard_NoEventTransientContentionThenRecovery_ReturnsSuccessOnlyAfterBothLocksAcquired` | `ContentionThenSuccessGuard` (fake) | Simulación determinista de máquina de estados para contención transitoria en `UninstallGateBusy` (2 fallos) seguida de éxito (`Acquired`). | **SUPERADO** |
+| `SimulatedGuard_NoEventPermanentUninstallGateContention_FailsClosedAtTimeoutWithoutBusySpin` | `ContentionCountingGuard` (fake) | Verifica fail-closed con diagnóstico `UninstallGateBusy` y ausencia de *busy-spin* (intentos acotados a 8-9 gracias al límite inferior `MinWaitHandleInterval = 1 ms`). | **SUPERADO** |
+| `SimulatedGuard_NoEventPermanentSingleInstanceContention_FailsClosedWithSingleInstanceDiagnostic` | `ContentionCountingGuard` (fake) | **R5-03:** Contención permanente `SingleInstanceBusy`: falla al expirar timeout reportando `SingleInstanceBusy` sin mencionar `UninstallGate`. | **SUPERADO** |
+| `SimulatedGuard_MixedContentionCauses_TimeoutDiagnosticReflectsLastObservedContention` | `SequenceContentionGuard` (fake) | **R5-03:** Secuencias mixtas (`UninstallGateBusy` -> `SingleInstanceBusy` y viceversa): el diagnóstico final refleja con veracidad la última causa observada. | **SUPERADO** |
+| `RealNamedMutexes_WhenProbeMutexNeverAcquiredAndNoEvent_TimesOutWithNeutralDiagnostic` | Hilo reteniendo Mutex real (`Local\`) | **R5-03:** Cuando `requestSent == false` y el mutex de sondeo nunca se libera durante el plazo, devuelve diagnóstico neutral de timeout sin inferir si había o no un proceso aceptante. | **SUPERADO** |
+| `SimulatedGuard_PermanentAccessOrCreationError_TerminatesPromptlyWithoutRetryingToTimeout` | `ContentionCountingGuard` (fake) | Verifica terminación *fail-closed* inmediata en el 1er intento (sin bucle ni espera hasta timeout) ante `AccessOrCreationError`. | **SUPERADO** |
+| `SimulatedGuard_ThirdProcessContentionRace_RetriesUntilAdmissionOrTimeout` | `ContentionThenSuccessGuard` (fake) | Simulación determinista de contención transitoria por 3er proceso (`SingleInstanceBusy`) y recuperación posterior en intento 2. | **SUPERADO** |
+| `AbandonedMutex_OnProbeHandle_ReleasesProbeOwnershipBeforeGuardAndLeavesNoResidualLockAfterRelease` | Hilo del SO abandonando Mutex (`Local\`) + guarda real | Verifica desde un hilo separado que tras capturar `AbandonedMutexException`, el handle de sondeo se libera antes de invocar la guarda y deja recuento recursivo cero tras `guard.Release()`. | **SUPERADO** |
+| `RealNamedMutexes_ReleaseOrderInterleaving_RetriesWhileUninstallGateHeldAndAcquiresBothWhenGateReleased` | **Dos hilos del SO con mutexes reales `Local\`** | **Reproducción intra-sesión real de la ventana R3/R4:** Hilo A libera `SingleInstance` pero retiene `UninstallGate`; Hilo B despierta del sondeo, observa `UninstallGateBusy` sobre el mutex real, reintenta, y cuando Hilo A libera `UninstallGate`, Hilo B adquiere ambos mutexes reales y los libera limpiamente. | **SUPERADO** |
 
 #### B. Nuevos Tests con Mutexes Reales `Local\` en `WindowsSingleInstanceStartupTests.cs` (3 nuevos `[Fact]`)
 
@@ -637,7 +656,7 @@ Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida
 - **Decisión D-05:** **Pendiente** de formalización e integración en los stores reales.
 - **Microsoft Store:** **`CONDITIONAL HOLD`** (publicación bloqueada).
 - **Fase 8B.1C:** **`BLOCKED / NOT AUTHORIZED`** (desarrollo prohibido).
-- **Fase 8B.1A.7.2 / R5:** **Endurecimiento R5 completado — `PASS — R5 FUS HANDOFF RETRY HARDENING, REAL NAMED-MUTEX TESTS AND TEST-09.7 POST-FIX CRITERIA COMPLETE` / `LAB HOLD`** (pruebas físicas dinámicas multi-sesión bloqueadas por entorno de laboratorio).
+- **Fase 8B.1A.7.2 / R6:** **Reconciliación R6 completada — `PASS — R5 REMOTE RECONCILIATION COMPLETE — CI R5 PASS — LAB HOLD`** (pruebas físicas dinámicas multi-sesión bloqueadas por entorno de laboratorio).
 
 ---
 
@@ -650,7 +669,7 @@ Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida
      - Bloqueo estricto de `force-push` y de eliminación de la rama `main`.
      - No exigir reviewer adicional si el flujo corresponde a un desarrollador único.
    - *Nota de auditoría:* Esta recomendación se formula con fines de planificación y no fue ejecutada en esta fase para respetar la frontera documental y de no alteración de configuraciones.
-2. **Consolidación Local en Rama R5:** Mantener la rama local `fix/8b1a7-2-r5-retry-contract-hardening` con el endurecimiento del contrato de reintento, los tests con mutexes reales `Local\` y la documentación canónica sincronizada, bajo política estricta de ZERO PUSH y ZERO PR en esta sesión.
+2. **Consolidación Documental Local R6:** Mantener el commit documental local de reconciliación R6 bajo política estricta de ZERO PUSH y ZERO PR en esta sesión.
 3. **Acción del Propietario en el Host Físico (L0):** Aprovisionar una máquina virtual Windows 11 independiente en el host físico según las especificaciones de la Topología B (sección 5.2).
-4. **Generación de Artefactos desde HEAD Vigente:** Tras disponer de la VM, compilar el paquete `Release-Store` desde el HEAD canónico actual y registrar la doble proveniencia criptográfica (unsigned en build stage y signed tras test-signing dentro de la VM).
+4. **Generación de Artefactos desde HEAD Vigente:** Tras disponer de la VM, compilar el paquete `Release-Store` desde el HEAD canónico actual (`85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`) y registrar la doble proveniencia criptográfica (unsigned en build stage y signed tras test-signing dentro de la VM).
 5. **Ejecución del Runbook 8B.1A.7.2:** Llevar a cabo los tests normativos TEST-01 a TEST-11, con prioridad sobre la verificación experimental de TEST-09.7 (secciones 6.1, 6.2 y 6.3), TEST-09 y TEST-10 en la VM aislada con capturas de ProcMon.
