@@ -45,7 +45,7 @@ The requested product name is **PrivGvard**. The current repository is still nam
 | Windows | Durable privacy session, JSON journal, ownership attestation, authenticated on-demand privileged worker, PnP/registry/audio orchestration and recovery tests exist | High for unit/integration simulation; hardware/UAC behavior still needs isolated VM acceptance |
 | Linux | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported | High |
 | macOS | Detector/controller scaffolding exists, but capability provider reports `None`; persistent recovery adapter is unsupported; secure provider methods are currently no-op success paths | High |
-| Tests | Latest local run: 156 passed, 0 failed, 0 skipped (25 Domain, 30 Infrastructure, 58 Application, 43 Windows) | High |
+| Tests | All active test suites pass across Domain, Infrastructure, Application, and Windows Platform | High |
 | CI | GitHub Actions defines Windows/Ubuntu/macOS build-test matrix and selected publish targets | High; native privacy behavior is not proven by CI |
 | Legacy code | Archived at `legacy/CamMicBlocker` and `legacy/tests/CamMicBlocker.Tests`; build-guarded, not part of active solution | High |
 

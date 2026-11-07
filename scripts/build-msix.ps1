@@ -346,28 +346,35 @@ function Test-MsixPackageArchive {
         }
 
         # 2b. Verify D-01 Store Capability Profile (runFullTrust only; forbid allowElevation & unvirtualizedResources)
-        if ($manifestContent -match "allowElevation") {
+        Add-Type -AssemblyName System.Xml.Linq
+        [System.Xml.Linq.XDocument]$xDoc = [System.Xml.Linq.XDocument]::Parse($manifestContent)
+        $manifestNs = [System.Xml.Linq.XNamespace]::Get("http://schemas.microsoft.com/appx/manifest/foundation/windows10")
+        $rescapNs = [System.Xml.Linq.XNamespace]::Get("http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities")
+
+        $forbiddenElevation = @($xDoc.Descendants() | Where-Object { $_.Name.Namespace -eq $rescapNs -and ($a = $_.Attribute("Name")) -and $a.Value -eq "allowElevation" })
+        if ($forbiddenElevation.Count -gt 0) {
             throw "Package verification failed in ${PackagePath} - Forbidden capability 'allowElevation' is present in AppxManifest.xml (violates D-01)."
         }
-        if ($manifestContent -match "unvirtualizedResources") {
+
+        $forbiddenUnvirtualized = @($xDoc.Descendants() | Where-Object { $_.Name.Namespace -eq $rescapNs -and ($a = $_.Attribute("Name")) -and $a.Value -eq "unvirtualizedResources" })
+        if ($forbiddenUnvirtualized.Count -gt 0) {
             throw "Package verification failed in ${PackagePath} - Forbidden capability 'unvirtualizedResources' is present in AppxManifest.xml (violates D-01)."
         }
 
-        $capabilitiesNode = $pkgXml.Package.Capabilities
+        $capabilitiesNode = $xDoc.Root.Element($manifestNs + "Capabilities")
         if (-not $capabilitiesNode) {
             throw "Package verification failed in ${PackagePath} - <Capabilities> node is missing from AppxManifest.xml."
         }
 
-        $capabilityElements = @($capabilitiesNode.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element })
-        if ($capabilityElements.Count -ne 1) {
-            $declaredNames = ($capabilityElements | ForEach-Object { $_.GetAttribute("Name") }) -join ", "
-            throw "Package verification failed in ${PackagePath} - Expected exactly 1 capability (runFullTrust), found $($capabilityElements.Count): [$declaredNames]."
+        $rescapElements = @($capabilitiesNode.Elements() | Where-Object { $_.Name.Namespace -eq $rescapNs })
+        $hasRunFullTrust = $rescapElements | Where-Object { $_.Name.LocalName -eq "Capability" -and ($a = $_.Attribute("Name")) -and $a.Value -eq "runFullTrust" }
+        if (-not $hasRunFullTrust) {
+            throw "Package verification failed in ${PackagePath} - Required restricted capability 'runFullTrust' is missing from AppxManifest.xml."
         }
 
-        $soleCapability = $capabilityElements[0]
-        $soleCapabilityName = $soleCapability.GetAttribute("Name")
-        if ($soleCapability.LocalName -ne "Capability" -or $soleCapabilityName -ne "runFullTrust") {
-            throw "Package verification failed in ${PackagePath} - Expected sole capability 'runFullTrust', got '$($soleCapability.Name)' Name='$soleCapabilityName'."
+        if ($rescapElements.Count -ne 1) {
+            $declaredNames = ($rescapElements | ForEach-Object { $a = $_.Attribute("Name"); if ($a) { $a.Value } else { $_.Name.LocalName } }) -join ", "
+            throw "Package verification failed in ${PackagePath} - Expected exactly 1 restricted capability (runFullTrust), found $($rescapElements.Count): [$declaredNames]."
         }
         Write-Host "   Capabilities (D-01):             runFullTrust (sole capability verified)" -ForegroundColor DarkGray
 
