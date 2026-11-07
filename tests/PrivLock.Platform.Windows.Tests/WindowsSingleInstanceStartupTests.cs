@@ -46,4 +46,172 @@ public sealed class WindowsSingleInstanceStartupTests
         Assert.Equal(1, recoveryCalls);
         Assert.Equal(1, privacyMutations);
     }
+
+    [Fact]
+    public void RealNamedMutexes_WhenUninstallGateOwnedByAnotherThread_ReturnsUninstallGateBusyAndLeavesMainMutexFree()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var testMutex = $@"Local\PrivLock_SingleInstance_Test_{suffix}";
+        var testGate = $@"Local\PrivLock_UninstallGate_Test_{suffix}";
+
+        using var gateAcquired = new ManualResetEventSlim();
+        using var releaseGate = new ManualResetEventSlim();
+        Exception? ownerThreadError = null;
+
+        var ownerThread = new Thread(() =>
+        {
+            try
+            {
+                using var gate = new Mutex(initiallyOwned: false, testGate);
+                Assert.True(gate.WaitOne(TimeSpan.FromSeconds(5)));
+                try
+                {
+                    gateAcquired.Set();
+                    Assert.True(releaseGate.Wait(TimeSpan.FromSeconds(5)));
+                }
+                finally
+                {
+                    gate.ReleaseMutex();
+                }
+            }
+            catch (Exception ex)
+            {
+                ownerThreadError = ex;
+                gateAcquired.Set();
+            }
+        });
+
+        ownerThread.Start();
+        try
+        {
+            Assert.True(gateAcquired.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Null(ownerThreadError);
+
+            using var guard = new WindowsSingleInstanceGuard(testMutex, testGate);
+            var outcome = guard.TryAcquireSingleInstanceDetail(suppressLogging: true);
+
+            Assert.Equal(WindowsSingleInstanceAcquisitionResult.UninstallGateBusy, outcome);
+            Assert.True(CanAcquireAndReleaseOnSeparateThread(testMutex));
+        }
+        finally
+        {
+            releaseGate.Set();
+            ownerThread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Null(ownerThreadError);
+    }
+
+    [Fact]
+    public void RealNamedMutexes_WhenMainMutexOwnedByAnotherThread_ReturnsSingleInstanceBusyAndReleasesGate()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var testMutex = $@"Local\PrivLock_SingleInstance_Test_{suffix}";
+        var testGate = $@"Local\PrivLock_UninstallGate_Test_{suffix}";
+
+        using var instanceAcquired = new ManualResetEventSlim();
+        using var releaseInstance = new ManualResetEventSlim();
+        Exception? ownerThreadError = null;
+
+        var ownerThread = new Thread(() =>
+        {
+            try
+            {
+                using var mainMutex = new Mutex(initiallyOwned: false, testMutex);
+                Assert.True(mainMutex.WaitOne(TimeSpan.FromSeconds(5)));
+                try
+                {
+                    instanceAcquired.Set();
+                    Assert.True(releaseInstance.Wait(TimeSpan.FromSeconds(5)));
+                }
+                finally
+                {
+                    mainMutex.ReleaseMutex();
+                }
+            }
+            catch (Exception ex)
+            {
+                ownerThreadError = ex;
+                instanceAcquired.Set();
+            }
+        });
+
+        ownerThread.Start();
+        try
+        {
+            Assert.True(instanceAcquired.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Null(ownerThreadError);
+
+            using var guard = new WindowsSingleInstanceGuard(testMutex, testGate);
+            var outcome = guard.TryAcquireSingleInstanceDetail(suppressLogging: true);
+
+            Assert.Equal(WindowsSingleInstanceAcquisitionResult.SingleInstanceBusy, outcome);
+
+            // Verify from a distinct thread (to avoid same-thread recursive acquisition)
+            // that the guard released the uninstall gate after failing on the main mutex.
+            Assert.True(CanAcquireAndReleaseOnSeparateThread(testGate));
+        }
+        finally
+        {
+            releaseInstance.Set();
+            ownerThread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Null(ownerThreadError);
+    }
+
+    [Fact]
+    public void RealNamedMutexes_WhenBothFree_AcquiresBothAndReleaseAllowsSubsequentAcquisition()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var testMutex = $@"Local\PrivLock_SingleInstance_Test_{suffix}";
+        var testGate = $@"Local\PrivLock_UninstallGate_Test_{suffix}";
+
+        using var guard1 = new WindowsSingleInstanceGuard(testMutex, testGate);
+        var firstOutcome = guard1.TryAcquireSingleInstanceDetail(suppressLogging: true);
+        Assert.Equal(WindowsSingleInstanceAcquisitionResult.Acquired, firstOutcome);
+
+        // While guard1 holds admission, neither mutex can be acquired by another thread.
+        Assert.False(CanAcquireAndReleaseOnSeparateThread(testGate));
+        Assert.False(CanAcquireAndReleaseOnSeparateThread(testMutex));
+
+        guard1.Release();
+
+        // After Release(), both mutexes are free and a second real guard on another thread can acquire and release them.
+        WindowsSingleInstanceAcquisitionResult? secondOutcome = null;
+        var secondThread = new Thread(() =>
+        {
+            using var guard2 = new WindowsSingleInstanceGuard(testMutex, testGate);
+            secondOutcome = guard2.TryAcquireSingleInstanceDetail(suppressLogging: true);
+            guard2.Release();
+        });
+        secondThread.Start();
+        Assert.True(secondThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.Equal(WindowsSingleInstanceAcquisitionResult.Acquired, secondOutcome);
+    }
+
+    private static bool CanAcquireAndReleaseOnSeparateThread(string mutexName)
+    {
+        var acquired = false;
+        var probeThread = new Thread(() =>
+        {
+            using var mutex = new Mutex(initiallyOwned: false, mutexName);
+            try
+            {
+                acquired = mutex.WaitOne(0);
+            }
+            catch (AbandonedMutexException)
+            {
+                acquired = true;
+            }
+
+            if (acquired)
+            {
+                mutex.ReleaseMutex();
+            }
+        });
+        probeThread.Start();
+        Assert.True(probeThread.Join(TimeSpan.FromSeconds(5)));
+        return acquired;
+    }
 }

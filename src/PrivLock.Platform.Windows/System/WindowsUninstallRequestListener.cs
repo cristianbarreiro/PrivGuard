@@ -9,6 +9,8 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsUninstallRequestListener>();
     private const string RequestEventName = @"Local\PrivLock_UninstallRequested";
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan MinWaitHandleInterval = TimeSpan.FromMilliseconds(1);
+    private static readonly TimeSpan MaxWaitHandleInterval = TimeSpan.FromMilliseconds(int.MaxValue);
 
     private readonly object _sync = new();
     private readonly EventWaitHandle _requestEvent;
@@ -94,18 +96,35 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
         TimeSpan timeout,
         out string? error,
         string requestEventName = RequestEventName,
-        string instanceMutexName = WindowsSingleInstanceGuard.MutexName,
-        TimeSpan? pollInterval = null)
+        string instanceMutexName = WindowsSingleInstanceGuard.MutexName)
+    {
+        return TryRequestRunningInstanceAndAcquire(
+            singleInstanceGuard,
+            timeout,
+            PollInterval,
+            out error,
+            requestEventName,
+            instanceMutexName);
+    }
+
+    internal static bool TryRequestRunningInstanceAndAcquire(
+        ISingleInstanceGuard singleInstanceGuard,
+        TimeSpan timeout,
+        TimeSpan pollInterval,
+        out string? error,
+        string requestEventName = RequestEventName,
+        string instanceMutexName = WindowsSingleInstanceGuard.MutexName)
     {
         ArgumentNullException.ThrowIfNull(singleInstanceGuard);
-        if (timeout <= TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(timeout));
+        ValidatePositiveFiniteInterval(timeout, nameof(timeout));
+        ValidatePositiveFiniteInterval(pollInterval, nameof(pollInterval));
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestEventName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instanceMutexName);
 
         error = null;
         var stopwatch = Stopwatch.StartNew();
         var requestSent = false;
-        var probeAcquiredAtLeastOnce = false;
-        var effectivePollInterval = pollInterval ?? PollInterval;
+        WindowsSingleInstanceAcquisitionResult? lastContentionOutcome = null;
         var detailedGuard = singleInstanceGuard as IWindowsDetailedSingleInstanceGuard;
         using var instanceMutex = new Mutex(initiallyOwned: false, instanceMutexName);
 
@@ -122,8 +141,9 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
             if (remaining <= TimeSpan.Zero)
                 break;
 
-            var waitInterval = TimeSpan.FromMilliseconds(
-                Math.Min(effectivePollInterval.TotalMilliseconds, remaining.TotalMilliseconds));
+            var waitInterval = pollInterval <= remaining ? pollInterval : remaining;
+            if (waitInterval < MinWaitHandleInterval)
+                waitInterval = MinWaitHandleInterval;
             var instanceMutexAvailable = false;
             try
             {
@@ -137,7 +157,6 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
             if (!instanceMutexAvailable)
                 continue;
 
-            probeAcquiredAtLeastOnce = true;
             instanceMutex.ReleaseMutex();
 
             // Attempt full single-instance admission.
@@ -157,6 +176,8 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
                 return false;
             }
 
+            lastContentionOutcome = outcome;
+
             // The probe mutex was available, but full acquisition was temporarily denied
             // (e.g. release-order race in FUS where UninstallGate is still owned by the exiting instance,
             // or transient third-process contention).
@@ -165,20 +186,45 @@ public sealed class WindowsUninstallRequestListener : IUninstallRequestListener
             if (remaining <= TimeSpan.Zero)
                 break;
 
-            var sleepTime = TimeSpan.FromMilliseconds(
-                Math.Min(effectivePollInterval.TotalMilliseconds, remaining.TotalMilliseconds));
-            if (sleepTime > TimeSpan.Zero)
-            {
-                Thread.Sleep(sleepTime);
-            }
+            var sleepTime = pollInterval <= remaining ? pollInterval : remaining;
+            if (sleepTime < MinWaitHandleInterval)
+                sleepTime = MinWaitHandleInterval;
+            Thread.Sleep(sleepTime);
         }
 
-        error = requestSent
-            ? "The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."
-            : probeAcquiredAtLeastOnce
-                ? "The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."
-                : "No running PrivGvard instance accepted the uninstall shutdown request.";
+        error = FormatTimeoutError(requestSent, lastContentionOutcome);
         return false;
+    }
+
+    private static void ValidatePositiveFiniteInterval(TimeSpan value, string paramName)
+    {
+        if (value < MinWaitHandleInterval || value > MaxWaitHandleInterval)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                value,
+                "Interval must be a positive finite duration between 1 millisecond and Int32.MaxValue milliseconds.");
+        }
+    }
+
+    private static string FormatTimeoutError(
+        bool requestSent,
+        WindowsSingleInstanceAcquisitionResult? lastContentionOutcome)
+    {
+        if (requestSent)
+        {
+            return "The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired.";
+        }
+
+        return lastContentionOutcome switch
+        {
+            WindowsSingleInstanceAcquisitionResult.UninstallGateBusy =>
+                "The Windows uninstall gate remained busy before the uninstall handoff expired, and no local shutdown request could be delivered (last observed contention: UninstallGateBusy; mutex state is not guaranteed after timeout).",
+            WindowsSingleInstanceAcquisitionResult.SingleInstanceBusy =>
+                "The Windows single-instance mutex remained busy before the uninstall handoff expired, and no local shutdown request could be delivered (last observed contention: SingleInstanceBusy; mutex state is not guaranteed after timeout).",
+            _ =>
+                "Single-instance admission was not obtained before the uninstall handoff expired, and the local shutdown request signal could not be delivered."
+        };
     }
 
     internal static bool TrySignalExistingInstance(

@@ -1,18 +1,19 @@
-# PrivGuard — Fase 8B.1A.7.2-R4: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Remediación de Reintento FUS (Reconciliación Post-Push #99, Remediación y Tests Automatizados R4)
+# PrivGuard — Fase 8B.1A.7.2-R5: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Endurecimiento de Reintento FUS (Reconciliación Post-Push #100, Hardening R5, Mutexes Reales `Local\` y Criterios TEST-09.7 Post-Fix)
 
 **Fecha de emisión original:** 2026-11-07<br />
 **Fecha de revisión factual R1:** 2026-11-07<br />
 **Fecha de revisión factual R2:** 2026-11-07<br />
 **Fecha de revisión factual R3:** 2026-11-07<br />
 **Fecha de revisión factual R4:** 2026-11-07<br />
+**Fecha de revisión factual R5:** 2026-11-07<br />
 **Autor:** Principal .NET / Windows Security Engineer, Auditor de Sincronización Interproceso y Responsable de Calidad de Evidencia<br />
-**Rama activa de trabajo:** `fix/8b1a7-2-r4-fus-handoff-retry`<br />
-**Baseline de código auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
-**HEAD documental remoto (`origin/main`):** `4d674ebd933f70edd2a1be789df2e3414e1b59f0`<br />
-**Parent directo en `main`:** `2f1281b0df0fa4906f14f690d95be42beadf15aa`<br />
-**Parent funcional anterior (Baseline auditado):** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
-**Último workflow CI:** Run #99 (ID: `42432585253`, commit `4d674ebd933f70edd2a1be789df2e3414e1b59f0`, evento `push`, **7/7 jobs `success`**)<br />
+**Rama activa de trabajo:** `fix/8b1a7-2-r5-retry-contract-hardening`<br />
+**Baseline de código inicial auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
+**HEAD remoto canónico (`origin/main`):** `86d6adcef9234b579e9313215673cf540e9fa52b`<br />
+**Parent directo en `main`:** `4d674ebd933f70edd2a1be789df2e3414e1b59f0`<br />
+**Último workflow CI:** Run #100 (ID: `42435675882`, commit `86d6adcef9234b579e9313215673cf540e9fa52b`, evento `push`, **7/7 jobs `success`**)<br />
 **Workflows CI previos relevantes (SHAs completos verificados vía GitHub Actions API):**<br />
+- Run #99 (ID: `42432585253`, commit `4d674ebd933f70edd2a1be789df2e3414e1b59f0`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #98 (ID: `42429999278`, commit `2f1281b0df0fa4906f14f690d95be42beadf15aa`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #97 (ID: `42428357398`, commit `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #96 (ID: `42426468347`, commit `11a7e497a212000809084d56cb3c596ccd3c6f43`, evento `push`, **7/7 jobs `success`**)<br />
@@ -24,7 +25,7 @@
 - Run #90 (ID: `42384884759`, commit `b9d4b8f1627c74b70b977f509cbc56acc7989ad0`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #89 (ID: `42379421580`, commit `d8ca7acc703397cabec8d5cbba92f39329fa940a`, evento `push`, **7/7 jobs `success`**)<br />
 - Runs #87 y #86 (IDs: `42346415046` y `42342850877`, commits `391d79e9255cb07f87f6e13748225cd55fc6f514` y `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246`, evento `pull_request`, `head_branch`: `feature/sprint-1-store-profile-guards-d01-d02`, destino: `main`, PR #11, **7/7 jobs `success`**)<br />
-**Veredicto de Rebaseline R4:** **PASS — R4 FUS HANDOFF RETRY REMEDIATION AND TESTS COMPLETE**<br />
+**Veredicto de Rebaseline R5:** **PASS — R5 FUS HANDOFF RETRY HARDENING, REAL NAMED-MUTEX TESTS AND TEST-09.7 POST-FIX CRITERIA COMPLETE**<br />
 **Clasificación de Host Preflight:** **GUEST DETECTED — L0 NOT VERIFIED**<br />
 **Readiness del Laboratorio VM:** **HOLD — Requiere aprovisionamiento/acción del propietario en Hipervisor L0**<br />
 **Estado Microsoft Store:** **CONDITIONAL HOLD**<br />
@@ -132,11 +133,58 @@ Los informes y runbooks previos de virtualización (Fases 8B.1A.5, 8B.1A.6 y 8B.
 5. **Reafirmación de `TEST-09.7` en el Runbook Dinámico:**
    - El caso de prueba dinámico `TEST-09.7` en VM Windows 11 permanece bajo **`LAB HOLD / NOT RUN`**, reservado para la ejecución en el host físico L0 del propietario.
 
+#### Addendum R5: Reconciliación Post-Push Run #100, Endurecimiento del Contrato de Reintento (R5-01..R5-03), Tests con Mutexes Reales `Local\` y Criterios Post-Fix de TEST-09.7
+1. **Reconciliación Factual Post-Push de `86d6adc` y Trazabilidad Remota:**
+   - La consulta directa a la API de GitHub Actions y a las referencias remotas (`git ls-remote`) confirma que el commit funcional `86d6adcef9234b579e9313215673cf540e9fa52b` (`fix(windows): retry FUS handoff on transient uninstall-gate contention`, parent `4d674ebd933f70edd2a1be789df2e3414e1b59f0`) se encuentra publicado en la rama `main` de `origin/main` y desencadenó el workflow **Run #100** (ID: `42435675882`, evento `push`), completando **7/7 jobs con conclusión `success`** (601 tests superados en CI: 25 Domain, 167 Application, 90 Infrastructure, 319 Windows Platform).
+   - Se reconcilia formalmente la declaración histórica `"ZERO PUSH EJECUTADO"` / `"LOCAL ONLY"` del informe R4: dicha declaración describía con exactitud las acciones ejecutadas dentro de la sesión del agente en el momento de su emisión, pero el estado observable posterior en el remoto confirma que **el commit R4 fue publicado en `main`**. No se realiza ninguna atribución no verificada sobre el cliente o actor que efectuó dicha publicación.
+   - En el workflow Run #100 se publicaron 4 ejecutables single-file (`PrivGvard-osx-arm64`, `PrivGvard-linux-x64`, `PrivGvard-win-arm64`, `PrivGvard-win-x64`). **CI no publicó ningún paquete MSIX descargable ni el archivo `BUILD-PROVENANCE.json`**.
+   - Se corrigió asimismo en `docs/ai/AUDIT-ROADMAP.md` la discrepancia histórica de conteos de R4 (`266 Windows / 559 total` -> `319 Windows / 601 total` verificados en R4 y Run #100).
+2. **Endurecimiento del Contrato de Reintento y Diagnósticos en `WindowsUninstallRequestListener.cs` (R5-01, R5-02 y R5-03):**
+   - **R5-02 (Preservación de la Signatura Pública de 5 Parámetros):**
+     - Se restauró la signatura pública original de 5 parámetros:
+       ```csharp
+       public static bool TryRequestRunningInstanceAndAcquire(
+           ISingleInstanceGuard singleInstanceGuard,
+           TimeSpan timeout,
+           out string error,
+           string requestEventName = RequestEventName,
+           string instanceMutexName = WindowsSingleInstanceGuard.MutexName)
+       ```
+     - El parámetro `TimeSpan pollInterval` se trasladó a una sobrecarga `internal` consumida por la suite de pruebas (`InternalsVisibleTo("PrivLock.Platform.Windows.Tests")`), garantizando compatibilidad binaria estricta del API público.
+   - **R5-01 (Validación Estricta de `timeout` y `pollInterval` y Eliminación de Truncamiento Sub-Milisegundo):**
+     - Se incorporó `ValidatePositiveFiniteInterval(TimeSpan value, string paramName)` antes de abrir cualquier handle de evento o mutex y antes de entrar al bucle de espera.
+     - Rechaza inmediatamente con `ArgumentOutOfRangeException` valores `<= TimeSpan.Zero`, intervalos sub-milisegundo (`< 1 ms`, que `.NET` truncaría a `0 ms`), `Timeout.InfiniteTimeSpan` (`-1 ms`) y valores superiores a `TimeSpan.FromMilliseconds(int.MaxValue)`.
+     - Además, en el cálculo de `waitInterval` y `sleepTime` dentro del bucle, se aplica un límite inferior de `MinWaitHandleInterval` (`1 ms`) cuando `0 < remaining < 1 ms`, impidiendo que el truncamiento entero `(long)TimeSpan.TotalMilliseconds` de `.NET` genere llamadas `Thread.Sleep(0)` (busy-spin) en el último milisegundo del plazo de timeout.
+   - **R5-03 (Diagnóstico de Timeout Diferenciado según la Última Causa de Contención Observada):**
+     - Se registra `lastContentionOutcome` (`UninstallGateBusy` vs `SingleInstanceBusy`) en cada intento de adquisición de la guarda tras el sondeo.
+     - Al expirar el timeout cuando `requestSent == false`:
+       - Si la última causa observada fue `UninstallGateBusy`: `"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request (last observed contention: UninstallGateBusy; does not guarantee mutex state after timeout)."`
+       - Si la última causa observada fue `SingleInstanceBusy`: `"The Windows single-instance mutex remained busy after probe release, and no running PrivGvard instance accepted a shutdown request (last observed contention: SingleInstanceBusy; does not guarantee mutex state after timeout)."` (nunca afirma falsamente que `UninstallGate` está ocupado cuando falló `SingleInstance`).
+       - Si el mutex de sondeo nunca llegó a adquirirse (`lastContentionOutcome == null`): `"Timed out waiting for Windows single-instance admission after no running PrivGvard instance accepted the uninstall shutdown request."` (diagnóstico neutral que no presupone si existía o no una instancia activa en otra sesión).
+     - Si `requestSent == true`, se preserva intacto el literal: `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."`
+3. **Ampliación de Cobertura Automatizada con Mutexes con Nombre Reales `Local\`:**
+   - En [`WindowsSingleInstanceStartupTests.cs`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs):
+     - Añadidos 3 tests `[Fact]` que ejercitan `WindowsSingleInstanceGuard.TryAcquireSingleInstanceDetail` sobre **mutexes con nombre reales de Windows en `Local\`** mantenidos por hilos dedicados del SO:
+       1. `RealNamedMutexes_WhenUninstallGateOwnedByAnotherThread_ReturnsUninstallGateBusyAndLeavesMainMutexFree`
+       2. `RealNamedMutexes_WhenMainMutexOwnedByAnotherThread_ReturnsSingleInstanceBusyAndReleasesGate` (verifica en un hilo separado que el gate fue liberado tras el fallo en `SingleInstance`)
+       3. `RealNamedMutexes_WhenBothFree_AcquiresBothAndReleaseAllowsSubsequentAcquisition`
+   - En [`WindowsUninstallRequestListenerTests.cs`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs):
+     - Añadido el test de integración intra-sesión con mutexes reales `Local\` [`RealNamedMutexes_ReleaseOrderInterleaving_RetriesWhileUninstallGateHeldAndAcquiresBothWhenGateReleased`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs#L439-L545), que reproduce determinísticamente la ventana de intercalación de orden de liberación R3/R4 entre dos hilos del SO usando `ManualResetEventSlim` (sin hooks en producción ni sleeps arbitrarios).
+     - Reforzado `AbandonedMutex_OnProbeHandle_PreservesOwnershipReleasesProbeBeforeGuardAndLeavesNoExtraHoldCount` verificando desde un hilo separado que el handle de sondeo abandonado se libera antes de la adquisición de la guarda y no deja recuento recursivo residual tras `guard.Release()`.
+     - Añadidos tests de reflexión para la signatura pública de 5 parámetros, validación de `pollInterval` y `timeout` (incluyendo `0`, `-1 ms` / `Timeout.InfiniteTimeSpan`, negativos, `< 1 ms` y `TimeSpan.MaxValue`), y diagnósticos diferenciados de `UninstallGateBusy`, `SingleInstanceBusy` y secuencia mixta.
+     - La suite de Windows alcanza **334 casos de prueba superados (0 fallos)** y la solución completa **616 casos de prueba superados (0 fallos)**.
+4. **Actualización del Runbook `TEST-09.7` (Separación Pre-Fix vs. Post-Fix):**
+   - La especificación de `TEST-09.7` en la Sección 7 distingue ahora explícitamente entre:
+     - **Sección 6.1 (Comportamiento Histórico Pre-Fix R3 — Baseline de Regresión):** Fallo prematuro en el primer intento cuando `requestSent == false` y UserA retiene `UninstallGate`.
+     - **Sección 6.2 (Comportamiento Esperado Post-Fix R4/R5 en Código Actual — Criterio de Aceptación):** UserB observa `UninstallGateBusy`, reintenta durante la ventana de timeout y, al reanudarse UserA y liberar `UninstallGate`, adquiere ambos mutexes y retorna `true`.
+     - **Sección 6.3 (Controles Negativos):** Retención hasta agotar timeout (`UninstallGateBusy`), contención en `SingleInstance` (`SingleInstanceBusy`), error de DACL (`AccessOrCreationError`) y timeout sin adquirir nunca el sondeo.
+   - `TEST-09.7` permanece estrictamente en **`LAB HOLD / NOT RUN`**.
+
 ### 1.2 Veredicto Oficial
 
-$$\mathbf{VEREDICTO:\ REBASELINE\ R4\ PASS\ —\ REMEDIATION\ COMPLETE\ —\ LAB\ HOLD\ (REQUIRES\ OWNER\ ACTION\ ON\ L0\ HOST)}$$
+$$\mathbf{VEREDICTO:\ REBASELINE\ R5\ PASS\ —\ RETRY\ CONTRACT\ HARDENED\ \&\ REAL\ MUTEX\ TESTS\ COMPLETE\ —\ LAB\ HOLD}$$
 
-- **Rebaseline y Remediación de Código R4:** **PASS**. Se reconcilia la presencia de `4d674ebd` en `origin/main` y el Run #99, se implementa la remediación completa en código de producción (`WindowsSingleInstanceGuard.cs` y `WindowsUninstallRequestListener.cs`) resolviendo la Release-Order Race en FUS y contención transitoria mediante reintento acotado y resultados enriquecidos, y se añaden 5 tests automatizados deterministas (601 tests pasando en la solución).
+- **Rebaseline, Reconciliación Run #100 y Hardening R5:** **PASS**. Se reconcilia el commit `86d6adcef9234b579e9313215673cf540e9fa52b` en `origin/main` y el Run #100 (`42435675882`), se preserva la signatura pública de 5 parámetros de `TryRequestRunningInstanceAndAcquire`, se blinda la validación de `timeout` y `pollInterval` (incluyendo `Timeout.InfiniteTimeSpan` y truncamiento sub-milisegundo), se diferencian con exactitud los diagnósticos de timeout según la última causa de contención observada, se añaden pruebas con mutexes con nombre reales `Local\` entre hilos del SO (616 tests pasando en la solución), y se actualiza el runbook `TEST-09.7` con los criterios de aceptación post-remediación.
 - **Readiness del Laboratorio VM:** **HOLD**. El host permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED` (Guest VirtualBox con 3.98 GB RAM visible y ~0.39 GB libre, sin nested VT-x). Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
 - **Salvaguardas Invariantes:** Microsoft Store en `CONDITIONAL HOLD`, Fase 8B.1C en `BLOCKED / NOT AUTHORIZED`.
 
@@ -146,11 +194,11 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R4\ PASS\ —\ REMEDIATION\ COMPLETE\ —\ LAB
 
 ### 2.1 Verificación de Git y Remoto
 - **Repositorio:** `cristianbarreiro/PrivGuard`
-- **Rama activa de trabajo:** `fix/8b1a7-2-r4-fus-handoff-retry`
-- **HEAD Remoto Canónico (`origin/main`):** `4d674ebd933f70edd2a1be789df2e3414e1b59f0`
-- **Parent directo en `main`:** `2f1281b0df0fa4906f14f690d95be42beadf15aa`
-- **Parent funcional anterior (Baseline auditado):** `653be31040da53bea72a540ddb2a111f16b35d50`
-- **Historial `d8ca7acc..4d674ebd` (12 commits exclusivamente documentales en `main`):**
+- **Rama activa de trabajo:** `fix/8b1a7-2-r5-retry-contract-hardening`
+- **HEAD Remoto Canónico (`origin/main`):** `86d6adcef9234b579e9313215673cf540e9fa52b`
+- **Parent directo en `main`:** `4d674ebd933f70edd2a1be789df2e3414e1b59f0`
+- **Baseline de código inicial auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`
+- **Historial `d8ca7acc..86d6adce` (12 commits documentales + 1 commit funcional R4 en `main`):**
   1. `dded99c` — Documental: corrección de evidencia Sprint 1.2 postflight.
   2. `b9d4b8f` — Documental: ajuste de afirmaciones Sprint 1.2 postflight.
   3. `07e4188` — Documental: reconciliación Sprint 1.2 con estado remoto.
@@ -162,19 +210,21 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R4\ PASS\ —\ REMEDIATION\ COMPLETE\ —\ LAB
   9. `11a7e497a212000809084d56cb3c596ccd3c6f43` — Documental: finalización de reconciliación de evidencia 8B.1A.7.
   10. `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` — Documental: reconciliación post-push R1 y precisión de cobertura de tests.
   11. `2f1281b0df0fa4906f14f690d95be42beadf15aa` — Documental: reconciliación R2 de máquina de estados FUS y preflight de host.
-  12. `4d674ebd933f70edd2a1be789df2e3414e1b59f0` — Documental: reconciliación R3 de carrera de liberación y diseño TEST-09.7 (HEAD canónico en `origin/main`).
-- **Forma Real de Integración en Remoto:** Integración directa mediante push sin Pull Request. La API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. No existen Pull Requests abiertas actualmente.
-- **Estado del Árbol de Trabajo:** Modificado localmente en rama de desarrollo `fix/8b1a7-2-r4-fus-handoff-retry` con la remediación de código y pruebas automatizadas.
-- **Código Funcional Modificado (en `fix/8b1a7-2-r4-fus-handoff-retry`):**
-  - `src/PrivLock.Platform.Windows/System/WindowsSingleInstanceGuard.cs` (incorporación de `IWindowsDetailedSingleInstanceGuard`, enum `WindowsSingleInstanceAcquisitionResult` y `TryAcquireSingleInstanceDetail`).
-  - `src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs` (incorporación de reintento acotado con backoff `pollInterval` dentro de timeout global monotónico ante contención transitoria y terminación fail-closed ante errores no transitorios).
-  - `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (5 nuevos tests deterministas `[Fact]` que cubren la máquina de estados y contenciones).
-  - `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (docstring de clase clarificando la frontera intra-proceso).
+  12. `4d674ebd933f70edd2a1be789df2e3414e1b59f0` — Documental: reconciliación R3 de carrera de liberación y diseño TEST-09.7.
+  13. `86d6adcef9234b579e9313215673cf540e9fa52b` — Funcional + Documental (R4): remediación de reintento FUS ante contención transitoria en uninstall-gate y tests unitarios (HEAD canónico en `origin/main`).
+- **Ramas Remotas en `origin`:** `main` (`86d6adc...`), `dev` (`85d028e...`), `feature/sprint-1-store-profile-guards-d01-d02` (`391d79e...`). No existe rama remota R4.
+- **Forma Real de Integración en Remoto:** Integración directa mediante push sin Pull Request. La API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. No existen Pull Requests abiertas actualmente (`0` open PRs).
+- **Estado del Árbol de Trabajo:** Modificado localmente en la rama `fix/8b1a7-2-r5-retry-contract-hardening` (solo local, sin push ni rama remota).
+- **Código Funcional y Pruebas Modificados (en `fix/8b1a7-2-r5-retry-contract-hardening`):**
+  - `src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs` (restauración de sobrecarga pública de 5 parámetros + sobrecarga `internal` con `TimeSpan pollInterval`, validación estricta de `timeout` y `pollInterval` incluyendo `Timeout.InfiniteTimeSpan` e intervalos `< 1 ms`, acotamiento mínimo de 1ms contra truncamiento a `0 ms`, y diagnósticos de timeout diferenciados según `lastContentionOutcome`).
+  - `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (3 nuevos tests con mutexes con nombre reales `Local\` entre hilos dedicados del SO verificando `UninstallGateBusy`, `SingleInstanceBusy` con liberación de gate y `Acquired` + `Release()`).
+  - `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (ampliado a 16 métodos de prueba / 20 casos ejecutables incluyendo reflexión de signatura pública de 5 parámetros, validación de intervalos inválidos, diagnósticos por última causa observada, verificación en hilo separado de mutex abandonado y test de integración intra-sesión con mutexes reales `Local\` para la carrera de orden de liberación).
 
-### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #99)
+### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #100)
 
 | Run ID | Commit SHA (40 caracteres verificados vía API) | Rama / Ref | Evento | Conclusión | Jobs Exitosos | Artefactos Publicados |
 |---|---|---|---|---|---|---|
+| **42435675882** (#100) | `86d6adcef9234b579e9313215673cf540e9fa52b` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42432585253** (#99) | `4d674ebd933f70edd2a1be789df2e3414e1b59f0` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42429999278** (#98) | `2f1281b0df0fa4906f14f690d95be42beadf15aa` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42428357398** (#97) | `405f948d9267a5e7c8b4b0b2f74eeedf799cbf9d` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
@@ -190,7 +240,7 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R4\ PASS\ —\ REMEDIATION\ COMPLETE\ —\ LAB
 | **42342850877** (#86) | `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246` | `feature/sprint-1-store-profile-guards-d01-d02` | `pull_request` (PR #11) | `success` | 7/7 | 4 Single-File executables (SHA rectificado) |
 
 > [!NOTE]
-> **Trazabilidad de Triggers:** El evento `pull_request` fue probado y superado con éxito en los Runs #86 y #87 durante la tramitación de la PR #11. Los 12 commits documentales posteriores (`d8ca7acc..4d674ebd`) fueron integrados mediante eventos de tipo `push` directo sobre `main` (Runs #89 al #99).
+> **Trazabilidad de Triggers:** El evento `pull_request` fue probado y superado con éxito en los Runs #86 y #87 durante la tramitación de la PR #11. Los 13 commits posteriores (`d8ca7acc..86d6adce`, formados por 12 commits documentales y el commit funcional R4 `86d6adcef9234b579e9313215673cf540e9fa52b`) fueron integrados mediante eventos de tipo `push` directo sobre `main` (Runs #89 al #100).
 
 ---
 
@@ -236,10 +286,11 @@ Al auditar directamente el desinstalador Inno Setup ([`installer/setup.iss#L18-L
 - `setup.iss` enumera los perfiles interactivos desde `ProfileList` en HKLM y bloquea la desinstalación (*fail-closed*) si detecta un diario o marcador activo.
 - **Límite Estricto:** Esta protección es exclusiva del instalador Standalone Inno Setup. **No tiene intervención ni capacidad para bloquear la desinstalación del paquete MSIX por parte de Windows**.
 
-### 4.3 Cuantificación de Commits (`9f856c0..2f1281b0`)
+### 4.3 Cuantificación de Commits (`9f856c0..86d6adce`)
 El historial se divide en:
 1. **Rango `9f856c0..d8ca7acc` (5 commits funcionales / CI / merge):** `7066b3b` (Docs 8B.1A), `0a270a1` (Sprint 1.0 D-01/D-02), `391d79e` (Sprint 1.1 Inmutabilidad), `ffc2273` (Merge PR #11), `d8ca7ac` (Sprint 1.2 CI Gate).
-2. **Rango `d8ca7acc..2f1281b0` (11 commits exclusivamente documentales):** `dded99c`, `b9d4b8f`, `07e4188`, `653be31` (baseline de código auditado), `3f08f12`, `54fb446` (`54fb44670c55...`), `aedd19c` (`aedd19c819dd...`), `fc345eb`, `11a7e49`, `405f948d` y `2f1281b0df0fa4906f14f690d95be42beadf15aa` (HEAD canónico en `origin/main`).
+2. **Rango `d8ca7acc..4d674ebd` (12 commits exclusivamente documentales):** `dded99c`, `b9d4b8f`, `07e4188`, `653be31` (baseline de código auditado), `3f08f12`, `54fb446` (`54fb44670c55...`), `aedd19c` (`aedd19c819dd...`), `fc345eb`, `11a7e49`, `405f948d`, `2f1281b0` y `4d674ebd933f70edd2a1be789df2e3414e1b59f0`.
+3. **Commit funcional + documental R4 en `origin/main`:** `86d6adcef9234b579e9313215673cf540e9fa52b` (remediación de reintento FUS y tests unitarios deterministas; HEAD remoto canónico).
 
 ### 4.4 Mutex Global, DACL, Dos Mutexes en Guard, Release-Order Race y Máquina de Estados FUS
 La auditoría estática adversarial sobre los objetos de sincronización y control de instancia en Windows (`net10.0-windows10.0.19041.0`) establece las siguientes precisiones técnicas rigurosas:
@@ -321,11 +372,11 @@ La auditoría estática adversarial sobre los objetos de sincronización y contr
 - **Camino E (Denegación por DACL / Error en Probe Mutex):** Win32 deniega apertura de `Global\PrivLock_SingleInstance`. `new Mutex(...)` en línea 106 arroja `UnauthorizedAccessException` sin try-catch local, propagándose a `Program.Main` (líneas 476–495) -> crash report, log fatal, retroalimentación segura y salida con código 1.
 - **Camino F (Mutex Abandonado por Caída de UserA):** `instanceMutex.WaitOne` arroja `AbandonedMutexException` (capturada en líneas 122–126). Se libera probe handle y se reintenta guard. Si guard adquiere -> retorna `true` (**ÉXITO**); si no adquiere -> Camino D.
 
-#### 6. Remediación Implementada en R4 y Análisis Comparativo Antes/Después:
+#### 6. Remediación Implementada en R4, Hardening de Contrato en R5 y Análisis Comparativo Antes/Después:
 
-##### A. Contratos Internos y Arquitectura de Remediación
-Para resolver la *Release-Order Race* y la contención transitoria sin alterar la interfaz pública multiplataforma `ISingleInstanceGuard` ni perturbar el ciclo de vida de desinstalación de Inno Setup, se implementó en `PrivLock.Platform.Windows`:
-1. **Enum Interno de Diagnóstico:**
+##### A. Contratos Internos y Arquitectura de Remediación (R4 + R5)
+Para resolver la *Release-Order Race* y la contención transitoria sin alterar la interfaz pública multiplataforma `ISingleInstanceGuard` ni perturbar el ciclo de vida de desinstalación de Inno Setup, se implementó y endureció en `PrivLock.Platform.Windows`:
+1. **Enum Interno de Diagnóstico (`WindowsSingleInstanceAcquisitionResult`):**
    ```csharp
    internal enum WindowsSingleInstanceAcquisitionResult
    {
@@ -335,7 +386,7 @@ Para resolver la *Release-Order Race* y la contención transitoria sin alterar l
        AccessOrCreationError
    }
    ```
-2. **Interfaz Interna de Guarda Detallada:**
+2. **Interfaz Interna de Guarda Detallada (`IWindowsDetailedSingleInstanceGuard`):**
    ```csharp
    internal interface IWindowsDetailedSingleInstanceGuard
    {
@@ -347,28 +398,32 @@ Para resolver la *Release-Order Race* y la contención transitoria sin alterar l
    - `TryAcquireSingleInstanceDetail` evalúa secuencialmente `_uninstallGate` y `_mutex`. Si no puede adquirir `_uninstallGate`, retorna `UninstallGateBusy`. Si no puede adquirir `_mutex`, libera `_uninstallGate` y retorna `SingleInstanceBusy`. Si ocurre una excepción de creación/seguridad, retorna `AccessOrCreationError`.
    - Soporta el flag `suppressLogging: true` para evitar inundar los registros de Serilog durante los reintentos en bucle.
    - El método estándar `TryAcquireSingleInstance()` consume `TryAcquireSingleInstanceDetail(suppressLogging: false) == WindowsSingleInstanceAcquisitionResult.Acquired`, manteniendo 100% de compatibilidad binaria y semántica previa.
+4. **Preservación de Signatura Pública y Validación de Intervalos en `WindowsUninstallRequestListener` (R5-01 y R5-02):**
+   - **R5-02:** Se preserva la signatura pública original de 5 parámetros de `TryRequestRunningInstanceAndAcquire(...)`, que delega en una sobrecarga `internal` de 6 parámetros con `TimeSpan pollInterval` para pruebas.
+   - **R5-01:** `ValidatePositiveFiniteInterval` valida `timeout` y `pollInterval` antes de abrir cualquier handle de sincronización. Rechaza con `ArgumentOutOfRangeException` valores `<= TimeSpan.Zero`, intervalos sub-milisegundo (`< 1 ms`), `Timeout.InfiniteTimeSpan` (`-1 ms`) y valores superiores a `TimeSpan.FromMilliseconds(int.MaxValue)`.
+   - Asimismo, dentro del bucle `while (stopwatch.Elapsed < timeout)`, tanto `waitInterval` como `sleepTime` se acotan inferiormente a `MinWaitHandleInterval` (`1 ms`), impidiendo que un remanente `0 < remaining < 1 ms` se trunque a `0 ms` en `WaitOne`/`Thread.Sleep` y provoque un bucle de espera activa (*busy-spin*).
+5. **Diagnósticos de Timeout Diferenciados por Última Causa de Contención Observada (R5-03):**
+   - El bucle registra `lastContentionOutcome` (`UninstallGateBusy` o `SingleInstanceBusy`) en cada intento de la guarda posterior al sondeo.
+   - Si el sondeo adquiere `instanceMutex`, pero el reintento de la guarda devuelve `UninstallGateBusy` o `SingleInstanceBusy`, duerme `sleepTime` y reintenta dentro de la ventana global `timeout`.
+   - Si la guarda devuelve `AccessOrCreationError`, **termina inmediatamente (*fail-closed*)** sin esperar al timeout, devolviendo `error = "Failed to create or acquire single-instance mutex on Windows."`.
+   - Si el plazo expira (`stopwatch.Elapsed >= timeout`), `FormatTimeoutError(requestSent, lastContentionOutcome)` devuelve:
+     - Con `requestSent == true`: `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."`
+     - Con `requestSent == false` y `lastContentionOutcome == UninstallGateBusy`: `"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request (last observed contention: UninstallGateBusy; does not guarantee mutex state after timeout)."`
+     - Con `requestSent == false` y `lastContentionOutcome == SingleInstanceBusy`: `"The Windows single-instance mutex remained busy after probe release, and no running PrivGvard instance accepted a shutdown request (last observed contention: SingleInstanceBusy; does not guarantee mutex state after timeout)."`
+     - Con `requestSent == false` y `lastContentionOutcome == null` (el mutex de sondeo nunca llegó a adquirirse): `"Timed out waiting for Windows single-instance admission after no running PrivGvard instance accepted the uninstall shutdown request."`
 
-4. **Bucle de Reintento Acotado en `WindowsUninstallRequestListener`:**
-   - La signatura pública de `TryRequestRunningInstanceAndAcquire` incorpora el parámetro opcional `TimeSpan? pollInterval = null` (por defecto `PollInterval = 100ms`).
-   - El bucle de espera evalúa `stopwatch.Elapsed < timeout` contra un `Stopwatch` monotónico único.
-   - Si el sondeo adquiere `instanceMutex`, pero el reintento de la guarda devuelve `UninstallGateBusy` o `SingleInstanceBusy`:
-     - **No aborta prematuramente** si `requestSent == false`.
-     - Duerme un intervalo acotado: `Math.Min(effectivePollInterval.TotalMilliseconds, remaining.TotalMilliseconds)`.
-     - Continúa el bucle reintentando la adquisición hasta que se obtengan ambos mutexes o se agote la ventana global de timeout.
-   - Si el reintento devuelve `AccessOrCreationError`: **termina inmediatamente (*fail-closed*)** sin esperar al timeout, devolviendo `error = "Failed to create or acquire single-instance mutex on Windows."`.
+##### B. Tabla Comparativa Antes vs. Después para los Caminos A–G (R3 -> R4 -> R5)
 
-##### B. Tabla Comparativa Antes vs. Después para los Caminos A–G
-
-| Camino | Escenario | Comportamiento Previo (R3) | Comportamiento Remediado (R4) | Veredicto de Mejora |
+| Camino | Escenario | Comportamiento Previo (R3) | Comportamiento Remediado y Endurecido (R4 + R5) | Veredicto de Mejora |
 |---|---|---|---|---|
 | **Camino A** | Misma sesión, señal entregada (`requestSent = true`), UserA libera ambos mutexes. | Éxito en 1er intento. Retorna `true`. | Éxito en 1er intento. Retorna `true`. | **Preservado (Sin regresión)** |
-| **Camino B** | Retención continua durante todo el plazo (misma sesión o FUS). | Timeout al expirar. Retorna `false` con mensaje según `requestSent`. | Timeout al expirar. Retorna `false` con idéntico mensaje determinista. | **Preservado (Sin regresión)** |
+| **Camino B** | Retención continua del mutex de sondeo durante todo el plazo (misma sesión o FUS). | Timeout al expirar. Si `requestSent == false`, devolvía mensaje que infería ausencia de instancia aceptante. | Timeout al expirar. Con `requestSent == true` preserva el mensaje exacto; con `requestSent == false` y `lastContentionOutcome == null` emite diagnóstico neutral sin presuponer si existía un proceso activo. | **PRECISIÓN DIAGNÓSTICA (R5-03)** |
 | **Camino C** | FUS (`requestSent = false`), UserA libera ambos mutexes antes de que UserB sondee. | Éxito en 1er intento. Retorna `true`. | Éxito en 1er intento. Retorna `true`. | **Preservado (Sin regresión)** |
-| **Camino D1** | **Release-Order Race en FUS:** UserA libera `SingleInstance` antes que `UninstallGate`; UserB sondea antes de que UserA complete `ReleaseUninstallGateCore()`. | **FALLO PREMATURO:** `TryAcquireSingleInstance()` falla; al evaluar `requestSent == false`, **aborta de inmediato** con error de gate owned. | **ÉXITO TRAS REINTENTO:** Al recibir `UninstallGateBusy`, duerme `pollInterval` (~100ms); en la siguiente iteración UserA ya liberó `UninstallGate`, adquiere ambos y retorna `true`. | **RESOLUCIÓN COMPLETA** |
-| **Camino D2** | **Contención por 3er Proceso:** Un proceso concurrente retiene transitoriamente un mutex entre sondeo y reintento. | **FALLO PREMATURO:** Si `requestSent == false`, aborta de inmediato. | **RESILIENCIA TRANSITORIA:** Reintenta durante la ventana de timeout; si el 3er proceso libera el recurso, adquiere exitosamente; si persiste, falla cerrado al expirar el timeout. | **MEJORA DE DISPONIBILIDAD** |
-| **Camino E** | **Error de DACL o Creación:** Excepción de Win32 / Permisos al abrir o crear mutexes. | Excepción no estructurada o salida con código 1. | **FAIL-CLOSED DETERMINISTA:** Retorna de inmediato `false` con mensaje de error específico sin bucles innecesarios. | **ROBUSTEZ Y FAIL-CLOSED** |
-| **Camino F** | **Mutex Abandonado:** Caída anómala de UserA dejando mutex en estado abandonado. | Sondeo captura `AbandonedMutexException`, libera y prueba guard. | **Preservado:** Sondeo captura `AbandonedMutexException`, preserva propiedad y reintenta normalmente. | **Preservado (Sin regresión)** |
-| **Camino G** | **Gate Ocupado sin Instancia:** Instalador previo retiene gate o arranque concurrente bloqueado. | Aborta en 1er intento si no hay evento. | Reintenta de forma acotada; al expirar timeout retorna error explícito de gate owned sin busy-spin. | **CONTROL DE CONCURRENCIA** |
+| **Camino D1** | **Release-Order Race en FUS:** UserA libera `SingleInstance` antes que `UninstallGate`; UserB sondea antes de que UserA complete `ReleaseUninstallGateCore()`. | **FALLO PREMATURO:** `TryAcquireSingleInstance()` falla; al evaluar `requestSent == false`, **aborta de inmediato** con error de gate owned. | **ÉXITO TRAS REINTENTO:** Al recibir `UninstallGateBusy`, duerme `pollInterval` (~100ms); en la siguiente iteración UserA ya liberó `UninstallGate`, adquiere ambos y retorna `true`. | **RESOLUCIÓN COMPLETA (Verificado con mutexes reales `Local\` en R5)** |
+| **Camino D2** | **Contención por 3er Proceso (`SingleInstanceBusy`):** Un proceso concurrente adquiere `SingleInstance` entre la liberación del sondeo y el reintento de la guarda. | **FALLO PREMATURO Y DIAGNÓSTICO FALSO:** Abortaba de inmediato afirmando que `UninstallGate` estaba ocupado. | **RESILIENCIA Y DIAGNÓSTICO VERAZ:** Reintenta durante la ventana de timeout; si persiste al expirar, reporta `SingleInstanceBusy` como última causa observada sin atribuirlo falsamente a `UninstallGate`. | **MEJORA DE DISPONIBILIDAD Y EXACTITUD (R5-03)** |
+| **Camino E** | **Error de DACL o Creación:** Excepción de Win32 / Permisos al abrir o crear mutexes en la guarda. | Excepción no estructurada o salida con código 1. | **FAIL-CLOSED DETERMINISTA:** Retorna de inmediato `false` con mensaje de error específico sin bucles innecesarios. | **ROBUSTEZ Y FAIL-CLOSED** |
+| **Camino F** | **Mutex Abandonado:** Caída anómala de UserA dejando mutex de sondeo en estado abandonado. | Sondeo captura `AbandonedMutexException`, libera y prueba guard. | **Preservado y Verificado:** Sondeo captura `AbandonedMutexException`, libera el handle de sondeo antes de invocar la guarda y deja recuento recursivo cero tras `guard.Release()`. | **Preservado y Endurecido en Tests (R5)** |
+| **Camino G** | **Gate Ocupado sin Instancia (`UninstallGateBusy`):** Instalador previo retiene gate durante todo el plazo. | Aborta en 1er intento si no hay evento. | Reintenta de forma acotada sin busy-spin sub-milisegundo; al expirar timeout retorna diagnóstico explícito de `UninstallGateBusy`. | **CONTROL DE CONCURRENCIA (R5-01 / R5-03)** |
 
 ---
 
@@ -473,69 +528,103 @@ Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida
    - **TEST-09.5 — Mutex Abandonado y Recuperación de Ownership:** Forzar `taskkill /F` en `UserA`; iniciar `UserB` y verificar adquisición y recuperación sin bloqueos huérfanos.
    - **TEST-09.6 — Impacto Funcional, Fallback Fail-Closed y Observabilidad:** Registrar fallbacks fail-closed en logs de Serilog (`%LOCALAPPDATA%\PrivGvard\Logs\`).
    - **TEST-09.7 — FUS Handoff Release-Order Race (SingleInstance Released Before UninstallGate) — `LAB HOLD / NOT RUN`:**
-     - **Objetivo:** Comprobar si el proceso UserB en FUS puede despertar sobre `Global\PrivLock_SingleInstance` después de que UserA lo libera pero antes de que UserA libere `Global\PrivLock_UninstallGate`, provocando que el reintento de guard de UserB falle y aborte prematuramente el handoff.
+     - **Objetivo:** Verificar en una VM aislada multi-sesión con Fast User Switching (FUS) el comportamiento del handoff de desinstalación segura cuando el proceso de `UserB` despierta sobre `Global\PrivLock_SingleInstance` inmediatamente después de que `UserA` lo libera pero antes de que `UserA` libere `Global\PrivLock_UninstallGate`, distinguiendo el baseline histórico de regresión pre-fix (R3) del criterio de aceptación post-remediación (R4/R5).
      - **Precondiciones:**
-       1. VM Windows 11 aislada en host físico L0 con snapshots limpios.
+       1. VM Windows 11 aislada en host físico L0 con snapshots limpios (`SNAP-02-TEST-CERT`).
        2. Dos cuentas estándar de prueba: `UserA` y `UserB`.
-       3. Dos sesiones interactivas independientes mediante Fast User Switching.
-       4. Una cuenta administrativa separada para instrumentación.
-       5. Instrumentación de procesos, handles y logs de Serilog disponible.
+       3. Dos sesiones interactivas independientes activas simultáneamente mediante Fast User Switching.
+       4. Una cuenta administrativa separada para instrumentación y depuración.
+       5. Instrumentación de procesos, handles (`\BaseNamedObjects`) y logs de Serilog disponible.
        6. Dispositivos de cámara y micrófono virtuales o descartables (sin hardware físico).
      - **Escenario Controlado (Método de Pausa):**
-       - Se pausará el proceso de UserA inmediatamente entre:
+       - Se pausará el proceso de `UserA` inmediatamente entre:
          ```csharp
          ReleaseMutexCore(ref _mutex, ref _hasAcquired, "single-instance");
          // PAUSA CONTROLADA AQUÍ
          ReleaseUninstallGateCore();
          ```
-       - Puede implementarse en laboratorio mediante una sesión de depuración (breakpoint en Visual Studio / WinDbg) o un harness de laboratorio aislado.
-       - UserB ejecuta únicamente el método de handoff, sin invocar el desinstalador Inno ni borrar archivos.
+       - Se implementa en laboratorio mediante una sesión de depuración (breakpoint en Visual Studio / WinDbg) o un harness de laboratorio aislado, sin introducir hooks en código de producción.
+       - `UserB` ejecuta únicamente el método de handoff (`TryRequestRunningInstanceAndAcquire`), sin invocar el desinstalador Inno ni borrar archivos.
      - **Pasos de la Prueba Futura:**
-       1. Iniciar PrivGvard en `UserA` y confirmar que posee ambos mutexes globales.
-       2. Cambiar a `UserB` mediante FUS (sin cerrar `UserA`).
-       3. Confirmar que UserB no puede abrir el evento `Local\` de `UserA` (`requestSent == false`).
+       1. Iniciar PrivGvard en `UserA` (Sesión 1) y confirmar que posee ambos mutexes globales (`Global\PrivLock_UninstallGate` y `Global\PrivLock_SingleInstance`).
+       2. Cambiar a `UserB` (Sesión 2) mediante FUS sin cerrar `UserA`.
+       3. Confirmar que `UserB` no puede abrir el evento `Local\PrivLock_UninstallRequested` de `UserA` (`requestSent == false`).
        4. Dejar a `UserB` esperando sobre `Global\PrivLock_SingleInstance` en `TryRequestRunningInstanceAndAcquire`.
        5. En `UserA`, iniciar el cierre y pausar la ejecución inmediatamente después de liberar `SingleInstance` y antes de liberar `UninstallGate`.
-       6. Permitir que `UserB` continúe.
-       7. Capturar: resultado de `WaitOne` del sondeo, liberación del handle de sondeo, intento de `TryAcquireSingleInstance()`, fallo en `_uninstallGate.WaitOne(0)`, valor de `requestSent`, mensaje de error devuelto, logs de Serilog de la guarda, y PIDs/SIDs/Session IDs de ambos procesos.
-       8. Verificar que `TryRequestRunningInstanceAndAcquire()` devuelve `false` con el mensaje especial de gate owned antes de que `UserA` libere el uninstall gate.
-       9. Reanudar `UserA` y confirmar la liberación del uninstall gate.
+       6. Permitir que `UserB` despierte del sondeo, libere el handle de sondeo e invoque `TryAcquireSingleInstanceDetail` mientras `UserA` permanece pausado reteniendo `UninstallGate`.
+       7. Capturar: resultado de `WaitOne` del sondeo, liberación del handle de sondeo, retorno `UninstallGateBusy` en el primer intento de la guarda, ausencia de spam de logs en Serilog (`suppressLogging: true`), y PIDs/SIDs/Session IDs de ambos procesos.
+       8. Según la sección bajo prueba (6.1 o 6.2), observar el desenlace antes y después de reanudar `UserA`.
+       9. Reanudar `UserA` y confirmar la liberación de `UninstallGate`.
        10. Restaurar snapshot limpio de la VM.
-     - **Controles Comparativos:**
-       - *Control 09.7-A (Liberación Completa Previa):* UserA libera ambos mutexes antes de que UserB salga de la espera. Resultado esperado: reintento adquiere ambos y retorna `true`.
-       - *Control 09.7-B (Retención Activa Continua):* UserA retiene `SingleInstance` durante todo el plazo. Resultado esperado: timeout del sondeo.
-       - *Control 09.7-C (Tercer Proceso):* El mutex de sondeo se libera, pero un tercer proceso adquiere alguno de los mutexes antes del reintento. Resultado esperado: fallo por contención independiente.
-       - *Control 09.7-D (DACL Restrictiva):* DACL impide abrir el mutex de sondeo. Resultado esperado: excepción en constructor/apertura, no resultado de `WaitOne`.
-     - **Criterios de Dictamen:**
-       - **REPRODUCIDO (PASS de la prueba de carrera):** UserA libera `SingleInstance`, UserA todavía conserva `UninstallGate`, UserB adquiere y libera sondeo, reintento de UserB falla en `UninstallGate`, `requestSent == false`, y `TryRequestRunningInstanceAndAcquire()` retorna `false` antes de que UserA libere `UninstallGate`.
-       - **NO REPRODUCIDO:** El reintento adquiere ambos mutexes o el scheduler no permite la intercalación en ejecuciones sin pausa.
-       - **INCONCLUSIVE:** La ejecución no logra aislar la ventana temporal requerida.
+     - **Sección 6.1 — Comportamiento Histórico Pre-Fix (R3 — Baseline de Regresión):**
+       - En un binario compilado en el commit `4d674ebd` (anterior a R4):
+         1. `UserA` libera `SingleInstance` y queda pausado reteniendo `UninstallGate`.
+         2. `UserB` adquiere el mutex de sondeo, lo libera y llama a `TryAcquireSingleInstance()`.
+         3. La guarda de `UserB` falla en `_uninstallGate.WaitOne(0)`.
+         4. Al ser `requestSent == false`, `UserB` **aborta de inmediato en el primer intento** devolviendo `false` con `"The Windows uninstall gate is owned, but no running PrivGvard instance accepted a shutdown request."` antes de que `UserA` reanude.
+     - **Sección 6.2 — Comportamiento Esperado Post-Fix en Código Actual (R4/R5 — Criterio de Aceptación):**
+       - En un binario compilado desde el código actual (R4/R5):
+         1. `UserA` libera `SingleInstance` y queda pausado reteniendo `UninstallGate`.
+         2. `UserB` adquiere el mutex de sondeo, lo libera y llama a `TryAcquireSingleInstanceDetail(suppressLogging: true)`.
+         3. La guarda de `UserB` devuelve `UninstallGateBusy`.
+         4. **`UserB` NO falla inmediatamente**; registra `lastContentionOutcome = UninstallGateBusy`, duerme `pollInterval` (~100ms) y reintenta dentro de la ventana monotónica de `timeout`.
+         5. Cuando `UserA` se reanuda y libera `UninstallGate` dentro del `timeout`, el siguiente reintento de `UserB` adquiere **ambos** mutexes (`UninstallGate` + `SingleInstance`) y `TryRequestRunningInstanceAndAcquire()` **retorna `true`** con `error == string.Empty`.
+     - **Sección 6.3 — Controles Negativos Post-Fix (R5):**
+       - *Control 09.7-A (Liberación Completa Previa):* `UserA` libera ambos mutexes antes de que `UserB` salga de la espera. Resultado esperado: primer intento adquiere ambos y retorna `true`.
+       - *Control 09.7-B (Retención de `UninstallGate` Durante Todo el Timeout):* `UserA` permanece pausado reteniendo `UninstallGate` hasta que expira `timeout`. Resultado esperado: `UserB` reintenta de forma acotada y retorna `false` con diagnóstico que identifica `last observed contention: UninstallGateBusy`.
+       - *Control 09.7-C (Contención en `SingleInstance` por Tercer Proceso hasta Timeout):* `UninstallGate` está libre pero un tercer proceso retiene `SingleInstance` hasta agotar `timeout`. Resultado esperado: `UserB` libera `UninstallGate` en cada intento fallido y al expirar retorna `false` con diagnóstico que identifica `last observed contention: SingleInstanceBusy` (sin afirmar falsamente que `UninstallGate` está ocupado).
+       - *Control 09.7-D (Denegación de DACL / Error de Creación):* Una DACL restrictiva impide crear/adquirir los mutexes en la guarda (`AccessOrCreationError`). Resultado esperado: terminación fail-closed inmediata sin agotar `timeout`.
+       - *Control 09.7-E (Retención Continua de `SingleInstance` Sin Llegar a Adquirir el Sondeo):* `UserA` retiene `SingleInstance` durante todo el plazo sin liberarlo nunca. Resultado esperado: con `requestSent == false`, retorna `false` con el diagnóstico neutral `"Timed out waiting for Windows single-instance admission after no running PrivGvard instance accepted the uninstall shutdown request."`
+     - **Criterios de Dictamen en VM (Código Actual R5):**
+       - **PASS (Aceptación de la remediación R4/R5):** Se verifica empíricamente la Sección 6.2 (`UserB` sobrevive a la pausa intermedia reintentando ante `UninstallGateBusy` y retorna `true` al liberar `UserA` el `UninstallGate` dentro del plazo) junto con los controles negativos 6.3.
+       - **FAIL (Regresión):** `UserB` aborta en el primer intento mientras `timeout` sigue vigente, o devuelve un diagnóstico que atribuye erróneamente `SingleInstanceBusy` a `UninstallGate`.
+       - **INCONCLUSIVE:** La ejecución en laboratorio no logra aislar la ventana temporal entre ambas liberaciones.
 10. **TEST-10 (Coexistencia con Edición Standalone y Jurisdicción de Desinstaladores) — `LAB HOLD / NOT RUN`:**
     - Concurrencia Store/Standalone en misma sesión y entre sesiones; ejecución secuencial e inspección de rutas en AppData; handoff de desinstalación; y ratificación de que Inno Setup carece de autoridad sobre el paquete MSIX.
 11. **TEST-11 (Recuperación tras Caída Simulada) — `LAB HOLD / NOT RUN`:**
     - Forzar terminación del proceso (`taskkill /F`) con marcador activo presente; reiniciar y verificar recuperación automática del WAL.
 
-### 7.2 Cobertura de Pruebas Unitarias Automatizadas (Fase 8B.1A.7.2-R4)
+### 7.2 Cobertura de Pruebas Unitarias e Intra-Sesión Automatizadas (Fase 8B.1A.7.2-R5)
 
-A diferencia de los casos dinámicos de VM (que requieren interacción física entre sesiones y token/DACL del sistema operativo), la lógica de la máquina de estados, transiciones de error, contención transitoria y bucle de reintento de `WindowsUninstallRequestListener` se encuentra **completamente cubierta por pruebas unitarias automatizadas deterministas**:
+> [!NOTE]
+> **Delimitación Estricta de Evidencia Automatizada:** Los tests prefijados con `SimulatedGuard_` o `FakeGuard_` ejercitan determinísticamente la máquina de estados mediante dobles de prueba. Los tests prefijados con `RealNamedMutexes_` utilizan **mutexes con nombre reales de Windows en `Local\`** a través de hilos dedicados del sistema operativo dentro de la sesión de logon actual. **Ninguna prueba automatizada intra-sesión simula Fast User Switching (FUS) entre sesiones distintas de Windows, tokens/SIDs de múltiples usuarios ni fronteras DACL en `Global\`, los cuales permanecen sujetos a `TEST-09` / `TEST-09.7` (`LAB HOLD / NOT RUN`).**
 
-| Test Unitario (`[Fact]`) | Propósito / Invariante Verificado | Resultado |
-|---|---|---|
-| `RunningInstanceReceivesSafeShutdownRequestAndReleasesSingleInstanceAdmission` | Handoff normal en misma sesión: señal local entregada, instancia en ejecución libera admisión y nuevo proceso adquiere. | **SUPERADO** |
-| `BusyUninstallGateWithoutRunningInstanceFailsExplicitly` | Instancia ausente y uninstall gate ocupado: reintenta hasta agotar timeout y falla cerrado con error explícito de gate owned. | **SUPERADO** |
-| `RunningInstanceThatDoesNotReleaseAdmissionTimesOutExplicitly` | Señal entregada pero instancia no libera admisión: timeout explícito con diagnóstico de shutdown no completado. | **SUPERADO** |
-| `NoEventTransientContentionThenRecovery_ReturnsSuccessOnlyAfterBothLocksAcquired` | **Simulación determinista de Release-Order Race en FUS:** Contención transitoria en `UninstallGateBusy` durante intentos iniciales; adquiere tras liberación y asegura ambos bloqueos. | **SUPERADO** |
-| `NoEventPermanentContention_FailsClosedAtTimeoutWithoutBusySpin` | Contención permanente en `UninstallGateBusy`: reintento acotado con backoff (`pollInterval`) sin busy-spin hasta agotar ventana de timeout monotónica. | **SUPERADO** |
-| `PermanentAccessOrCreationError_TerminatesPromptlyWithoutRetryingToTimeout` | Error irrecuperable de seguridad/creación (`AccessOrCreationError`): terminación fail-closed inmediata (<1000ms) sin bucle de reintento innecesario. | **SUPERADO** |
-| `ThirdProcessContentionRace_RetriesUntilAdmissionOrTimeout` | Simulación de contención transitoria por 3er proceso (`SingleInstanceBusy`): reintenta durante el timeout y adquiere tras cesar la contención. | **SUPERADO** |
-| `AbandonedMutex_OnProbeHandle_PreservesOwnershipAndSucceedsIfGuardAcquires` | Mutex de sondeo abandonado por caída de proceso: captura `AbandonedMutexException`, preserva propiedad y adquiere con la guarda. | **SUPERADO** |
+#### A. Tests en `WindowsUninstallRequestListenerTests.cs` (16 métodos / 20 casos ejecutables)
+
+| Test Automatizado (`[Fact]` / `[Theory]`) | Tipo de Guarda / Primitiva | Propósito / Invariante Verificado | Resultado |
+|---|---|---|---|
+| `PublicApi_TryRequestRunningInstanceAndAcquire_PreservesFiveParameterSignature` | Reflexión de Metadatos | **R5-02:** Verifica que existe un único método público `TryRequestRunningInstanceAndAcquire` con exactamente los 5 parámetros originales y valores por defecto intactos. | **SUPERADO** |
+| `PollIntervalValidation_ZeroNegativeOrInfinite_ThrowsArgumentOutOfRangeImmediatelyWithoutCreatingProbeMutex` (3 casos) | Validación Pre-Handle | **R5-01:** Verifica que `pollInterval` con `0 ms`, `-1 ms` (`Timeout.InfiniteTimeSpan`) o `-250 ms` lanza `ArgumentOutOfRangeException("pollInterval")` inmediatamente sin crear el mutex de sondeo ni invocar la guarda. | **SUPERADO** |
+| `PollIntervalValidation_SubMillisecondOrExceedingWaitHandleLimit_ThrowsArgumentOutOfRangeImmediately` | Validación Pre-Handle | **R5-01:** Verifica que intervalos sub-milisegundo (`TimeSpan.FromTicks(100)`, truncables a `0 ms`) o `TimeSpan.MaxValue` lanzan `ArgumentOutOfRangeException("pollInterval")` de inmediato. | **SUPERADO** |
+| `TimeoutValidation_ZeroNegativeOrInfinite_ThrowsArgumentOutOfRangeImmediatelyWithoutCreatingProbeMutex` (3 casos) | Validación Pre-Handle | **R5-01:** Verifica que `timeout` con `0 ms`, `-1 ms` (`Timeout.InfiniteTimeSpan`) o `-500 ms` lanza `ArgumentOutOfRangeException("timeout")` sin abrir handles. | **SUPERADO** |
+| `TimeoutValidation_ExceedingWaitHandleLimit_ThrowsArgumentOutOfRangeImmediately` | Validación Pre-Handle | **R5-01:** Verifica que `timeout = TimeSpan.MaxValue` lanza `ArgumentOutOfRangeException("timeout")` de inmediato. | **SUPERADO** |
+| `RunningInstanceReceivesSafeShutdownRequestAndReleasesSingleInstanceAdmission` | `WindowsSingleInstanceGuard` real (`Local\`) | Handoff normal en misma sesión (`requestSent == true`): instancia activa libera ambos mutexes y el solicitante adquiere ambos. | **SUPERADO** |
+| `FakeGuard_BusyUninstallGateWithoutRunningInstanceFailsExplicitly` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Instancia ausente y `UninstallGateBusy` permanente: reintenta hasta agotar timeout y reporta `"The Windows uninstall gate is owned... (last observed contention: UninstallGateBusy...)"`. | **SUPERADO** |
+| `FakeGuard_BusySingleInstanceWithoutRunningInstance_ReportsSingleInstanceContentionNotUninstallGate` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Cuando el reintento falla por `SingleInstanceBusy` (`requestSent == false`), el mensaje de timeout reporta contención en `SingleInstance` y **nunca** afirma que `UninstallGate` está ocupado. | **SUPERADO** |
+| `FakeGuard_MixedContentionSequenceEndingInSingleInstanceBusy_ReportsLastObservedContentionCause` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | **R5-03:** Secuencia mixta (`UninstallGateBusy` -> `SingleInstanceBusy`): el diagnóstico final refleja la última causa observada y aclara que no garantiza el estado posterior al timeout. | **SUPERADO** |
+| `RunningInstanceThatDoesNotReleaseAdmissionTimesOutExplicitly` | `WindowsSingleInstanceGuard` real (`Local\`) | Con `requestSent == true` y mutex retenido, preserva intacto el mensaje `"The running PrivGvard instance did not finish its safe shutdown before the uninstall handoff expired."` | **SUPERADO** |
+| `NoEventAndProbeMutexNeverAcquired_ReturnsNeutralTimeoutDiagnostic` | `WindowsSingleInstanceGuard` real (`Local\`) | **R5-03:** Cuando `requestSent == false` y el mutex de sondeo nunca se libera durante el plazo, devuelve diagnóstico neutral de timeout sin inferir si había o no un proceso aceptante. | **SUPERADO** |
+| `SimulatedGuard_NoEventTransientUninstallGateContentionThenRecovery_ReturnsSuccessOnlyAfterBothLocksAcquired` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Simulación determinista de máquina de estados para contención transitoria en `UninstallGateBusy` seguida de `Acquired`. | **SUPERADO** |
+| `SimulatedGuard_NoEventPermanentUninstallGateContention_FailsClosedAtTimeoutWithoutBusySpin` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Verifica ausencia de *busy-spin* (incluyendo el último milisegundo del plazo gracias al acotamiento mínimo de 1ms) ante contención permanente. | **SUPERADO** |
+| `SimulatedGuard_PermanentAccessOrCreationError_TerminatesPromptlyWithoutRetryingToTimeout` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Verifica terminación *fail-closed* inmediata en el primer intento ante `AccessOrCreationError`. | **SUPERADO** |
+| `SimulatedGuard_ThirdProcessSingleInstanceContention_RetriesUntilAdmission` | `SimulatedGuard` + Mutex de sondeo real (`Local\`) | Simulación determinista de contención transitoria `SingleInstanceBusy` y recuperación posterior. | **SUPERADO** |
+| `AbandonedMutex_OnProbeHandle_PreservesOwnershipReleasesProbeBeforeGuardAndLeavesNoExtraHoldCount` | `SingleInstanceGuard` + Hilo del SO abandonando Mutex (`Local\`) | Verifica desde un hilo separado del SO que tras capturar `AbandonedMutexException`, el handle de sondeo se libera antes de adquirir la guarda y deja recuento recursivo cero tras `guard.Release()`. | **SUPERADO** |
+| `RealNamedMutexes_ReleaseOrderInterleaving_RetriesWhileUninstallGateHeldAndAcquiresBothWhenGateReleased` | **Dos `WindowsSingleInstanceGuard` reales (`Local\`) en hilos separados del SO** | **Reproducción intra-sesión real de la ventana R3/R4:** Hilo A libera `SingleInstance` pero retiene `UninstallGate`; Hilo B despierta del sondeo, observa `UninstallGateBusy` sobre el mutex real, reintenta, y cuando Hilo A libera `UninstallGate`, Hilo B adquiere ambos mutexes reales y los libera limpiamente. | **SUPERADO** |
+
+#### B. Nuevos Tests con Mutexes Reales `Local\` en `WindowsSingleInstanceStartupTests.cs` (3 nuevos `[Fact]`)
+
+| Test Automatizado (`[Fact]`) | Primitivas | Propósito / Invariante Verificado | Resultado |
+|---|---|---|---|
+| `RealNamedMutexes_WhenUninstallGateOwnedByAnotherThread_ReturnsUninstallGateBusyAndLeavesMainMutexFree` | Mutexes reales `Local\` en hilos separados del SO | Cuando otro hilo posee `UninstallGate`, `TryAcquireSingleInstanceDetail` devuelve `UninstallGateBusy` y deja el mutex principal libre. | **SUPERADO** |
+| `RealNamedMutexes_WhenMainMutexOwnedByAnotherThread_ReturnsSingleInstanceBusyAndReleasesGate` | Mutexes reales `Local\` en hilos separados del SO | Cuando `UninstallGate` está libre pero otro hilo posee `SingleInstance`, `TryAcquireSingleInstanceDetail` devuelve `SingleInstanceBusy` y **libera inmediatamente `UninstallGate`** (verificado desde un hilo separado). | **SUPERADO** |
+| `RealNamedMutexes_WhenBothFree_AcquiresBothAndReleaseAllowsSubsequentAcquisition` | Mutexes reales `Local\` en hilos separados del SO | Cuando ambos mutexes están libres, adquiere ambos (`Acquired`), bloquea a otros hilos, y tras `Release()` ambos quedan libres para otro hilo. | **SUPERADO** |
 
 - **Resumen de Ejecución Local de Pruebas (`dotnet test PrivGvard.sln -c Release`):**
-  - `PrivLock.Domain.Tests`: **25 superados**, 0 con error, 0 omitidos.
-  - `PrivLock.Infrastructure.Tests`: **90 superados**, 0 con error, 0 omitidos.
-  - `PrivLock.Application.Tests`: **167 superados**, 0 con error, 0 omitidos.
-  - `PrivLock.Platform.Windows.Tests`: **319 superados**, 0 con error, 0 omitidos.
-  - **Total de la Solución:** **601 superados**, **0 con error**, **0 omitidos** (Duración acumulada: ~35 s).
+  - `PrivLock.Domain.Tests`: **25 superados**, 0 con error, 0 omitidos (91 ms).
+  - `PrivLock.Infrastructure.Tests`: **90 superados**, 0 con error, 0 omitidos (1 s).
+  - `PrivLock.Application.Tests`: **167 superados**, 0 con error, 0 omitidos (1 s).
+  - `PrivLock.Platform.Windows.Tests`: **334 superados**, 0 con error, 0 omitidos (14 s).
+  - **Total de la Solución:** **616 superados**, **0 con error**, **0 omitidos**.
 
 ---
 
@@ -548,7 +637,7 @@ A diferencia de los casos dinámicos de VM (que requieren interacción física e
 - **Decisión D-05:** **Pendiente** de formalización e integración en los stores reales.
 - **Microsoft Store:** **`CONDITIONAL HOLD`** (publicación bloqueada).
 - **Fase 8B.1C:** **`BLOCKED / NOT AUTHORIZED`** (desarrollo prohibido).
-- **Fase 8B.1A.7.2 / R4:** **Remediación R4 completada — `PASS — R4 FUS HANDOFF RETRY REMEDIATION AND TESTS COMPLETE` / `LAB HOLD`** (pruebas físicas dinámicas bloqueadas por entorno de laboratorio).
+- **Fase 8B.1A.7.2 / R5:** **Endurecimiento R5 completado — `PASS — R5 FUS HANDOFF RETRY HARDENING, REAL NAMED-MUTEX TESTS AND TEST-09.7 POST-FIX CRITERIA COMPLETE` / `LAB HOLD`** (pruebas físicas dinámicas multi-sesión bloqueadas por entorno de laboratorio).
 
 ---
 
@@ -561,7 +650,7 @@ A diferencia de los casos dinámicos de VM (que requieren interacción física e
      - Bloqueo estricto de `force-push` y de eliminación de la rama `main`.
      - No exigir reviewer adicional si el flujo corresponde a un desarrollador único.
    - *Nota de auditoría:* Esta recomendación se formula con fines de planificación y no fue ejecutada en esta fase para respetar la frontera documental y de no alteración de configuraciones.
-2. **Consolidación Local en Rama R4:** Mantener la rama local `fix/8b1a7-2-r4-fus-handoff-retry` con la remediación de código, tests unitarios automatizados deterministas y documentación canónica sincronizada, bajo política estricta de ZERO PUSH y ZERO PR.
+2. **Consolidación Local en Rama R5:** Mantener la rama local `fix/8b1a7-2-r5-retry-contract-hardening` con el endurecimiento del contrato de reintento, los tests con mutexes reales `Local\` y la documentación canónica sincronizada, bajo política estricta de ZERO PUSH y ZERO PR en esta sesión.
 3. **Acción del Propietario en el Host Físico (L0):** Aprovisionar una máquina virtual Windows 11 independiente en el host físico según las especificaciones de la Topología B (sección 5.2).
 4. **Generación de Artefactos desde HEAD Vigente:** Tras disponer de la VM, compilar el paquete `Release-Store` desde el HEAD canónico actual y registrar la doble proveniencia criptográfica (unsigned en build stage y signed tras test-signing dentro de la VM).
-5. **Ejecución del Runbook 8B.1A.7.2:** Llevar a cabo los tests normativos TEST-01 a TEST-11, con prioridad sobre la verificación experimental de TEST-09.7, TEST-09 y TEST-10 en la VM aislada con capturas de ProcMon.
+5. **Ejecución del Runbook 8B.1A.7.2:** Llevar a cabo los tests normativos TEST-01 a TEST-11, con prioridad sobre la verificación experimental de TEST-09.7 (secciones 6.1, 6.2 y 6.3), TEST-09 y TEST-10 en la VM aislada con capturas de ProcMon.
