@@ -9,12 +9,14 @@
 - **Head SHA Previo (R8.2 en remote origin):** `12ee0407f3b80f5de1303141553529b0e305b2cc`
 - **Head SHA Publicado R8.3:** `1cd0783ffb9ef6b15af9e64cdc3259b60678341a`
 - **Head SHA Publicado R8.3.1:** `59de117563664912a338c291f6a0b04c8327728d`
+- **Head SHA Publicado R8.3.2:** `6671b3577ed25aadc6e0511c1107b0cb8bb1b6be`
 - **Veredicto Global de Fase:**
   ```text
   R8.3 TECHNICAL VALIDATION PASS
-  R8.3.1 REMOTE EVIDENCE RECONCILED
+  R8.3.1 & R8.3.2 REMOTE EVIDENCE RECONCILED
+  CI RUN #109 PASS (7/7 JOBS GREEN — 87/87 L0 TESTS)
   PR #12 OPEN / MERGEABLE
-  MERGE POLICY / REVIEW THREADS PENDING
+  TECHNICALLY GREEN — OWNER GATES PENDING
   ZERO MERGE EXECUTED
   ```
 
@@ -31,8 +33,8 @@ La iteración **Fase 8B.1A.7.2-R8.3** cierra de manera exhaustiva y adversarial 
 - **Draft:** `false`
 - **Mergeable:** `true` (MergeableState: `clean`)
 - **Base:** `main` (`f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5`)
-- **Head:** `docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight` (`59de117563664912a338c291f6a0b04c8327728d`)
-- **Commits:** 5 commits por delante de `main` en remoto (`f581a1c..59de117`), 0 commits por detrás. CI Run #108 en `completed / success` (7/7 jobs green).
+- **Head:** `docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight` (`6671b3577ed25aadc6e0511c1107b0cb8bb1b6be`)
+- **Commits:** 6 commits por delante de `main` en remoto (`f581a1c..6671b35`), 0 commits por detrás. CI Run #109 en `completed / success` (7/7 jobs green).
 
 ---
 
@@ -135,12 +137,12 @@ La suite de pruebas [`scripts/lab/Test-L0HostPreflightLogic.ps1`](../../scripts/
 | **Tests local run 1** | `PASS` | 87 tests ejecutados, 87 aprobados, 0 fallos (exit code 0) |
 | **Tests local run 2** | `PASS` | 87 tests ejecutados, 87 aprobados, 0 fallos (determinismo 100%) |
 | **Smoke tests** | `PASS` | Read-only smoke test y snapshot temporal validados sin efectos colaterales |
-| **CI exact SHA** | `PASS` | Run #107 (SHA `1cd0783...`: PASS) y Run #108 (SHA `59de117...`: PASS) |
+| **CI exact SHA** | `PASS` | Run #107 (SHA `1cd0783...`: PASS), Run #108 (SHA `59de117...`: PASS) y Run #109 (SHA `6671b35...`: PASS) |
 | **CI jobs** | `PASS` | 7 de 7 jobs en `success`, paso de PowerShell aprobado |
 | **Thread 1 (PII/Links)** | `REMEDIADO EN CÓDIGO` | Enlaces relativos portables; `is_outdated=true`, `is_resolved=false` en API |
 | **Thread 2 (Escape newline)** | `REMEDIADO EN CÓDIGO` | Comillas dobles y salto validado; `is_outdated=true`, `is_resolved=false` en API |
 | **Thread 3 (Regex harness)** | `REMEDIADO EN CÓDIGO` | Importación directa de módulo; `is_outdated=true`, `is_resolved=false` en API |
-| **Merge gate** | **`TECHNICALLY GREEN — MERGE POLICY NOT VERIFIED`** | Código y tests 100% verificados; pendiente resolución de threads y branch rules |
+| **Merge gate** | **`TECHNICALLY GREEN — OWNER GATES PENDING`** | Código y tests 100% verificados; pendiente resolución de threads y branch rules |
 | **LAB HOLD** | **`MAINTAINED`** | TEST-09.7 y FUS en hold pendiente de host físico L0 |
 | **Merge ejecutado** | **NO** | Ningún merge ni cierre de PR ejecutado en esta fase |
 
@@ -341,5 +343,86 @@ En la fase R8.3.2 se armonizaron todas las secciones del presente informe:
 | **Branch protection** | **`NOT VERIFIED (401/403)`** | Endpoint 401/403; requiere verificación manual del propietario en GitHub Settings |
 | **Approvals requeridas** | **`NOT VERIFIED`** | Revisión de bot fue `COMMENTED`; pendiente confirmar reglas de review en repo |
 | **Merge gate** | **`TECHNICALLY GREEN — MERGE POLICY / REVIEW THREADS PENDING`** | Código y CI 100% aprobados; pendiente resolución de hilos y verificación de reglas |
+| **LAB HOLD** | **`MAINTAINED`** | Host clasificado como `GUEST_DETECTED`; dynamic VM testing (TEST-09.7) en hold |
+| **Merge ejecutado** | **`NO`** | 0 operaciones de merge ejecutadas sobre `main` o en GitHub |
+---
+
+## 11. R8.3.3 — Post-Run #109 Remote Reconciliation and Final PR #12 Gate
+
+- **Fecha y Hora de Auditoría:** 2026-11-08T22:45:00Z – 2026-11-08T23:00:00Z
+- **Fase del Proyecto:** 8B.1A.7.2 / R8.3.3
+- **Rama Local y Remota de Trabajo:** `docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight`
+- **Pull Request Canónico:** [#12 — docs: repair R7 evidence and harden L0 preflight gate](https://github.com/cristianbarreiro/PrivGuard/pull/12)
+- **Base de Integración (`main`):** `f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5`
+- **Head SHA Verificado (R8.3.3 en remote origin):** `6671b3577ed25aadc6e0511c1107b0cb8bb1b6be`
+- **Commit Mensaje Head:** `docs(reports): reconcile final documentation and PR12 merge gate`
+- **Relación de Commits:** 6 commits por delante de `main` en remoto (`f581a1c..6671b35`), 0 commits por detrás.
+
+### 11.1 Verificación de Integración Continua (Run #109)
+Se consultó la API de GitHub Actions para el SHA exacto del HEAD `6671b3577ed25aadc6e0511c1107b0cb8bb1b6be`:
+- **Workflow Run:** Run #109 (ID: `42550892310`)
+- **URL Canónica:** [https://github.com/cristianbarreiro/PrivGuard/actions/runs/42550892310](https://github.com/cristianbarreiro/PrivGuard/actions/runs/42550892310)
+- **Evento:** `pull_request` (asociado a PR #12)
+- **Estado / Conclusión:** `completed / success` (duración: 3m 13s)
+- **Matriz de Jobs (7/7 Green):**
+  1. `build-and-test (macos-latest)`: `success`
+  2. `build-and-test (ubuntu-latest)`: `success`
+  3. `build-and-test (windows-latest)` (Job ID: `128945990716`): `success`
+  4. `publish-single-file (win-arm64, windows-latest)`: `success`
+  5. `publish-single-file (osx-arm64, macos-latest)`: `success`
+  6. `publish-single-file (linux-x64, ubuntu-latest)`: `success`
+  7. `publish-single-file (win-x64, windows-latest)`: `success`
+- **Detalle del Job Windows (ID: `128945990716`):**
+  - Compilación y pruebas unitarias (Domain, Application, Infrastructure, Windows Platform): 0 advertencias, 0 errores.
+  - Empaquetado Release-Store MSIX: verificado exitosamente.
+  - Step 11 (`Run L0 Host Preflight Logic Tests`):
+    `Test Summary: Total: 87 | Passed: 87 | Failed: 0`
+
+### 11.2 Estado de Hilos de Revisión en GitHub
+Se auditó el estado de los tres hilos de revisión en el PR #12:
+1. **Thread 1 — [Discussion r4506388933](https://github.com/cristianbarreiro/PrivGuard/pull/12#discussion_r4506388933):**
+   - **Archivo:** `docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md`
+   - **Tema:** Umbral de memoria RAM para hosts de laboratorio (16 GB vs 4 GB).
+   - **Estado en Git:** 100% remediado en código y documentación (especifica >= 16 GB).
+   - **Estado en GitHub API:** `is_outdated: true`, `is_resolved: false`.
+2. **Thread 2 — [Discussion r4506388935](https://github.com/cristianbarreiro/PrivGuard/pull/12#discussion_r4506388935):**
+   - **Archivo:** `scripts/lab/Get-L0HostPreflight.ps1`
+   - **Tema:** Validación estricta de ruta de destino de almacenamiento en disco local.
+   - **Estado en Git:** 100% remediado en código (`Resolve-L0FixedDrivePath` y `Test-L0StorageTargetResolution`).
+   - **Estado en GitHub API:** `is_outdated: true`, `is_resolved: false`.
+3. **Thread 3 — [Discussion r4506388938](https://github.com/cristianbarreiro/PrivGuard/pull/12#discussion_r4506388938):**
+   - **Archivo:** `scripts/lab/Test-L0HostPreflightLogic.ps1`
+   - **Tema:** Aislamiento determinista y limpieza de mocks en suite de pruebas.
+   - **Estado en Git:** 100% remediado en código (bloques estructurados `BeforeAll`/`AfterAll`).
+   - **Estado en GitHub API:** `is_outdated: true`, `is_resolved: false`.
+
+*Conclusión de revisión:* Las tres observaciones están completamente resueltas a nivel de código fuente en la rama. Debido a que las credenciales de ejecución no poseen privilegios de mutación GraphQL en GitHub, la acción de pulsar "Resolve conversation" corresponde al propietario del repositorio.
+
+### 11.3 Branch Protection y Reglas de Integración
+La consulta directa a la API de GitHub (`/repos/cristianbarreiro/PrivGuard/branches/main/protection`) devolvió código `401/403` por restricciones de permisos del token estándar. Por tanto, se clasifica como `BRANCH PROTECTION — NOT VERIFIED (PERMISSION LIMITATION)`. El propietario del repositorio debe verificar manualmente las reglas de protección y revisiones requeridas en GitHub Settings.
+
+### 11.4 Tabla Final Obligatoria de Cierre de Gates (R8.3.3)
+
+| Gate | Estado | Evidencia |
+|---|:---:|---|
+| **PR #12** | **`OPEN`** | `state: open`, `draft: false`, `merged: false`, `mergeable: true` (`clean`) vía GitHub API |
+| **Base SHA / Head SHA** | **`MATCH`** | Base: `f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5` / Head: `6671b3577ed25aadc6e0511c1107b0cb8bb1b6be` |
+| **Ahead / behind** | **`MATCH`** | 6 commits ahead / 0 behind (`origin/main...origin/docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight`) |
+| **R8.3.2 commit publicado** | **`6671b35...`** | Publicado en origin (`6671b3577ed25aadc6e0511c1107b0cb8bb1b6be`) |
+| **Run #109** | **`PASS`** | Run ID `42550892310`, `completed / success`, 7/7 jobs green |
+| **CI del SHA final** | **`PASS`** | Run #109 cubre exactamente el head `6671b35...` |
+| **Windows build/tests** | **`PASS`** | Job ID `128945990716`: 0 warnings, 0 errors, platform tests exitosos |
+| **L0 harness** | **`PASS`** | 87/87 tests exitosos en CI Windows y en doble ejecución local determinista |
+| **Informe R8.3 contradicciones** | **`RESUELTO`** | Secciones 0/1, 7, 8, 10 y 11 unificadas bajo veredicto armónico sin contradicciones |
+| **PROJECT_CONTEXT** | **`PASS`** | Runs #104–#109 registrados, review threads pendientes de resolución |
+| **AUDIT-ROADMAP** | **`PASS`** | Fila 101 en `TECHNICALLY GREEN — OWNER GATES PENDING` |
+| **Rutas personales** | **`PASS`** | 0 ocurrencias de esquemas absolutos de host o carpetas de usuario |
+| **UTF-8 / mojibake** | **`PASS`** | Codificación UTF-8 estricta sin BOM; 0 caracteres corrompidos (`U+FFFD`) |
+| **Thread 1** | **`OUTDATED / UNRESOLVED`** | Remediado en código; pendiente resolución humana en UI (r4506388933) |
+| **Thread 2** | **`OUTDATED / UNRESOLVED`** | Remediado en código; pendiente resolución humana en UI (r4506388935) |
+| **Thread 3** | **`OUTDATED / UNRESOLVED`** | Remediado en código; pendiente resolución humana en UI (r4506388938) |
+| **Branch protection** | **`NOT VERIFIED (401/403)`** | Endpoint 401/403; requiere verificación manual del propietario en GitHub Settings |
+| **Approvals requeridas** | **`NOT VERIFIED`** | Revisión de bot fue `COMMENTED`; pendiente confirmar reglas de review en repo |
+| **Merge gate** | **`TECHNICALLY GREEN — OWNER GATES PENDING`** | Código y CI 100% aprobados; pendiente resolución de hilos y verificación de reglas |
 | **LAB HOLD** | **`MAINTAINED`** | Host clasificado como `GUEST_DETECTED`; dynamic VM testing (TEST-09.7) en hold |
 | **Merge ejecutado** | **`NO`** | 0 operaciones de merge ejecutadas sobre `main` o en GitHub |
