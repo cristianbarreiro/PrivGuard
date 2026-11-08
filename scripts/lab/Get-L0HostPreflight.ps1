@@ -7,10 +7,10 @@
     whether a physical host meets the prerequisite baseline for provisioning an isolated Windows 11
     virtual machine for PrivGuard lab validation (Topology B).
     Strictly read-only: does not modify system settings, firmware, registry, services, hypervisor configurations,
-    or boot configuration (BCD).
+    or boot configuration (BCD). Writes an output snapshot report only if -OutputPath is explicitly specified.
 
 .PARAMETER VmStoragePath
-    Optional target local filesystem path where the VM disk (VHDX/VDI) and snapshots will be stored.
+    Target local filesystem directory path where the VM disk (VHDX/VDI) and snapshots will be stored.
     When omitted, target volume metrics are reported as UNKNOWN and preflight is marked PREFLIGHT_INCOMPLETE
     to ensure the actual storage destination is explicitly verified before provisioning.
 
@@ -18,7 +18,7 @@
     Optional local file path to save the structured diagnostic snapshot as JSON.
 
 .EXAMPLE
-    .\Get-L0HostPreflight.ps1 -VmStoragePath "D:\PrivGuard-Lab\VMs" -OutputPath ".\l0-preflight.json"
+    .\Get-L0HostPreflight.ps1 -VmStoragePath "D:\PrivGuard-Lab\VMs" -OutputPath "$env:TEMP\l0-preflight.json"
 #>
 
 [CmdletBinding()]
@@ -33,109 +33,12 @@ param (
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
-function Get-L0HostClassification {
-    param (
-        [Parameter(Mandatory = $true)]
-        [hashtable]$Metrics
-    )
-
-    $reasons = [System.Collections.Generic.List[string]]::new()
-
-    # 1. Guest Detection (takes precedence: script run inside a VM cannot validate L0 physical host)
-    if ($Metrics.IsKnownVirtualGuest -eq $true) {
-        $reasons.Add("Host matches a known virtual machine signature ($($Metrics.Manufacturer) / $($Metrics.Model)). Physical L0 host cannot be verified from within a guest.")
-        return @{
-            Classification = "GUEST_DETECTED"
-            Reasons        = $reasons.ToArray()
-        }
-    }
-
-    # 2. Check for Incomplete / Unknown Critical Diagnostics
-    $incomplete = $false
-    if ($Metrics.VirtualizationFirmwareEnabled -eq "UNKNOWN") {
-        $reasons.Add("VirtualizationFirmwareEnabled could not be determined from processor CIM query.")
-        $incomplete = $true
-    }
-    if ($Metrics.SecondLevelAddressTranslationExtensions -eq "UNKNOWN") {
-        $reasons.Add("SecondLevelAddressTranslationExtensions (SLAT) could not be determined.")
-        $incomplete = $true
-    }
-    if ($Metrics.TotalVisibleMemoryGiB -le 0 -or $Metrics.FreePhysicalMemoryGiB -le 0) {
-        $reasons.Add("Memory capacity could not be queried reliably.")
-        $incomplete = $true
-    }
-    if ($Metrics.VmStorageStatus -eq "UNKNOWN" -or [string]::IsNullOrWhiteSpace($Metrics.VmStorageVolume)) {
-        $reasons.Add("Target VM storage path (-VmStoragePath) was not specified or could not be resolved. Target storage volume cannot be verified.")
-        $incomplete = $true
-    }
-
-    if ($incomplete) {
-        return @{
-            Classification = "PREFLIGHT_INCOMPLETE"
-            Reasons        = $reasons.ToArray()
-        }
-    }
-
-    # 3. Hard Blocking Conditions
-    $blocked = $false
-    if ($Metrics.VirtualizationFirmwareEnabled -eq $false -or $Metrics.VirtualizationFirmwareEnabled -eq "FALSE") {
-        $reasons.Add("Hardware virtualization (VT-x / AMD-V) is disabled in host BIOS/UEFI firmware.")
-        $blocked = $true
-    }
-    if ($Metrics.SecondLevelAddressTranslationExtensions -eq $false -or $Metrics.SecondLevelAddressTranslationExtensions -eq "FALSE") {
-        $reasons.Add("Second-Level Address Translation (SLAT / EPT / NPT) is not supported by host CPU.")
-        $blocked = $true
-    }
-    if ($Metrics.TotalVisibleMemoryGiB -lt 10.0) {
-        $reasons.Add("Host total physical RAM ($($Metrics.TotalVisibleMemoryGiB) GiB) is below absolute minimum (10.0 GiB) to support Host OS + Windows 11 VM.")
-        $blocked = $true
-    }
-    if ($Metrics.FreePhysicalMemoryGiB -lt 4.0) {
-        $reasons.Add("Host free physical RAM ($($Metrics.FreePhysicalMemoryGiB) GiB) is below minimum (4.0 GiB) to allocate to Windows 11 VM.")
-        $blocked = $true
-    }
-    if ($Metrics.VmStorageFreeSpaceGiB -lt 50.0) {
-        $reasons.Add("Target VM volume free space ($($Metrics.VmStorageFreeSpaceGiB) GiB) is below minimum (50.0 GiB) for base image (>=64 GiB virtual) and snapshot delta.")
-        $blocked = $true
-    }
-
-    if ($blocked) {
-        return @{
-            Classification = "L0_PREFLIGHT_BLOCKED"
-            Reasons        = $reasons.ToArray()
-        }
-    }
-
-    # 4. Constrained Conditions (Functional but requires conservative configuration)
-    $constrained = $false
-    if ($Metrics.TotalVisibleMemoryGiB -lt 16.0) {
-        $reasons.Add("Host total physical RAM ($($Metrics.TotalVisibleMemoryGiB) GiB) is constrained (< 16.0 GiB). VM should be allocated maximum 4.0 - 5.0 GiB vRAM.")
-        $constrained = $true
-    }
-    if ($Metrics.FreePhysicalMemoryGiB -lt 7.0) {
-        $reasons.Add("Host free physical RAM ($($Metrics.FreePhysicalMemoryGiB) GiB) is constrained (< 7.0 GiB). Host background applications must be closed before launching VM.")
-        $constrained = $true
-    }
-    if ($Metrics.VmStorageFreeSpaceGiB -lt 80.0) {
-        $reasons.Add("Target VM volume free space ($($Metrics.VmStorageFreeSpaceGiB) GiB) is constrained (< 80.0 GiB). Snapshot chain depth must be monitored strictly.")
-        $constrained = $true
-    }
-
-    if ($constrained) {
-        return @{
-            Classification = "L0_CAPABLE_CONSTRAINED"
-            Reasons        = $reasons.ToArray()
-        }
-    }
-
-    # 5. Full Candidate Passed (All measured hardware metrics meet recommended baseline)
-    $reasons.Add("All measured physical host criteria meet recommended baseline for Topology B (hardware virtualization, SLAT, RAM, and target volume storage).")
-    $reasons.Add("Note: PASS_CANDIDATE confirms host hardware capacity; VM provisioning, vTPM 2.0, Secure Boot, FUS user accounts, and snapshot validation remain mandatory manual lab gates.")
-    return @{
-        Classification = "L0_PREFLIGHT_PASS_CANDIDATE"
-        Reasons        = $reasons.ToArray()
-    }
+# Import pure classification logic module
+$logicModulePath = Join-Path $PSScriptRoot "L0HostPreflight.Logic.psm1"
+if (-not (Test-Path $logicModulePath)) {
+    throw "Logic module not found at: $logicModulePath"
 }
+Import-Module $logicModulePath -Force
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " PrivGuard -- L0 Physical Host Preflight Diagnostic Query " -ForegroundColor Cyan
@@ -143,7 +46,7 @@ Write-Host "==========================================================" -Foregro
 
 $timestampUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-# 1. System, OS, Processor, and BIOS Information
+# 1. System, OS, Processor, and BIOS Information (CIM Queries)
 try {
     $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
 } catch {
@@ -172,21 +75,54 @@ try {
     Write-Warning "Failed to query Win32_BIOS: $($_.ToString())"
 }
 
+# 2. Host Identity & Virtual Machine Signature Detection
+$systemIdentityStatus = "UNKNOWN"
+$manufacturer = "UNKNOWN"
+$model = "UNKNOWN"
+
+if ($cs) {
+    if (-not [string]::IsNullOrWhiteSpace($cs.Manufacturer)) { $manufacturer = $cs.Manufacturer.Trim() }
+    if (-not [string]::IsNullOrWhiteSpace($cs.Model)) { $model = $cs.Model.Trim() }
+    if ($manufacturer -ne "UNKNOWN" -and $model -ne "UNKNOWN") {
+        $systemIdentityStatus = "RESOLVED"
+    }
+}
+
+$hypervisorPresent = if ($cs -and $null -ne $cs.HypervisorPresent) { [bool]$cs.HypervisorPresent } else { $null }
+
+# Known Virtual Machine Signatures (Strict detection of guest environment)
+$knownVmSignatures = @("VirtualBox", "VMware", "Virtual Machine", "KVM", "QEMU", "Bochs", "Xen")
+$isKnownGuest = $false
+foreach ($sig in $knownVmSignatures) {
+    if ($manufacturer -match $sig -or $model -match $sig) {
+        $isKnownGuest = $true
+        break
+    }
+}
+
+# 3. RAM Metrics (Converted strictly to binary GiB: 1 GiB = 1024^3 bytes = 1024^2 KB)
+$totalMemoryGiB = if ($os -and $null -ne $os.TotalVisibleMemorySize) { [math]::Round($os.TotalVisibleMemorySize / 1024 / 1024, 2) } else { $null }
+$freeMemoryGiB  = if ($os -and $null -ne $os.FreePhysicalMemory) { [math]::Round($os.FreePhysicalMemory / 1024 / 1024, 2) } else { $null }
+
+# 4. CPU Metrics & Virtualization Flags across all sockets/processors
 $firstCpu = if ($cpu) { $cpu | Select-Object -First 1 } else { $null }
+$cpuName = if ($firstCpu -and $firstCpu.Name) { $firstCpu.Name.Trim() } else { "UNKNOWN" }
+$cpuPhysicalCount = if ($cpu) { ($cpu | Measure-Object).Count } else { 0 }
 
-$manufacturer = if ($cs -and $cs.Manufacturer) { $cs.Manufacturer } else { "Unknown" }
-$model = if ($cs -and $cs.Model) { $cs.Model } else { "Unknown" }
-$hypervisorPresent = if ($cs -and $null -ne $cs.HypervisorPresent) { [bool]$cs.HypervisorPresent } else { $false }
-
-# 2. RAM Metrics (Converted strictly to binary GiB: 1 GiB = 1024^3 bytes = 1024^2 KB)
-$totalMemoryGiB = if ($os -and $os.TotalVisibleMemorySize) { [math]::Round($os.TotalVisibleMemorySize / 1024 / 1024, 2) } else { 0.0 }
-$freeMemoryGiB  = if ($os -and $os.FreePhysicalMemory) { [math]::Round($os.FreePhysicalMemory / 1024 / 1024, 2) } else { 0.0 }
-
-# 3. CPU Virtualization Flags
-$cpuName = if ($firstCpu -and $firstCpu.Name) { $firstCpu.Name.Trim() } else { "Unknown" }
-$cpuCount = if ($cpu) { ($cpu | Measure-Object).Count } else { 1 }
-$cpuCores = if ($firstCpu -and $firstCpu.NumberOfCores) { $firstCpu.NumberOfCores } else { 0 }
-$cpuLogical = if ($firstCpu -and $firstCpu.NumberOfLogicalProcessors) { $firstCpu.NumberOfLogicalProcessors } else { 0 }
+$cpuCores = $null
+$cpuLogical = $null
+if ($cpu) {
+    $coresSum = 0
+    $logicalSum = 0
+    foreach ($proc in $cpu) {
+        if ($null -ne $proc.NumberOfCores) { $coresSum += $proc.NumberOfCores }
+        if ($null -ne $proc.NumberOfLogicalProcessors) { $logicalSum += $proc.NumberOfLogicalProcessors }
+    }
+    if ($coresSum -gt 0 -and $logicalSum -gt 0) {
+        $cpuCores = $coresSum
+        $cpuLogical = $logicalSum
+    }
+}
 
 $virtFirmwareEnabled = if ($firstCpu -and $null -ne $firstCpu.VirtualizationFirmwareEnabled) {
     if ([bool]$firstCpu.VirtualizationFirmwareEnabled) { "TRUE" } else { "FALSE" }
@@ -206,22 +142,12 @@ $slatExt = if ($firstCpu -and $null -ne $firstCpu.SecondLevelAddressTranslationE
     "UNKNOWN"
 }
 
-# 4. Known Virtual Machine Signatures (Strict detection of guest environment)
-$knownVmSignatures = @("VirtualBox", "VMware", "Virtual Machine", "KVM", "QEMU", "Bochs", "Xen")
-$isKnownGuest = $false
-foreach ($sig in $knownVmSignatures) {
-    if ($manufacturer -match $sig -or $model -match $sig) {
-        $isKnownGuest = $true
-        break
-    }
-}
-
 # 5. Storage Inspection: System Drive & Target VM Storage Volume
 $systemDrive = "C:"
 $systemFreeSpaceGiB = 0.0
 try {
     $sysVol = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$systemDrive'" -ErrorAction SilentlyContinue
-    if ($sysVol -and $sysVol.FreeSpace) {
+    if ($sysVol -and $null -ne $sysVol.FreeSpace) {
         $systemFreeSpaceGiB = [math]::Round($sysVol.FreeSpace / 1GB, 2)
     }
 } catch {
@@ -231,7 +157,7 @@ try {
 $vmStorageStatus = "UNKNOWN"
 $vmStorageVolumeId = ""
 $vmStorageFileSystem = ""
-$vmStorageFreeSpaceGiB = 0.0
+$vmStorageFreeSpaceGiB = $null
 
 if (-not [string]::IsNullOrWhiteSpace($VmStoragePath)) {
     try {
@@ -240,7 +166,7 @@ if (-not [string]::IsNullOrWhiteSpace($VmStoragePath)) {
         if (-not [string]::IsNullOrWhiteSpace($pathRoot)) {
             $driveId = $pathRoot.TrimEnd('\')
             $targetVol = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$driveId'" -ErrorAction SilentlyContinue
-            if ($targetVol -and $targetVol.FreeSpace) {
+            if ($targetVol -and $null -ne $targetVol.FreeSpace) {
                 $vmStorageVolumeId = $targetVol.DeviceID
                 $vmStorageFileSystem = if ($targetVol.FileSystem) { $targetVol.FileSystem } else { "Unknown" }
                 $vmStorageFreeSpaceGiB = [math]::Round($targetVol.FreeSpace / 1GB, 2)
@@ -297,6 +223,7 @@ try {
 # 8. Evaluate Classification via Pure Logic Function
 $metricsDict = @{
     IsKnownVirtualGuest                    = $isKnownGuest
+    ComputerSystemIdentityStatus           = $systemIdentityStatus
     Manufacturer                           = $manufacturer
     Model                                  = $model
     VirtualizationFirmwareEnabled          = $virtFirmwareEnabled
@@ -304,6 +231,8 @@ $metricsDict = @{
     SecondLevelAddressTranslationExtensions= $slatExt
     TotalVisibleMemoryGiB                  = $totalMemoryGiB
     FreePhysicalMemoryGiB                  = $freeMemoryGiB
+    CPUCores                               = $cpuCores
+    CPULogicalProcessors                   = $cpuLogical
     VmStorageStatus                        = $vmStorageStatus
     VmStorageVolume                        = $vmStorageVolumeId
     VmStorageFreeSpaceGiB                  = $vmStorageFreeSpaceGiB
@@ -316,30 +245,31 @@ $result = [pscustomobject]@{
     Classification                         = $evaluation.Classification
     ClassificationReasons                  = $evaluation.Reasons
     IsKnownVirtualGuest                    = $isKnownGuest
+    ComputerSystemIdentityStatus           = $systemIdentityStatus
     Manufacturer                           = $manufacturer
     Model                                  = $model
-    HypervisorPresent                      = $hypervisorPresent
-    OSCaption                              = if ($os -and $os.Caption) { $os.Caption } else { "Unknown" }
-    OSVersion                              = if ($os -and $os.Version) { $os.Version } else { "Unknown" }
-    OSBuildNumber                          = if ($os -and $os.BuildNumber) { $os.BuildNumber } else { "Unknown" }
+    HypervisorPresent                      = if ($null -ne $hypervisorPresent) { $hypervisorPresent } else { "UNKNOWN" }
+    OSCaption                              = if ($os -and $os.Caption) { $os.Caption } else { "UNKNOWN" }
+    OSVersion                              = if ($os -and $os.Version) { $os.Version } else { "UNKNOWN" }
+    OSBuildNumber                          = if ($os -and $os.BuildNumber) { $os.BuildNumber } else { "UNKNOWN" }
     CPUName                                = $cpuName
-    CPUPhysicalCount                       = $cpuCount
-    CPUCores                               = $cpuCores
-    CPULogicalProcessors                   = $cpuLogical
-    TotalVisibleMemoryGiB                  = $totalMemoryGiB
-    FreePhysicalMemoryGiB                  = $freeMemoryGiB
+    CPUPhysicalCount                       = $cpuPhysicalCount
+    CPUCores                               = if ($null -ne $cpuCores) { $cpuCores } else { "UNKNOWN" }
+    CPULogicalProcessors                   = if ($null -ne $cpuLogical) { $cpuLogical } else { "UNKNOWN" }
+    TotalVisibleMemoryGiB                  = if ($null -ne $totalMemoryGiB) { $totalMemoryGiB } else { "UNKNOWN" }
+    FreePhysicalMemoryGiB                  = if ($null -ne $freeMemoryGiB) { $freeMemoryGiB } else { "UNKNOWN" }
     VirtualizationFirmwareEnabled          = $virtFirmwareEnabled
     VMMonitorModeExtensions                = $vmMonitorModeExt
     SecondLevelAddressTranslationExtensions= $slatExt
-    BIOSManufacturer                       = if ($bios -and $bios.Manufacturer) { $bios.Manufacturer } else { "Unknown" }
-    BIOSVersion                            = if ($bios -and $bios.SMBIOSBIOSVersion) { $bios.SMBIOSBIOSVersion } else { "Unknown" }
+    BIOSManufacturer                       = if ($bios -and $bios.Manufacturer) { $bios.Manufacturer } else { "UNKNOWN" }
+    BIOSVersion                            = if ($bios -and $bios.SMBIOSBIOSVersion) { $bios.SMBIOSBIOSVersion } else { "UNKNOWN" }
     SecureBoot                             = $secureBootStatus
     SystemDriveFreeSpaceGiB                = $systemFreeSpaceGiB
     VmStoragePathRequested                 = $VmStoragePath
     VmStorageStatus                        = $vmStorageStatus
     VmStorageVolume                        = $vmStorageVolumeId
     VmStorageFileSystem                    = $vmStorageFileSystem
-    VmStorageFreeSpaceGiB                  = $vmStorageFreeSpaceGiB
+    VmStorageFreeSpaceGiB                  = if ($null -ne $vmStorageFreeSpaceGiB) { $vmStorageFreeSpaceGiB } else { "UNKNOWN" }
     DetectedHypervisors                    = if ($installedHypervisors.Count -gt 0) { ($installedHypervisors -join "; ") } else { "None detected in standard program paths" }
 }
 
@@ -353,7 +283,7 @@ if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
             New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
         }
         $result | ConvertTo-Json -Depth 4 | Set-Content -Path $OutputPath -Encoding UTF8
-        Write-Host ('`nDiagnostic snapshot saved to: ' + $OutputPath) -ForegroundColor Green
+        Write-Host ("`nDiagnostic snapshot saved to: " + $OutputPath) -ForegroundColor Green
     } catch {
         $msg = $_.ToString()
         Write-Error $msg

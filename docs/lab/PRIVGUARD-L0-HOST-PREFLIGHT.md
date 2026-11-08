@@ -1,7 +1,7 @@
 # PrivGuard — Preflight de Aprovisionamiento del Host Físico (Hipervisor L0) para Validación en VM Aislada (Topología B)
 
 - **Fecha:** 2026-11-08
-- **Fase:** 8B.1A.7.2-R8
+- **Fase:** 8B.1A.7.2-R8.1
 - **Estado Actual del Laboratorio:** `GUEST DETECTED — L0 NOT VERIFIED`
 - **Estado de Pruebas Dinámicas:** `LAB HOLD / NOT RUN`
 - **Topología Objetivo:** Topología B (VM Windows 11 Aislada Directa en Host Físico L0)
@@ -71,7 +71,7 @@ Según la especificación técnica de Microsoft ([Windows 11 VM Requirements](ht
 
 | Componente / Recurso | Mínimo Oficial SO | Mínimo Práctico de Lab (Constrained) | Recomendado de Lab (Pass Candidate) | Host Físico L0 Requerido |
 |---|---|---|---|---|
-| **vCPUs** | 2 vCPUs | 2 vCPUs dedicadas | 4 vCPUs dedicadas | Host con >= 4 núcleos físicos / 8 lógicos |
+| **vCPUs** | 2 vCPUs | 2 vCPUs dedicadas | 4 vCPUs dedicadas | Host con >= 4 núcleos físicos / 8 lógicos (mín. 2 núcleos / 4 lógicos) |
 | **vRAM (Memoria)** | 4 GiB | 4 – 5 GiB estática | 8 GiB estática | Host con >= 16 GiB RAM total (mín. 12 GiB) |
 | **RAM Libre en Host** | N/A | >= 5.0 GiB libres | >= 8.0 GiB libres | Inmediatamente antes de iniciar la VM |
 | **Disco Virtual VM** | 64 GiB | 64 – 80 GiB (VHDX/VDI dinámico) | 80 – 100 GiB (VHDX/VDI) | Almacenamiento SSD local rápido |
@@ -80,27 +80,37 @@ Según la especificación técnica de Microsoft ([Windows 11 VM Requirements](ht
 | **SLAT / EPT / NPT** | Requerido | Soportado por CPU | Soportado por CPU | `SLAT = TRUE` |
 | **vTPM** | TPM 2.0 | vTPM 2.0 virtual activado | vTPM 2.0 virtual activado | No requiere TPM físico obligatorio en host |
 | **Firmware VM** | UEFI / Secure Boot | Habilitado en VM | Habilitado en VM | Generación 2 (Hyper-V) / EFI (VirtualBox) |
-| **Red de la VM** | N/A | Red Interna / Host-Only aislada | Conmutador Interno Privado | Sin salida a internet durante pruebas |
+| **Red de la VM** | N/A | Conmutador Interno Privado | Conmutador Interno Privado | Sin salida a internet ni LAN física durante pruebas |
 
 ---
 
 ## 4. Instrucciones para la Ejecución del Preflight en el Host Físico (L0)
 
 El script de diagnóstico endurecido se encuentra ubicado en:
-[`scripts/lab/Get-L0HostPreflight.ps1`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/scripts/lab/Get-L0HostPreflight.ps1)
+[`scripts/lab/Get-L0HostPreflight.ps1`](../../scripts/lab/Get-L0HostPreflight.ps1)
 
 ### 4.1 Parámetro Obligatorio de Almacenamiento Objetivo (`-VmStoragePath`)
 Para evitar falsos positivos y verificar el espacio real en el volumen donde residirá la máquina virtual (que puede ser `C:`, `D:`, `E:`, etc.), se debe especificar explícitamente la ruta de almacenamiento de la VM.
 
-### 4.2 Comando de Ejecución en el Host Físico
-Abra PowerShell como usuario estándar en el **equipo físico anfitrión (fuera de la VM actual)**:
+### 4.2 Semántica de Solo Lectura y Escritura de Reporte
+El script realiza estrictamente consultas de solo lectura mediante CIM/WMI y variables de entorno del sistema operativo. **No modifica el firmware, BIOS/UEFI, BCD, registro, servicios ni la configuración de hipervisores**. La única operación de escritura permitida es la generación opcional del archivo JSON de diagnóstico cuando se proporciona el parámetro `-OutputPath`.
+
+### 4.3 Comando de Ejecución en el Host Físico
+Abra PowerShell como usuario estándar en el **equipo físico anfitrión (fuera de la VM de desarrollo)**:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\lab\Get-L0HostPreflight.ps1 -VmStoragePath "D:\PrivGuard-Lab\VMs" -OutputPath "$env:TEMP\l0-preflight-snapshot.json"
+$vmStoragePath = "D:\PrivGuard-Lab\VMs" # Sustituir por la ruta real del volumen físico local
+$outputPath = Join-Path $env:TEMP ("PrivGuard-L0-preflight-{0}.json" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+
+.\scripts\lab\Get-L0HostPreflight.ps1 `
+    -VmStoragePath $vmStoragePath `
+    -OutputPath $outputPath
+
+Write-Host "Snapshot generado en: $outputPath"
 ```
 *(Sustituya `"D:\PrivGuard-Lab\VMs"` por la ruta del volumen local donde creará la máquina virtual).*
 
-### 4.3 Pautas de Sanitización antes de Compartir el JSON
+### 4.4 Pautas de Sanitización antes de Compartir el JSON
 El script recopila exclusivamente métricas técnicas de hardware y sistema operativo. No obstante, antes de compartir el archivo JSON generado, el propietario puede revisar y reemplazar por identificadores genéricos:
 - `CPUName` (si contiene números de lote).
 - `BIOSVersion` (si contiene identificadores institucionales).
@@ -121,7 +131,10 @@ Una vez que el preflight confirme la clasificación `L0_PREFLIGHT_PASS_CANDIDATE
    - 4096 MB – 8192 MB de memoria RAM estática (desactivar memoria dinámica).
    - Disco virtual de tamaño inicial >= 64 GiB en formato dinámico sobre SSD.
 3. **Aislamiento de Red:**
-   - Configurar la tarjeta de red virtual en modo *Internal Network* o *Conmutador Privado* sin puerta de enlace a internet ni acceso a la red física local.
+   - Se distinguen tres niveles de aislamiento:
+     1. *Sin salida a Internet:* Bloqueo de gateway WAN obligatorio durante pruebas.
+     2. *Sin acceso a LAN física:* Bloqueo de tráfico hacia otros equipos de la red local.
+     3. *Conmutador Interno Privado (Internal / Private Virtual Switch):* Máximo aislamiento; la VM no tiene comunicación con la LAN física ni con el host, salvo que se active explícitamente un adaptador Host-Only para transferencias puntuales de artefactos. El modo *Bridged* está estrictamente prohibido.
 4. **Cuentas de Usuario en la VM:**
    - `UserA`: Usuario estándar local (contraseña conocida; sesión primaria para PrivGuard).
    - `UserB`: Usuario estándar local independiente (para verificar contención FUS inter-sesión, DACL y handoff).
