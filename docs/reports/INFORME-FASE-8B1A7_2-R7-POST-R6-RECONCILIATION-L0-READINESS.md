@@ -86,7 +86,7 @@ El informe `INFORME-FASE-8B1A7_2-R6-POST-PUSH-R5-RECONCILIATION.md` emitido al c
 > "Entorno Git local: ZERO PUSH, ZERO PR, ZERO GITHUB SETTINGS MUTATION."
 
 **Reconciliación:**
-Al iniciar R7, la referencia `origin/main` en el servidor remoto de GitHub se encontraba exactamente en `e6a57ae58d7d0cd30265834fc51e2bab32928732`. Esta afirmación histórica queda formalmente rectificada y contextualizada: representó con veracidad el snapshot final de la sesión de trabajo local del agente en R6. Con posterioridad, el operador del repositorio procedió a la sincronización hacia `origin/main`. No se atribuye actor automatizado a este evento.
+Al consultar el remoto durante R7, el commit R6 se encontraba en `main`. La declaración `ZERO PUSH` del cierre R6 representaba el snapshot local de aquella sesión y fue superada por el estado remoto observado posteriormente. No se atribuye el evento a un actor, cliente o mecanismo concreto.
 
 ### 3.2 Aclaración sobre Descarga de Logs Crudos (HTTP 403) vs API de Actions
 En el informe R6 se registró:
@@ -121,20 +121,20 @@ Se aclara el alcance de dicha observación técnica:
 |---|---|---|---|---|---|
 | `Build & Test (windows-latest)` | `128619439781` | Windows Server 2022 | completed | **success** | 3m 48s |
 | `Build & Test (ubuntu-latest)` | `128619439900` | Ubuntu 24.04 | completed | **success** | 2m 14s |
-| `Build & Test (macos-latest)` | `128619439922` | macOS 14 (ARM64) | completed | **success** | 2m 31s |
-| `Publish Single-File (linux-x64)` | `128619848714` | Ubuntu 24.04 | completed | **success** | 1m 02s |
+| `Build & Test (macos-latest)` | `128619439904` | macOS 14 (ARM64) | completed | **success** | 2m 31s |
+| `Publish Single-File (linux-x64)` | `128619848706` | Ubuntu 24.04 | completed | **success** | 1m 02s |
 | `Publish Single-File (osx-arm64)` | `128619848727` | macOS 14 (ARM64) | completed | **success** | 1m 05s |
 | `Publish Single-File (win-x64)` | `128619848746` | Windows Server 2022 | completed | **success** | 1m 18s |
 | `Publish Single-File (win-arm64)` | `128619848757` | Windows Server 2022 | completed | **success** | 1m 12s |
 
 ### 4.3 Verificación de Steps Críticos en Windows (`Job 128619439781`)
 - **Checkout:** Concluido con éxito en commit `e6a57ae58d7d0cd30265834fc51e2bab32928732`.
-- **Setup .NET SDK:** SDK 8.0.x instalado y verificado.
+- **Setup .NET 10 SDK:** SDK `10.0.403` y runtime `.NET 10.0.14` instalados y verificados (TargetFrameworks `net10.0` / `net10.0-windows10.0.19041.0`).
 - **Build Solution:** `dotnet build PrivGvard.sln` completado con `0` errores y `0` advertencias.
-- **Run Domain Tests:** `PrivLock.Domain.Tests` ejecutado exitosamente.
-- **Run Application Tests:** `PrivLock.Application.Tests` ejecutado exitosamente.
-- **Run Infrastructure Tests:** `PrivLock.Infrastructure.Common.Tests` ejecutado exitosamente.
-- **Run Windows Platform Tests:** `PrivLock.Platform.Windows.Tests` ejecutado exitosamente.
+- **Run Domain Tests:** `tests/PrivLock.Domain.Tests/PrivLock.Domain.Tests.csproj` ejecutado exitosamente (25 tests passed).
+- **Run Application Tests:** `tests/PrivLock.Application.Tests/PrivLock.Application.Tests.csproj` ejecutado exitosamente (167 tests passed).
+- **Run Infrastructure Tests:** `tests/PrivLock.Infrastructure.Tests/PrivLock.Infrastructure.Tests.csproj` ejecutado exitosamente (90 tests passed).
+- **Run Windows Platform Tests:** `tests/PrivLock.Platform.Windows.Tests/PrivLock.Platform.Windows.Tests.csproj` ejecutado exitosamente (334 tests passed). Total suite Windows: 616 tests passed.
 - **Validate Release-Store MSIX Packaging (Windows):** Step de empaquetado y verificación de manifiesto `AppxManifest.xml` (`runFullTrust`, `cdevstudios.PrivGuard`) ejecutado exitosamente en Windows (omitido en Ubuntu y macOS bajo directiva `if: matrix.os == 'windows-latest'`).
 
 ### 4.4 Inventario Real de Artefactos de CI Run #102
@@ -155,101 +155,152 @@ Se consultó el endpoint de artefactos para el Run #102 (`GET /repos/cristianbar
 
 ---
 
-## 5. Auditoría Adversarial del Borde Temporal en R5 (R7-04)
+## 5. Auditoría Adversarial del Borde Temporal en R5 (R7-04 / R8-04)
 
-### 5.1 Marco del Problema y Análisis Estático
-Se auditó en detalle la lógica de reintento implementada en `src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs` (líneas 131–193):
+### 5.1 Algoritmo y Código Real de Producción
+Se auditó la implementación vigente de reintento y sondeo en [`src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs#L125-L197):
 
 ```csharp
-var stopwatch = ValueStopwatch.StartNew();
-TimeSpan attemptTimeout = TimeSpan.FromMilliseconds(
-    Math.Clamp(
-        acquireTimeout.TotalMilliseconds / (MaxAcquisitionRetries + 1),
-        MinWaitHandleInterval.TotalMilliseconds,
-        acquireTimeout.TotalMilliseconds));
+var stopwatch = Stopwatch.StartNew();
+var requestSent = false;
+WindowsSingleInstanceAcquisitionResult? lastContentionOutcome = null;
+var detailedGuard = singleInstanceGuard as IWindowsDetailedSingleInstanceGuard;
+using var instanceMutex = new Mutex(initiallyOwned: false, instanceMutexName);
 
-for (int attempt = 0; attempt <= MaxAcquisitionRetries; attempt++)
+while (stopwatch.Elapsed < timeout)
 {
-    var remainingOverall = acquireTimeout - stopwatch.GetElapsedTime();
-    if (attempt > 0 && remainingOverall <= TimeSpan.Zero)
+    if (!requestSent)
     {
-        lastContentionResult = UninstallContentionResult.TimeoutWaitingForRunningInstance;
-        break;
+        requestSent = TrySignalExistingInstance(requestEventName, out error);
+        if (error != null)
+            return false;
     }
-    ...
+
+    var remaining = timeout - stopwatch.Elapsed;
+    if (remaining <= TimeSpan.Zero)
+        break;
+
+    var waitInterval = pollInterval <= remaining ? pollInterval : remaining;
+    if (waitInterval < MinWaitHandleInterval)
+        waitInterval = MinWaitHandleInterval;
+    var instanceMutexAvailable = false;
+    try
+    {
+        instanceMutexAvailable = instanceMutex.WaitOne(waitInterval);
+    }
+    catch (AbandonedMutexException)
+    {
+        instanceMutexAvailable = true;
+    }
+
+    if (!instanceMutexAvailable)
+        continue;
+
+    instanceMutex.ReleaseMutex();
+
+    var outcome = detailedGuard != null
+        ? detailedGuard.TryAcquireSingleInstanceDetail(suppressLogging: true)
+        : (singleInstanceGuard.TryAcquireSingleInstance()
+            ? WindowsSingleInstanceAcquisitionResult.Acquired
+            : WindowsSingleInstanceAcquisitionResult.SingleInstanceBusy);
+
+    if (outcome == WindowsSingleInstanceAcquisitionResult.Acquired)
+        return true;
+
+    if (outcome == WindowsSingleInstanceAcquisitionResult.AccessOrCreationError)
+    {
+        error = "Failed to create or acquire single-instance mutex on Windows.";
+        return false;
+    }
+
+    lastContentionOutcome = outcome;
+
+    remaining = timeout - stopwatch.Elapsed;
+    if (remaining <= TimeSpan.Zero)
+        break;
+
+    var sleepTime = pollInterval <= remaining ? pollInterval : remaining;
+    if (sleepTime < MinWaitHandleInterval)
+        sleepTime = MinWaitHandleInterval;
+    Thread.Sleep(sleepTime);
+}
+
+error = FormatTimeoutError(requestSent, lastContentionOutcome);
+return false;
 ```
 
-### 5.2 Evaluación de Opciones Técnicas
-1. **Opción A (`DOCUMENTED ACCEPTANCE`)**:
-   - El timeout opera como un límite superior suave acotado por sondeo monótono.
-   - En Windows, la resolución estándar del temporizador del despachador de hilos (`thread dispatcher timer resolution`) oscila habitualmente entre 10 ms y 15.6 ms.
-   - Si una adquisición de mutex toma unos microsegundos justo en la frontera de `acquireTimeout`, la adquisición del mutex antes de comprobar `remainingOverall` es semánticamente correcta y válida: la instancia en cierre liberó el mutex antes del timeout de contención global.
-   - Modificar este comportamiento requeriría recalcular dinámicamente un `TimeSpan.Zero` o forzar un descarte posterior de un mutex legítimamente adquirido, introduciendo complejidad y churn innecesario en un flujo crítico.
-2. **Opción B (`MINIMAL DEADLINE HARDENING`)**:
-   - Ajustar el timeout del último intento para restar estrictamente `remainingOverall` en cada `WaitOne` o verificar el stopwatch inmediatamente posterior a la adquisición de `singleInstanceMutex`.
+### 5.2 Análisis de Precisión Temporal: QPC, Scheduling y Resolución de Timers
+- **Medición de Tiempo Monótona:** `System.Diagnostics.Stopwatch` en Windows se basa en *QueryPerformanceCounter* (QPC), proporcionando lecturas monótonas de alta resolución (sub-microsegundo).
+- **Espera del Kernel y Dispatcher:** `instanceMutex.WaitOne(waitInterval)` invoca Win32 `WaitForSingleObjectEx`. En modo usuario de Windows, la expiración de temporizadores depende de la resolución del temporizador del sistema (habitualmente entre 10 ms y 15.6 ms por defecto, según `GetTickCount` / interrupciones de reloj del SO), salvo que un proceso active temporizadores de alta resolución.
+- **Evaluación del Borde Temporal:**
+  - Cuando `remaining > 0` pero es inferior a 1 ms, la cota inferior defensiva `MinWaitHandleInterval = 1 ms` (línea 145) eleva el argumento de `WaitOne` a 1 ms.
+  - Si el mutex probe se libera y `WaitOne` lo adquiere cuando el tiempo de reloj ya rebasó `timeout` (por latencia de reanudación del scheduler o un tick de 15 ms), el hilo adquiere el probe, lo libera de inmediato en el mismo hilo, e invoca `TryAcquireSingleInstanceDetail`.
+  - Si en ese instante la guarda completa resulta en `Acquired`, el método retorna `true`.
 
-### 5.3 Dictamen de Auditoría: Opción A (`DOCUMENTED ACCEPTANCE`)
-Se ratifica formalmente la **Opción A**:
-- El contrato de `TryRequestRunningInstanceAndAcquire` tiene como propósito asegurar que el instalador de desinstalación no quede colgado indefinidamente ante una instancia retenida, estableciendo un tiempo de gracia acotado para el handoff.
-- La protección `attempt > 0 && remainingOverall <= TimeSpan.Zero` previene de manera determinista un reintento adicional una vez consumido el presupuesto temporal global.
-- El límite inferior `MinWaitHandleInterval = 1 ms` previene condiciones de busy-spin sin desbordar el temporizador del kernel de Windows.
-- **Conclusión:** No se requiere ninguna mutación de código funcional ni refactorización invasiva en producción.
+### 5.3 Dictamen de Auditoría Temporal: `SOFT DEADLINE ACCEPTED — SEMANTICS DOCUMENTED`
+Se adopta formalmente el dictamen **`SOFT DEADLINE ACCEPTED — SEMANTICS DOCUMENTED`**:
+1. **Semántica Operativa:** El parámetro `timeout` representa el **presupuesto global para el inicio de ciclos de sondeo y reintentos**, no una interrupción de tiempo real duro (*hard real-time interrupt*).
+2. **Propósito del Contrato:** El objetivo es asegurar que el proceso de desinstalación no quede bloqueado indefinidamente ante una instancia retenida, concediendo un tiempo de gracia acotado para el handoff seguro. Si la instancia en cierre libera el mutex durante la última ventana de espera iniciada legítimamente, admitir la guarda y retornar éxito es el comportamiento operacionalmente deseado para evitar fallos de desinstalación espurios.
+3. **Ausencia de Busy-Spin:** La cota inferior `MinWaitHandleInterval = 1 ms` y la comprobación `remaining <= TimeSpan.Zero` antes de cada `WaitOne` y antes de cada `Thread.Sleep` garantizan que el bucle cesa de sondear una vez consumido el presupuesto.
+4. **Delimitación Rigurosa:** El método no ofrece garantías de tiempo real estricto sub-milisegundo debido a la naturaleza cooperativa del scheduler de Windows y la granularidad del timer del sistema. No se requiere mutación de código en producción.
 
 ---
 
-## 6. Reconfirmación de Cobertura y Topología de Pruebas Unitarias (R7-05)
+## 6. Reconfirmación de Cobertura y Topología de Pruebas Unitarias (R7-05 / R8-02)
 
-### 6.1 Firma Pública y Sobrecarga Internal
-- **Firma Pública de Producción (5 Parámetros):**
+### 6.1 Firmas Literales en Producción
+- **Firma Pública Canónica (5 Parámetros):**
   ```csharp
   public static bool TryRequestRunningInstanceAndAcquire(
-      TimeSpan requestTimeout,
-      TimeSpan acquireTimeout,
-      out bool requestSent,
-      out DetailedSingleInstanceResult detailedResult,
-      out UninstallContentionResult lastContentionResult)
+      ISingleInstanceGuard singleInstanceGuard,
+      TimeSpan timeout,
+      out string? error,
+      string requestEventName = RequestEventName,
+      string instanceMutexName = WindowsSingleInstanceGuard.MutexName)
   ```
-  La signatura pública se mantiene 100% inalterada, preservando la compatibilidad binaria y de contratos con todos los consumidores.
+  Comprobada mediante reflexión en tests unitarios (`PublicApi_TryRequestRunningInstanceAndAcquire_PreservesFiveParameterSignature`).
 - **Sobrecarga Internal de Testabilidad (6 Parámetros):**
   ```csharp
   internal static bool TryRequestRunningInstanceAndAcquire(
-      TimeSpan requestTimeout,
-      TimeSpan acquireTimeout,
-      TimeSpan retryDelay,
-      out bool requestSent,
-      out DetailedSingleInstanceResult detailedResult,
-      out UninstallContentionResult lastContentionResult)
+      ISingleInstanceGuard singleInstanceGuard,
+      TimeSpan timeout,
+      TimeSpan pollInterval,
+      out string? error,
+      string requestEventName = RequestEventName,
+      string instanceMutexName = WindowsSingleInstanceGuard.MutexName)
   ```
-  Permite la inyección determinista de intervalos de retardo sin alterar el valor por defecto de producción (`DefaultAcquireRetryDelay = 50 ms`).
+  Permite inyectar un `pollInterval` acotado en pruebas unitarias; no inyecta reloj abstracto (`TimeProvider`) ni altera el runtime de producción.
 
-### 6.2 Inventario de Pruebas Unitarias
-Se reconfirmaron los 16 métodos de prueba (20 casos ejecutables) en `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs`:
-1. `TryRequestRunningInstanceAndAcquire_NoExistingInstance_AcquiresSuccessfully`
-2. `TryRequestRunningInstanceAndAcquire_RequestTimeout_ReturnsFalseWithoutAcquiring`
-3. `TryRequestRunningInstanceAndAcquire_CancellationRequested_AbortsGracefully`
-4. `TryRequestRunningInstanceAndAcquire_InstanceRunning_ReceivesAndAcknowledgesSignal`
-5. `TryRequestRunningInstanceAndAcquire_SingleInstanceMutexHeldByAnother_ReturnsFalseAndReportsBusy`
-6. `TryRequestRunningInstanceAndAcquire_UninstallGateHeldByAnother_ReportsUninstallGateBusy`
-7. `TryRequestRunningInstanceAndAcquire_BothMutexesHeld_ReportsCorrectContentionOrder`
-8. `TryRequestRunningInstanceAndAcquire_DelayedRelease_RetriesAndSuccessfullyAcquires`
-9. `TryRequestRunningInstanceAndAcquire_DelayedReleaseAfterFirstAttempt_SucceedsOnRetry`
-10. `TryRequestRunningInstanceAndAcquire_ExceedingMaxRetries_FailsClosedWithTimeoutContention`
-11. `TryRequestRunningInstanceAndAcquire_InvalidTimeoutParameters_ThrowsArgumentOutOfRangeException` (Theory: 4 inline data cases)
-12. `TryRequestRunningInstanceAndAcquire_ZeroOrNegativeRetryDelay_ThrowsArgumentOutOfRangeException` (Theory: 2 inline data cases)
-13. `TryRequestRunningInstanceAndAcquire_ProbeMutexDaclFailure_FailsClosedSafely`
-14. `TryRequestRunningInstanceAndAcquire_LoggingPacing_DoesNotSpamLogsDuringRetries`
-15. `TryRequestRunningInstanceAndAcquire_HighContentionInterleaved_GuaranteesNoOrphanMutex`
-16. `TryRequestRunningInstanceAndAcquire_DeterministicClockSimulation_CalculatesPacingCorrectly`
+### 6.2 Inventario Real de Pruebas Unitarias
 
-Y los 3 métodos en `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs`:
-1. `AcquireGuard_WhenNoOtherInstance_AcquiresSuccessfully`
-2. `AcquireGuard_WhenInstanceAlreadyRunning_FailsToAcquire`
-3. `AcquireGuard_CustomPrefix_UsesProvidedPrefix`
+#### En `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (16 Métodos, 20 Casos Ejecutables):
+1. `[Fact] PublicApi_TryRequestRunningInstanceAndAcquire_PreservesFiveParameterSignature`: Verifica por reflexión la signatura pública de 5 parámetros, tipos CLR y valores por defecto.
+2. `[Theory] PollIntervalValidation_ZeroNegativeOrInfinite_ThrowsArgumentOutOfRangeImmediatelyWithoutCreatingProbeMutex`: (3 casos: 0, -1 ms, -250 ms) Verifica fallo rápido `ArgumentOutOfRangeException` sin instanciar mutex probe.
+3. `[Fact] PollIntervalValidation_SubMillisecondOrExceedingWaitHandleLimit_ThrowsArgumentOutOfRangeImmediately`: (2 casos: 100 ticks, TimeSpan.MaxValue) Verifica validación defensiva de límites inferior y superior de `WaitHandle`.
+4. `[Theory] TimeoutValidation_ZeroNegativeOrInfinite_ThrowsArgumentOutOfRangeImmediatelyWithoutCreatingProbeMutex`: (3 casos: 0, -1 ms, -250 ms) Verifica fallo rápido para timeouts no positivos o infinitos.
+5. `[Fact] RunningInstanceReceivesSafeShutdownRequestAndReleasesSingleInstanceAdmission`: Simula recepción de señal de apagado y liberación coordinada.
+6. `[Fact] FakeGuardNeverAcquires_WithoutRunningInstance_TimesOutWithSingleInstanceBusyDiagnostic`: Valida diagnóstico `SingleInstanceBusy` ante guardia no adquirible.
+7. `[Fact] RunningInstanceThatDoesNotReleaseAdmissionTimesOutExplicitly`: Valida timeout determinista si la instancia no libera el cerrojo.
+8. `[Fact] SimulatedGuard_NoEventTransientContentionThenRecovery_ReturnsSuccessOnlyAfterBothLocksAcquired`: Valida recuperación tras contención transitoria.
+9. `[Fact] SimulatedGuard_NoEventPermanentUninstallGateContention_FailsClosedAtTimeoutWithoutBusySpin`: Valida fail-closed sin busy-spin ante contención permanente en `UninstallGate`.
+10. `[Fact] SimulatedGuard_NoEventPermanentSingleInstanceContention_FailsClosedWithSingleInstanceDiagnostic`: Valida diagnóstico ante contención en `SingleInstance`.
+11. `[Fact] SimulatedGuard_MixedContentionCauses_TimeoutDiagnosticReflectsLastObservedContention`: Valida que el mensaje de error refleja la última causa de contención observada.
+12. `[Fact] RealNamedMutexes_WhenProbeMutexNeverAcquiredAndNoEvent_TimesOutWithNeutralDiagnostic`: Prueba con mutexes reales `Local\` con GUID dedicado; timeout sin eventos produce diagnóstico neutral.
+13. `[Fact] SimulatedGuard_PermanentAccessOrCreationError_TerminatesPromptlyWithoutRetryingToTimeout`: Valida terminación inmediata ante error irrecuperable de acceso o creación.
+14. `[Fact] SimulatedGuard_ThirdProcessContentionRace_RetriesUntilAdmissionOrTimeout`: Valida reintento acotado ante carrera con tercer proceso.
+15. `[Fact] AbandonedMutex_OnProbeHandle_ReleasesProbeOwnershipBeforeGuardAndLeavesNoResidualLockAfterRelease`: Valida manejo de `AbandonedMutexException` en probe handle sin dejar cerrojos residuales.
+16. `[Fact] RealNamedMutexes_ReleaseOrderInterleaving_RetriesWhileUninstallGateHeldAndAcquiresBothWhenGateReleased`: Intercalación con mutexes reales `Local\` en hilos dedicados simulando la secuencia de liberación inversa.
+
+#### En `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (4 Métodos Fact):
+1. `[Fact] ConcurrentLaunches_OnlyAdmittedProcessCanEnterRecoveryOrMutatePrivacyState`
+2. `[Fact] RealNamedMutexes_WhenUninstallGateOwnedByAnotherThread_ReturnsUninstallGateBusyAndLeavesMainMutexFree`
+3. `[Fact] RealNamedMutexes_WhenMainMutexOwnedByAnotherThread_ReturnsSingleInstanceBusyAndReleasesGate`
+4. `[Fact] RealNamedMutexes_WhenBothFree_AcquiresBothAndReleaseAllowsSubsequentAcquisition`
 
 ### 6.3 Delimitación de Ámbito de Mutexes (`Local\` vs `Global\`)
-Todos los tests unitarios automatizados ejecutan sobre descriptores y mutexes con prefijo `Local\`, limitados a la sesión de Windows en la que se ejecuta el ejecutor de pruebas.
-- **Clasificación Estricta:** Pruebas funcionales de concurrencia intra-sesión.
-- **Invariante:** Estas pruebas no constituyen evidencia de validación bajo Fast User Switching (FUS) ni demuestran contención entre escritorios interactivos de sesiones Windows diferentes. La validación inter-sesión corresponde de forma exclusiva a `TEST-09.7`.
+Todos los tests unitarios automatizados que crean mutexes reales utilizan nombres dinámicos con prefijo `Local\` y sufijo GUID aleatorio (por ejemplo `$@"Local\PrivLock_SingleInstance_{Guid.NewGuid():N}"`).
+- **Clasificación Estricta:** Pruebas funcionales de sincronización intra-sesión.
+- **Invariante de Laboratorio:** No manipulan ni bloquean los mutexes `Global\` de producción del sistema, ni emulan sesiones concurrentes multi-SID de Fast User Switching. La validación inter-sesión permanece reservada de forma exclusiva para `TEST-09.7` en entorno L1 aislado.
 
 ---
 

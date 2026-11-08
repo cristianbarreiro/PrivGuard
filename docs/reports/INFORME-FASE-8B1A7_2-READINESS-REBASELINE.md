@@ -214,12 +214,29 @@ Los informes y runbooks previos de virtualización (Fases 8B.1A.5, 8B.1A.6 y 8B.
    - Se elaboró el script PowerShell read-only [`scripts/lab/Get-L0HostPreflight.ps1`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/scripts/lab/Get-L0HostPreflight.ps1) y el runbook [`docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md).
    - Se ratifica el estado **`L0 NOT VERIFIED — LAB HOLD`** hasta que el propietario ejecute el diagnóstico en el hardware físico anfitrión.
 
+#### Addendum R8: Reconciliación Post-Push R7, Verificación CI Run #103, Reparación de Evidencia y Endurecimiento L0
+1. **Reconciliación Factual Post-Push del Commit R7 (`f581a1c`):**
+   - Al consultar las referencias remotas (`git ls-remote --heads origin` y `git fetch origin main`, consultado 2026-11-08T02:03:30Z), se confirmó que el commit R7 `f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5` (`docs: reconcile R6 remote state and prepare L0 lab gate`) se encuentra publicado como HEAD canónico en `origin/main`.
+   - La declaración histórica `ZERO PUSH` de la sesión local R7 queda superada por la observación remota, sin atribuir la sincronización a un actor o cliente concreto.
+2. **Verificación de GitHub Actions para R7 (Run #103 — `CI R7 PASS`):**
+   - La consulta directa por `head_sha=f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5` confirmó el workflow **Run #103** (ID: `42448487384`, evento `push`, rama `main`, conclusión `success`, **7/7 jobs exitosos**).
+   - Publicados los 4 ejecutables single-file habituales. Cero paquetes `.msix` o archivos `BUILD-PROVENANCE.json` descargables.
+3. **Reparación de Integridad de Evidencia en el Informe R7:**
+   - Se corrigieron los snippets de código ajenos (`ValueStopwatch`, `MaxAcquisitionRetries`) sustituyéndolos por el algoritmo real de producción de [`WindowsUninstallRequestListener.cs`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs#L125-L197).
+   - Se corrigieron las firmas pública e internal y se armonizó el inventario real de 16 tests unitarios en `WindowsUninstallRequestListenerTests` y 4 tests en `WindowsSingleInstanceStartupTests`.
+   - Se corrigieron los job IDs de Run #102 (`Build & Test (macos-latest)` = `128619439904`, `Publish Single-File (linux-x64)` = `128619848706`), la versión del SDK (`.NET 10.0.403`) y el proyecto de test de infraestructura (`tests/PrivLock.Infrastructure.Tests`).
+4. **Endurecimiento del Preflight de Host Físico L0:**
+   - Se rediseñó [`scripts/lab/Get-L0HostPreflight.ps1`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/scripts/lab/Get-L0HostPreflight.ps1) eliminando la etiqueta prematura `L0_READY_FOR_TOPOLOGY_B` e introduciendo estados rigurosos (`L0_PREFLIGHT_PASS_CANDIDATE`, `L0_CAPABLE_CONSTRAINED`, `L0_PREFLIGHT_BLOCKED`, `PREFLIGHT_INCOMPLETE`, `GUEST_DETECTED`).
+   - Se incorporó el parámetro `-VmStoragePath` para validar el volumen y espacio libre destino de la VM, y se añadieron pruebas unitarias automatizadas (`scripts/lab/Test-L0HostPreflightLogic.ps1`) con 10/10 casos pasando.
+5. **Armonización de Requisitos de VM Windows 11 en Topología B:**
+   - Se armonizó [`docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md) con el mínimo oficial de Microsoft de **>= 64 GiB de almacenamiento** para VMs Windows 11 y se clarificó la taxonomía de hipervisores (Hyper-V como Tipo 1 nativo vs VirtualBox/VMware como Tipo 2 alojados).
+
 ### 1.2 Veredicto Oficial
 
-$$\mathbf{VEREDICTO:\ REBASELINE\ R7\ PASS\ —\ R6\ REMOTE\ STATE\ RECONCILED\ —\ CI\ R6\ PASS\ —\ L0\ NOT\ VERIFIED\ —\ LAB\ HOLD}$$
+$$\mathbf{VEREDICTO:\ REBASELINE\ R8\ PASS\ —\ R7\ REMOTE/CI\ RECONCILED\ —\ REPORT\ INTEGRITY\ REPAIRED\ —\ L0\ NOT\ VERIFIED\ —\ LAB\ HOLD}$$
 
-- **Rebaseline, Reconciliación Run #102 y Aceptación de Deadline R7:** **PASS**. Se reconcilia el commit R6 `e6a57ae58d7d0cd30265834fc51e2bab32928732` en `origin/main` y el Run #102 (`42444149346`, 7/7 jobs green), se ratifica el baseline de código funcional R5 (`85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`), se dictamina `DOCUMENTED ACCEPTANCE` para el contrato de timeout aproximado de desinstalación, y se preparan el script y la guía de preflight para el host físico L0.
-- **Readiness del Laboratorio VM:** **HOLD**. El host de desarrollo actual permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED` (Guest VirtualBox con 3.98 GB RAM visible y ~0.56 GB libre, sin nested VT-x). Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
+- **Rebaseline, Reconciliación Run #103, Reparación de Evidencia y Endurecimiento L0:** **PASS**. Se reconcilia el commit R7 `f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5` en `origin/main` y el Run #103 (`42448487384`, 7/7 jobs green), se reparan las firmas y fragmentos en la documentación de R7, se ratifica el dictamen `SOFT DEADLINE ACCEPTED — SEMANTICS DOCUMENTED` sobre el código real, y se endurece el tooling y runbook de preflight de host físico L0 con validación por tests.
+- **Readiness del Laboratorio VM:** **HOLD**. El host de desarrollo actual permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED`. Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
 - **Salvaguardas Invariantes:** Microsoft Store en `CONDITIONAL HOLD`, Fase 8B.1C en `BLOCKED / NOT AUTHORIZED`.
 
 ---
