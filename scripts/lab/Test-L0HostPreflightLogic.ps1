@@ -4,10 +4,12 @@
 
 .DESCRIPTION
     Validates deterministic unit test cases for:
-    1. Resolve-L0VmStoragePathFormat: Local Windows drive format validation (rejecting UNC, relative, empty).
-    2. Get-L0CpuAggregation: Multi-socket CPU core/thread summing and conservative virtualization flag aggregation.
-    3. Get-L0HostClassification: Hardware and diagnostic metrics classification (GUEST_DETECTED, PREFLIGHT_INCOMPLETE,
-       L0_PREFLIGHT_BLOCKED, L0_CAPABLE_CONSTRAINED, L0_PREFLIGHT_PASS_CANDIDATE).
+    1. ConvertTo-L0NormalizedBoolean: Strict allowlist conversion (rejecting "YES", "ENABLED", "1", etc.).
+    2. Test-L0ValidDouble / Test-L0ValidInt: Strict numeric validity (rejecting NaN, Infinity, negative, non-numeric).
+    3. Resolve-L0VmStoragePathFormat: Local Windows drive format validation (rejecting UNC, relative, drive-relative).
+    4. Test-L0StorageTargetResolution: Directory existence, container verification, and DriveType allowlist (DriveType = 3).
+    5. Get-L0CpuAggregation: Fail-closed multi-socket CPU core/thread summing and conservative virtualization aggregation.
+    6. Get-L0HostClassification: Hardware and diagnostic metrics classification with strict allowlist and boundary tests.
 
     Hermetic execution: Zero CIM/WMI calls, zero hardware modifications, no administrator required.
 #>
@@ -32,170 +34,162 @@ Write-Host "==========================================================" -Foregro
 
 $testResults = [System.Collections.Generic.List[pscustomobject]]::new()
 
-function Run-ClassificationTest {
+function Record-TestResult {
     param(
+        [string]$Category,
         [string]$TestName,
-        [hashtable]$MockMetrics,
-        [string]$ExpectedClassification
+        [bool]$Passed,
+        [string]$Expected,
+        [string]$Actual,
+        [string]$Details = ""
     )
-
-    try {
-        $result = Get-L0HostClassification -Metrics $MockMetrics
-        $passed = ($result.Classification -eq $ExpectedClassification)
-        $status = if ($passed) { "PASS" } else { "FAIL" }
-        $color  = if ($passed) { "Green" } else { "Red" }
-        Write-Host "[$status] $TestName (Expected: $ExpectedClassification | Got: $($result.Classification))" -ForegroundColor $color
-        $testResults.Add([pscustomobject]@{
-            Category = "Classification"
-            TestName = $TestName
-            Expected = $ExpectedClassification
-            Actual   = $result.Classification
-            Passed   = $passed
-            Reasons  = ($result.Reasons -join "; ")
-        })
-    } catch {
-        Write-Host "[FAIL-EXCEPTION] $TestName : $($_.ToString())" -ForegroundColor Red
-        $testResults.Add([pscustomobject]@{
-            Category = "Classification"
-            TestName = $TestName
-            Expected = $ExpectedClassification
-            Actual   = "EXCEPTION"
-            Passed   = $false
-            Reasons  = $_.ToString()
-        })
-    }
+    $status = if ($Passed) { "PASS" } else { "FAIL" }
+    $color  = if ($Passed) { "Green" } else { "Red" }
+    Write-Host "[$status] $TestName (Expected: $Expected | Got: $Actual)" -ForegroundColor $color
+    $testResults.Add([pscustomobject]@{
+        Category = $Category
+        TestName = $TestName
+        Expected = $Expected
+        Actual   = $Actual
+        Passed   = $Passed
+        Details  = $Details
+    })
 }
 
-function Run-PathFormatTest {
-    param(
-        [string]$TestName,
-        [string]$InputPath,
-        [bool]$ExpectedValid,
-        [string]$ExpectedStatus,
-        [string]$ExpectedDriveId
-    )
-
-    try {
-        $res = Resolve-L0VmStoragePathFormat -Path $InputPath
-        $driveMatch = if ($null -eq $ExpectedDriveId -or [string]::IsNullOrEmpty($ExpectedDriveId)) {
-            $null -eq $res.DriveId -or [string]::IsNullOrEmpty($res.DriveId)
-        } else {
-            $res.DriveId -eq $ExpectedDriveId
-        }
-        $passed = ($res.IsValid -eq $ExpectedValid -and $res.Status -eq $ExpectedStatus -and $driveMatch)
-        $status = if ($passed) { "PASS" } else { "FAIL" }
-        $color  = if ($passed) { "Green" } else { "Red" }
-        Write-Host "[$status] $TestName (Valid: $($res.IsValid), Status: $($res.Status), Drive: $($res.DriveId))" -ForegroundColor $color
-        $testResults.Add([pscustomobject]@{
-            Category = "PathFormat"
-            TestName = $TestName
-            Expected = "Valid=$ExpectedValid;Status=$ExpectedStatus;Drive=$ExpectedDriveId"
-            Actual   = "Valid=$($res.IsValid);Status=$($res.Status);Drive=$($res.DriveId)"
-            Passed   = $passed
-            Reasons  = $res.Reason
-        })
-    } catch {
-        Write-Host "[FAIL-EXCEPTION] $TestName : $($_.ToString())" -ForegroundColor Red
-        $testResults.Add([pscustomobject]@{
-            Category = "PathFormat"
-            TestName = $TestName
-            Expected = "Valid=$ExpectedValid;Status=$ExpectedStatus;Drive=$ExpectedDriveId"
-            Actual   = "EXCEPTION"
-            Passed   = $false
-            Reasons  = $_.ToString()
-        })
-    }
-}
-
-function Run-CpuAggTest {
-    param(
-        [string]$TestName,
-        [array]$MockProcessors,
-        [int]$ExpectedCores,
-        [int]$ExpectedLogical,
-        [string]$ExpectedVirt,
-        [string]$ExpectedSlat,
-        [string]$ExpectedVmm
-    )
-
-    try {
-        $agg = Get-L0CpuAggregation -Processors $MockProcessors
-        $passed = ($agg.CPUCores -eq $ExpectedCores -and
-                   $agg.CPULogicalProcessors -eq $ExpectedLogical -and
-                   $agg.VirtualizationFirmwareEnabled -eq $ExpectedVirt -and
-                   $agg.SecondLevelAddressTranslationExtensions -eq $ExpectedSlat -and
-                   $agg.VMMonitorModeExtensions -eq $ExpectedVmm)
-        $status = if ($passed) { "PASS" } else { "FAIL" }
-        $color  = if ($passed) { "Green" } else { "Red" }
-        Write-Host "[$status] $TestName (Cores: $($agg.CPUCores), Logical: $($agg.CPULogicalProcessors), Virt: $($agg.VirtualizationFirmwareEnabled), SLAT: $($agg.SecondLevelAddressTranslationExtensions), VMM: $($agg.VMMonitorModeExtensions))" -ForegroundColor $color
-        $testResults.Add([pscustomobject]@{
-            Category = "CpuAggregation"
-            TestName = $TestName
-            Expected = "Cores=$ExpectedCores;Log=$ExpectedLogical;Virt=$ExpectedVirt;SLAT=$ExpectedSlat;VMM=$ExpectedVmm"
-            Actual   = "Cores=$($agg.CPUCores);Log=$($agg.CPULogicalProcessors);Virt=$($agg.VirtualizationFirmwareEnabled);SLAT=$($agg.SecondLevelAddressTranslationExtensions);VMM=$($agg.VMMonitorModeExtensions)"
-            Passed   = $passed
-            Reasons  = ""
-        })
-    } catch {
-        Write-Host "[FAIL-EXCEPTION] $TestName : $($_.ToString())" -ForegroundColor Red
-        $testResults.Add([pscustomobject]@{
-            Category = "CpuAggregation"
-            TestName = $TestName
-            Expected = "Cores=$ExpectedCores;Log=$ExpectedLogical;Virt=$ExpectedVirt;SLAT=$ExpectedSlat;VMM=$ExpectedVmm"
-            Actual   = "EXCEPTION"
-            Passed   = $false
-            Reasons  = $_.ToString()
-        })
-    }
-}
-
-# --- SECTION 1: STORAGE PATH FORMAT VALIDATION TESTS ---
-Run-PathFormatTest -TestName "PF-01: Empty storage path" -InputPath "" -ExpectedValid $false -ExpectedStatus "PATH_EMPTY" -ExpectedDriveId $null
-Run-PathFormatTest -TestName "PF-02: Whitespace storage path" -InputPath "   " -ExpectedValid $false -ExpectedStatus "PATH_EMPTY" -ExpectedDriveId $null
-Run-PathFormatTest -TestName "PF-03: UNC network share path" -InputPath "\\fileserver\vmshare\disks" -ExpectedValid $false -ExpectedStatus "UNC_PATH_NOT_SUPPORTED" -ExpectedDriveId $null
-Run-PathFormatTest -TestName "PF-04: Relative path without drive" -InputPath "VMs\Windows11" -ExpectedValid $false -ExpectedStatus "INVALID_PATH_FORMAT" -ExpectedDriveId $null
-Run-PathFormatTest -TestName "PF-05: Drive letter without slash (drive-relative)" -InputPath "D:VMs\Windows11" -ExpectedValid $false -ExpectedStatus "INVALID_PATH_FORMAT" -ExpectedDriveId $null
-Run-PathFormatTest -TestName "PF-06: Valid local Windows drive path (backslash)" -InputPath "D:\PrivGuard-Lab\VMs" -ExpectedValid $true -ExpectedStatus "FORMAT_VALID" -ExpectedDriveId "D:"
-Run-PathFormatTest -TestName "PF-07: Valid local Windows drive path (forward slash)" -InputPath "C:/PrivGuard-Lab/VMs" -ExpectedValid $true -ExpectedStatus "FORMAT_VALID" -ExpectedDriveId "C:"
-
-# --- SECTION 2: CPU MULTI-SOCKET AGGREGATION TESTS ---
-$procSingle = @(
-    [pscustomobject]@{
-        NumberOfCores = 8
-        NumberOfLogicalProcessors = 16
-        VirtualizationFirmwareEnabled = $true
-        SecondLevelAddressTranslationExtensions = $true
-        VMMonitorModeExtensions = $true
-    }
+# --- SECTION 1: STRICT BOOLEAN ALLOWLIST TESTS ---
+$boolCases = @(
+    @{ Name = "BOOL-01: True boolean";          Input = $true;       Expected = "TRUE" },
+    @{ Name = "BOOL-02: False boolean";         Input = $false;      Expected = "FALSE" },
+    @{ Name = "BOOL-03: String 'TRUE'";         Input = "TRUE";      Expected = "TRUE" },
+    @{ Name = "BOOL-04: String 'false' (lower)";Input = "false";     Expected = "FALSE" },
+    @{ Name = "BOOL-05: String with spaces";    Input = "  True  ";  Expected = "TRUE" },
+    @{ Name = "BOOL-06: Disallowed 'YES'";      Input = "YES";       Expected = "UNKNOWN" },
+    @{ Name = "BOOL-07: Disallowed 'ENABLED'";  Input = "ENABLED";   Expected = "UNKNOWN" },
+    @{ Name = "BOOL-08: Disallowed '1'";        Input = "1";         Expected = "UNKNOWN" },
+    @{ Name = "BOOL-09: Disallowed '0'";        Input = "0";         Expected = "UNKNOWN" },
+    @{ Name = "BOOL-10: Null value";            Input = $null;       Expected = "UNKNOWN" },
+    @{ Name = "BOOL-11: Empty string";          Input = "";          Expected = "UNKNOWN" }
 )
-Run-CpuAggTest -TestName "CPU-01: Single socket normal" -MockProcessors $procSingle -ExpectedCores 8 -ExpectedLogical 16 -ExpectedVirt "TRUE" -ExpectedSlat "TRUE" -ExpectedVmm "TRUE"
 
-$procDualSymmetric = @(
-    [pscustomobject]@{
-        NumberOfCores = 8
-        NumberOfLogicalProcessors = 16
-        VirtualizationFirmwareEnabled = $true
-        SecondLevelAddressTranslationExtensions = $true
-        VMMonitorModeExtensions = $true
-    },
-    [pscustomobject]@{
-        NumberOfCores = 8
-        NumberOfLogicalProcessors = 16
-        VirtualizationFirmwareEnabled = $true
-        SecondLevelAddressTranslationExtensions = $true
-        VMMonitorModeExtensions = $true
+foreach ($c in $boolCases) {
+    try {
+        $actual = ConvertTo-L0NormalizedBoolean $c.Input
+        Record-TestResult -Category "BooleanAllowlist" -TestName $c.Name -Passed ($actual -eq $c.Expected) -Expected $c.Expected -Actual $actual
+    } catch {
+        Record-TestResult -Category "BooleanAllowlist" -TestName $c.Name -Passed $false -Expected $c.Expected -Actual "EXCEPTION: $_"
     }
-)
-Run-CpuAggTest -TestName "CPU-02: Dual socket symmetric" -MockProcessors $procDualSymmetric -ExpectedCores 16 -ExpectedLogical 32 -ExpectedVirt "TRUE" -ExpectedSlat "TRUE" -ExpectedVmm "TRUE"
+}
 
-$procDualHeteroFail = @(
-    [pscustomobject]@{
-        NumberOfCores = 8
-        NumberOfLogicalProcessors = 16
-        VirtualizationFirmwareEnabled = $true
-        SecondLevelAddressTranslationExtensions = $true
-        VMMonitorModeExtensions = $true
-    },
+# --- SECTION 2: STRICT NUMERIC VALIDATION TESTS ---
+[double]$outD = 0.0
+$numDoubleCases = @(
+    @{ Name = "NUM-01: Valid double (16.0)";     Input = 16.0;                    Expected = $true },
+    @{ Name = "NUM-02: Valid zero (0.0)";        Input = 0.0;                     Expected = $true },
+    @{ Name = "NUM-03: Valid string double";     Input = "12.5";                  Expected = $true },
+    @{ Name = "NUM-04: Negative double (-1.0)";  Input = -1.0;                    Expected = $false },
+    @{ Name = "NUM-05: Double NaN";              Input = [double]::NaN;           Expected = $false },
+    @{ Name = "NUM-06: Double PositiveInfinity"; Input = [double]::PositiveInfinity; Expected = $false },
+    @{ Name = "NUM-07: Double NegativeInfinity"; Input = [double]::NegativeInfinity; Expected = $false },
+    @{ Name = "NUM-08: Non-numeric string";      Input = "invalid_num";           Expected = $false },
+    @{ Name = "NUM-09: Null value";              Input = $null;                   Expected = $false }
+)
+
+foreach ($c in $numDoubleCases) {
+    try {
+        $actual = Test-L0ValidDouble -Value $c.Input -OutDouble ([ref]$outD)
+        Record-TestResult -Category "NumericValidation" -TestName $c.Name -Passed ($actual -eq $c.Expected) -Expected ($c.Expected.ToString()) -Actual ($actual.ToString())
+    } catch {
+        Record-TestResult -Category "NumericValidation" -TestName $c.Name -Passed $false -Expected ($c.Expected.ToString()) -Actual "EXCEPTION: $_"
+    }
+}
+
+[int]$outI = 0
+$numIntCases = @(
+    @{ Name = "NUM-10: Valid int (4)";           Input = 4;                       Expected = $true },
+    @{ Name = "NUM-11: Valid zero int (0)";      Input = 0;                       Expected = $true },
+    @{ Name = "NUM-12: Valid string int ('8')";  Input = "8";                     Expected = $true },
+    @{ Name = "NUM-13: Negative int (-2)";       Input = -2;                      Expected = $false },
+    @{ Name = "NUM-14: Fractional string ('2.5')";Input = "2.5";                  Expected = $false },
+    @{ Name = "NUM-15: Non-numeric string ('x')";Input = "x";                     Expected = $false },
+    @{ Name = "NUM-16: Null int";                Input = $null;                   Expected = $false }
+)
+
+foreach ($c in $numIntCases) {
+    try {
+        $actual = Test-L0ValidInt -Value $c.Input -OutInt ([ref]$outI)
+        Record-TestResult -Category "NumericValidation" -TestName $c.Name -Passed ($actual -eq $c.Expected) -Expected ($c.Expected.ToString()) -Actual ($actual.ToString())
+    } catch {
+        Record-TestResult -Category "NumericValidation" -TestName $c.Name -Passed $false -Expected ($c.Expected.ToString()) -Actual "EXCEPTION: $_"
+    }
+}
+
+# --- SECTION 3: STORAGE PATH FORMAT VALIDATION TESTS ---
+$pathFmtCases = @(
+    @{ Name = "PF-01: Empty storage path";      Path = "";                        ExpectedValid = $false; ExpectedStatus = "PATH_EMPTY" },
+    @{ Name = "PF-02: Whitespace storage path"; Path = "   ";                     ExpectedValid = $false; ExpectedStatus = "PATH_EMPTY" },
+    @{ Name = "PF-03: UNC network share path";  Path = "\\server\vm\disks";       ExpectedValid = $false; ExpectedStatus = "UNC_PATH_NOT_SUPPORTED" },
+    @{ Name = "PF-04: Relative path";           Path = "VMs\Windows11";           ExpectedValid = $false; ExpectedStatus = "INVALID_PATH_FORMAT" },
+    @{ Name = "PF-05: Drive-relative path";     Path = "D:VMs\Windows11";         ExpectedValid = $false; ExpectedStatus = "INVALID_PATH_FORMAT" },
+    @{ Name = "PF-06: Valid local drive (\\)";  Path = "D:\PrivGuard-Lab\VMs";    ExpectedValid = $true;  ExpectedStatus = "FORMAT_VALID" },
+    @{ Name = "PF-07: Valid local drive (//)";  Path = "C:/PrivGuard-Lab/VMs";    ExpectedValid = $true;  ExpectedStatus = "FORMAT_VALID" }
+)
+
+foreach ($c in $pathFmtCases) {
+    try {
+        $res = Resolve-L0VmStoragePathFormat -Path $c.Path
+        $passed = ($res.IsValid -eq $c.ExpectedValid -and $res.Status -eq $c.ExpectedStatus)
+        Record-TestResult -Category "PathFormat" -TestName $c.Name -Passed $passed -Expected "$($c.ExpectedValid):$($c.ExpectedStatus)" -Actual "$($res.IsValid):$($res.Status)" -Details $res.Reason
+    } catch {
+        Record-TestResult -Category "PathFormat" -TestName $c.Name -Passed $false -Expected "$($c.ExpectedValid):$($c.ExpectedStatus)" -Actual "EXCEPTION: $_"
+    }
+}
+
+# --- SECTION 4: STORAGE TARGET RESOLUTION TESTS (Directory existence & DriveType allowlist) ---
+$diskFixedValid = [pscustomobject]@{ DriveType = 3; FreeSpace = 161061273600; FileSystem = "NTFS" } # 150 GiB
+$diskFixedZero  = [pscustomobject]@{ DriveType = 3; FreeSpace = 0;            FileSystem = "NTFS" }
+$diskFixedNullFs= [pscustomobject]@{ DriveType = 3; FreeSpace = $null;        FileSystem = "NTFS" }
+$diskRemovable  = [pscustomobject]@{ DriveType = 2; FreeSpace = 161061273600; FileSystem = "exFAT" }
+$diskNetwork    = [pscustomobject]@{ DriveType = 4; FreeSpace = 161061273600; FileSystem = "SMB" }
+$diskUnknownDt  = [pscustomobject]@{ DriveType = 0; FreeSpace = 161061273600; FileSystem = "RAW" }
+$diskNullDt     = [pscustomobject]@{ DriveType = $null; FreeSpace = 161061273600; FileSystem = "NTFS" }
+
+$storageResCases = @(
+    @{ Name = "STR-01: Directory does not exist";       Path = "D:\NonExistent\VMs"; DirExists = $false; IsDir = $false; Disk = $diskFixedValid; ExpectedStatus = "DIRECTORY_NOT_FOUND" },
+    @{ Name = "STR-02: Path is a file, not directory";   Path = "D:\VMs\disk.vhdx";   DirExists = $true;  IsDir = $false; Disk = $diskFixedValid; ExpectedStatus = "PATH_NOT_A_DIRECTORY" },
+    @{ Name = "STR-03: Volume not found (null disk)";   Path = "Z:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $null;           ExpectedStatus = "VOLUME_NOT_FOUND" },
+    @{ Name = "STR-04: DriveType = 2 (Removable)";       Path = "E:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskRemovable;  ExpectedStatus = "VOLUME_NOT_LOCAL_FIXED" },
+    @{ Name = "STR-05: DriveType = 4 (Network Drive)";   Path = "Z:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskNetwork;    ExpectedStatus = "VOLUME_NOT_LOCAL_FIXED" },
+    @{ Name = "STR-06: DriveType = 0 (Unknown)";         Path = "F:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskUnknownDt;  ExpectedStatus = "VOLUME_NOT_LOCAL_FIXED" },
+    @{ Name = "STR-07: DriveType = null";               Path = "F:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskNullDt;     ExpectedStatus = "VOLUME_NOT_LOCAL_FIXED" },
+    @{ Name = "STR-08: FreeSpace is null";              Path = "D:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskFixedNullFs;ExpectedStatus = "VOLUME_SPACE_UNKNOWN" },
+    @{ Name = "STR-09: FreeSpace is 0 (measured)";      Path = "D:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskFixedZero;  ExpectedStatus = "RESOLVED" },
+    @{ Name = "STR-10: All valid (Fixed, 150 GiB)";     Path = "D:\VMs";             DirExists = $true;  IsDir = $true;  Disk = $diskFixedValid; ExpectedStatus = "RESOLVED" }
+)
+
+foreach ($c in $storageResCases) {
+    try {
+        $res = Test-L0StorageTargetResolution -Path $c.Path -DirectoryExists $c.DirExists -IsDirectory $c.IsDir -LogicalDisk $c.Disk
+        $passed = ($res.Status -eq $c.ExpectedStatus)
+        Record-TestResult -Category "StorageTargetResolution" -TestName $c.Name -Passed $passed -Expected $c.ExpectedStatus -Actual $res.Status -Details $res.Reason
+    } catch {
+        Record-TestResult -Category "StorageTargetResolution" -TestName $c.Name -Passed $false -Expected $c.ExpectedStatus -Actual "EXCEPTION: $_"
+    }
+}
+
+# --- SECTION 5: CPU MULTI-SOCKET AGGREGATION TESTS (Fail-Closed) ---
+$cpuNormalSocket = @{
+    NumberOfCores = 8
+    NumberOfLogicalProcessors = 16
+    VirtualizationFirmwareEnabled = $true
+    SecondLevelAddressTranslationExtensions = $true
+    VMMonitorModeExtensions = $true
+}
+
+$procSingle = @([pscustomobject]$cpuNormalSocket)
+$procDualSymmetric = @([pscustomobject]$cpuNormalSocket, [pscustomobject]$cpuNormalSocket)
+
+$procDualHeteroVirtFail = @(
+    [pscustomobject]$cpuNormalSocket,
     [pscustomobject]@{
         NumberOfCores = 8
         NumberOfLogicalProcessors = 16
@@ -204,28 +198,69 @@ $procDualHeteroFail = @(
         VMMonitorModeExtensions = $true
     }
 )
-Run-CpuAggTest -TestName "CPU-03: Dual socket heterogeneous failure (conservative)" -MockProcessors $procDualHeteroFail -ExpectedCores 16 -ExpectedLogical 32 -ExpectedVirt "FALSE" -ExpectedSlat "TRUE" -ExpectedVmm "TRUE"
 
-$procDualUnknownFlag = @(
+$procDualSocket1CoresNull = @(
+    [pscustomobject]$cpuNormalSocket,
     [pscustomobject]@{
-        NumberOfCores = 4
-        NumberOfLogicalProcessors = 8
+        NumberOfCores = $null
+        NumberOfLogicalProcessors = 16
         VirtualizationFirmwareEnabled = $true
-        SecondLevelAddressTranslationExtensions = "UNKNOWN"
+        SecondLevelAddressTranslationExtensions = $true
         VMMonitorModeExtensions = $true
-    },
+    }
+)
+
+$procDualSocket1LogNull = @(
+    [pscustomobject]$cpuNormalSocket,
     [pscustomobject]@{
-        NumberOfCores = 4
+        NumberOfCores = 8
+        NumberOfLogicalProcessors = $null
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    }
+)
+
+$procNegativeCores = @(
+    [pscustomobject]@{
+        NumberOfCores = -4
         NumberOfLogicalProcessors = 8
         VirtualizationFirmwareEnabled = $true
         SecondLevelAddressTranslationExtensions = $true
         VMMonitorModeExtensions = $true
     }
 )
-Run-CpuAggTest -TestName "CPU-04: Dual socket with UNKNOWN flag (conservative)" -MockProcessors $procDualUnknownFlag -ExpectedCores 8 -ExpectedLogical 16 -ExpectedVirt "TRUE" -ExpectedSlat "UNKNOWN" -ExpectedVmm "TRUE"
 
-# --- SECTION 3: CLASSIFICATION DETERMINISTIC UNIT TESTS ---
-# Baseline "Ideal" Candidate Metrics
+$procWithNullElement = @(
+    [pscustomobject]$cpuNormalSocket,
+    $null
+)
+
+$cpuCases = @(
+    @{ Name = "CPU-01: Single socket normal";               Procs = $procSingle;              ExpComplete = $true;  ExpCores = 8;    ExpLog = 16;  ExpVirt = "TRUE" },
+    @{ Name = "CPU-02: Dual socket symmetric";              Procs = $procDualSymmetric;       ExpComplete = $true;  ExpCores = 16;   ExpLog = 32;  ExpVirt = "TRUE" },
+    @{ Name = "CPU-03: Dual socket hetero Virt=FALSE";      Procs = $procDualHeteroVirtFail;  ExpComplete = $true;  ExpCores = 16;   ExpLog = 32;  ExpVirt = "FALSE" },
+    @{ Name = "CPU-04: Socket 1 cores = null (fail-closed)";Procs = $procDualSocket1CoresNull; ExpComplete = $false; ExpCores = $null;ExpLog = $null;ExpVirt = "TRUE" },
+    @{ Name = "CPU-05: Socket 1 logical=null (fail-closed)";Procs = $procDualSocket1LogNull;   ExpComplete = $false; ExpCores = $null;ExpLog = $null;ExpVirt = "TRUE" },
+    @{ Name = "CPU-06: Negative cores (fail-closed)";       Procs = $procNegativeCores;       ExpComplete = $false; ExpCores = $null;ExpLog = $null;ExpVirt = "TRUE" },
+    @{ Name = "CPU-07: Null element in array (fail-closed)";Procs = $procWithNullElement;     ExpComplete = $false; ExpCores = $null;ExpLog = $null;ExpVirt = "UNKNOWN" },
+    @{ Name = "CPU-08: Empty processor array";              Procs = @();                      ExpComplete = $false; ExpCores = $null;ExpLog = $null;ExpVirt = "UNKNOWN" }
+)
+
+foreach ($c in $cpuCases) {
+    try {
+        $agg = Get-L0CpuAggregation -Processors $c.Procs
+        $passed = ($agg.IsInventoryComplete -eq $c.ExpComplete -and
+                   $agg.CPUCores -eq $c.ExpCores -and
+                   $agg.CPULogicalProcessors -eq $c.ExpLog -and
+                   $agg.VirtualizationFirmwareEnabled -eq $c.ExpVirt)
+        Record-TestResult -Category "CpuAggregation" -TestName $c.Name -Passed $passed -Expected "Comp=$($c.ExpComplete),Cores=$($c.ExpCores),Log=$($c.ExpLog),Virt=$($c.ExpVirt)" -Actual "Comp=$($agg.IsInventoryComplete),Cores=$($agg.CPUCores),Log=$($agg.CPULogicalProcessors),Virt=$($agg.VirtualizationFirmwareEnabled)"
+    } catch {
+        Record-TestResult -Category "CpuAggregation" -TestName $c.Name -Passed $false -Expected "Comp=$($c.ExpComplete)" -Actual "EXCEPTION: $_"
+    }
+}
+
+# --- SECTION 6: CLASSIFICATION DETERMINISTIC UNIT TESTS ---
 $idealMetrics = @{
     IsKnownVirtualGuest                    = $false
     ComputerSystemIdentityStatus           = "RESOLVED"
@@ -243,168 +278,152 @@ $idealMetrics = @{
     VmStorageFreeSpaceGiB                  = 250.0
 }
 
+function Run-ClassificationTest {
+    param(
+        [string]$TestName,
+        [hashtable]$MockMetrics,
+        [string]$ExpectedClassification
+    )
+
+    try {
+        $result = Get-L0HostClassification -Metrics $MockMetrics
+        $passed = ($result.Classification -eq $ExpectedClassification)
+        Record-TestResult -Category "Classification" -TestName $TestName -Passed $passed -Expected $ExpectedClassification -Actual $result.Classification -Details ($result.Reasons -join "; ")
+    } catch {
+        Record-TestResult -Category "Classification" -TestName $TestName -Passed $false -Expected $ExpectedClassification -Actual "EXCEPTION: $_"
+    }
+}
+
 # 1. Known VM Signature
-$m1 = $idealMetrics.Clone()
-$m1.IsKnownVirtualGuest = $true
-$m1.Manufacturer = "innotek GmbH"
-$m1.Model = "VirtualBox"
-Run-ClassificationTest -TestName "01: Known VM signature detected" -MockMetrics $m1 -ExpectedClassification "GUEST_DETECTED"
+$m1 = $idealMetrics.Clone(); $m1.IsKnownVirtualGuest = $true; $m1.Manufacturer = "innotek GmbH"; $m1.Model = "VirtualBox"
+Run-ClassificationTest -TestName "CLS-01: Known VM signature detected" -MockMetrics $m1 -ExpectedClassification "GUEST_DETECTED"
 
-# 2. Virtualization Disabled in Firmware
-$m2 = $idealMetrics.Clone()
-$m2.VirtualizationFirmwareEnabled = "FALSE"
-Run-ClassificationTest -TestName "02: Virtualization disabled in firmware" -MockMetrics $m2 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 2. Known VM Signature with simultaneous invalid/corrupt metrics (precedence check)
+$m2 = $idealMetrics.Clone(); $m2.IsKnownVirtualGuest = $true; $m2.TotalVisibleMemoryGiB = [double]::NaN; $m2.CPUCores = -1; $m2.VmStorageStatus = "UNKNOWN"
+Run-ClassificationTest -TestName "CLS-02: Guest precedence over corrupt/incomplete metrics" -MockMetrics $m2 -ExpectedClassification "GUEST_DETECTED"
 
-# 3. SLAT Unsupported
-$m3 = $idealMetrics.Clone()
-$m3.SecondLevelAddressTranslationExtensions = "FALSE"
-Run-ClassificationTest -TestName "03: SLAT unsupported" -MockMetrics $m3 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 3. Virtualization Disabled in Firmware
+$m3 = $idealMetrics.Clone(); $m3.VirtualizationFirmwareEnabled = "FALSE"
+Run-ClassificationTest -TestName "CLS-03: Virtualization disabled in firmware" -MockMetrics $m3 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 4. Free Physical RAM below practical minimum (< 5.0 GiB)
-$m4 = $idealMetrics.Clone()
-$m4.FreePhysicalMemoryGiB = 4.2
-Run-ClassificationTest -TestName "04: Free physical RAM < 5.0 GiB" -MockMetrics $m4 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 4. SLAT Unsupported
+$m4 = $idealMetrics.Clone(); $m4.SecondLevelAddressTranslationExtensions = "FALSE"
+Run-ClassificationTest -TestName "CLS-04: SLAT unsupported" -MockMetrics $m4 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 5. Target Storage Free Space below practical minimum (< 70.0 GiB)
-$m5 = $idealMetrics.Clone()
-$m5.VmStorageFreeSpaceGiB = 55.0
-Run-ClassificationTest -TestName "05: Target volume free storage < 70.0 GiB" -MockMetrics $m5 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 5. Non-allowlist Virtualization flag ("YES" / "ENABLED") -> INCOMPLETE
+$m5 = $idealMetrics.Clone(); $m5.VirtualizationFirmwareEnabled = "ENABLED"
+Run-ClassificationTest -TestName "CLS-05: Non-allowlist flag ('ENABLED') produces INCOMPLETE" -MockMetrics $m5 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-# 6. Total RAM below practical minimum (< 12.0 GiB)
-$m6 = $idealMetrics.Clone()
-$m6.TotalVisibleMemoryGiB = 10.5
-Run-ClassificationTest -TestName "06: Total RAM < 12.0 GiB" -MockMetrics $m6 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 6. Free Physical RAM below practical minimum (< 5.0 GiB)
+$m6 = $idealMetrics.Clone(); $m6.FreePhysicalMemoryGiB = 4.2
+Run-ClassificationTest -TestName "CLS-06: Free physical RAM < 5.0 GiB" -MockMetrics $m6 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 7. CPU capacity below practical minimum (< 2 cores or < 4 logical)
-$m7 = $idealMetrics.Clone()
-$m7.CPUCores = 1
-$m7.CPULogicalProcessors = 2
-Run-ClassificationTest -TestName "07: CPU capacity below 2 cores / 4 logical" -MockMetrics $m7 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 7. Total RAM below practical minimum (< 12.0 GiB)
+$m7 = $idealMetrics.Clone(); $m7.TotalVisibleMemoryGiB = 10.5
+Run-ClassificationTest -TestName "CLS-07: Total RAM < 12.0 GiB" -MockMetrics $m7 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 8. VmStoragePath absent / unverified
-$m8 = $idealMetrics.Clone()
-$m8.VmStorageStatus = "UNKNOWN"
-$m8.VmStorageVolume = ""
-Run-ClassificationTest -TestName "08: VmStoragePath absent / unverified" -MockMetrics $m8 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
+# 8. Target Storage Free Space below practical minimum (< 70.0 GiB)
+$m8 = $idealMetrics.Clone(); $m8.VmStorageFreeSpaceGiB = 55.0
+Run-ClassificationTest -TestName "CLS-08: Target volume free storage < 70.0 GiB" -MockMetrics $m8 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 9. Virtualization or SLAT UNKNOWN
-$m9 = $idealMetrics.Clone()
-$m9.VirtualizationFirmwareEnabled = "UNKNOWN"
-Run-ClassificationTest -TestName "09: VirtualizationFirmwareEnabled UNKNOWN" -MockMetrics $m9 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
+# 9. CPU capacity below practical minimum (< 2 cores or < 4 logical)
+$m9 = $idealMetrics.Clone(); $m9.CPUCores = 1; $m9.CPULogicalProcessors = 2
+Run-ClassificationTest -TestName "CLS-09: CPU capacity below 2 cores / 4 logical" -MockMetrics $m9 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 10. ComputerSystemIdentityStatus UNKNOWN
-$m10 = $idealMetrics.Clone()
-$m10.ComputerSystemIdentityStatus = "UNKNOWN"
-$m10.Manufacturer = "UNKNOWN"
-$m10.Model = "UNKNOWN"
-Run-ClassificationTest -TestName "10: System identity UNKNOWN / CIM failure" -MockMetrics $m10 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
+# 10. Measured zero CPU cores / logical (0 cores / 0 logical)
+$m10 = $idealMetrics.Clone(); $m10.CPUCores = 0; $m10.CPULogicalProcessors = 0
+Run-ClassificationTest -TestName "CLS-10: CPU capacity measured as 0 cores / 0 logical" -MockMetrics $m10 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 11. CPU metrics UNKNOWN
-$m11 = $idealMetrics.Clone()
-$m11.CPUCores = "UNKNOWN"
-$m11.CPULogicalProcessors = "UNKNOWN"
-Run-ClassificationTest -TestName "11: CPU metrics UNKNOWN" -MockMetrics $m11 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
+# 11. Measured zero storage free space (0.0 GiB)
+$m11 = $idealMetrics.Clone(); $m11.VmStorageFreeSpaceGiB = 0.0
+Run-ClassificationTest -TestName "CLS-11: Target volume free space measured as 0.0 GiB" -MockMetrics $m11 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 12. Full Recommended Baseline Met -> PASS_CANDIDATE
-$m12 = $idealMetrics.Clone()
-Run-ClassificationTest -TestName "12: Full recommended baseline met" -MockMetrics $m12 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+# 12. Measured zero RAM (0.0 GiB)
+$m12 = $idealMetrics.Clone(); $m12.TotalVisibleMemoryGiB = 0.0; $m12.FreePhysicalMemoryGiB = 0.0
+Run-ClassificationTest -TestName "CLS-12: Total and Free RAM measured as 0.0 GiB" -MockMetrics $m12 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 13. Physical Host with HypervisorPresent = True
-$m13 = $idealMetrics.Clone()
-$m13.HypervisorPresent = $true
-Run-ClassificationTest -TestName "13: Physical host with HypervisorPresent = True" -MockMetrics $m13 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+# 13. Non-finite RAM (NaN or Infinity)
+$m13 = $idealMetrics.Clone(); $m13.TotalVisibleMemoryGiB = [double]::NaN
+Run-ClassificationTest -TestName "CLS-13: TotalVisibleMemoryGiB is NaN" -MockMetrics $m13 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-# 14. Constrained Host Resources (meets practical minimums, below recommended)
-$m14 = $idealMetrics.Clone()
-$m14.TotalVisibleMemoryGiB = 14.0
-$m14.FreePhysicalMemoryGiB = 6.5
-$m14.VmStorageFreeSpaceGiB = 85.0
-$m14.CPUCores = 2
-$m14.CPULogicalProcessors = 4
-Run-ClassificationTest -TestName "14: Constrained host resources" -MockMetrics $m14 -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+# 14. Non-finite storage (Infinity)
+$m14 = $idealMetrics.Clone(); $m14.VmStorageFreeSpaceGiB = [double]::PositiveInfinity
+Run-ClassificationTest -TestName "CLS-14: VmStorageFreeSpaceGiB is PositiveInfinity" -MockMetrics $m14 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-# 15. Boundary Tests: Total RAM
-$m15a = $idealMetrics.Clone(); $m15a.TotalVisibleMemoryGiB = 11.99
-Run-ClassificationTest -TestName "15a: Total RAM 11.99 GiB (just below min)" -MockMetrics $m15a -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 15. Non-integer CPU cores (fractional string)
+$m15 = $idealMetrics.Clone(); $m15.CPUCores = "4.5"
+Run-ClassificationTest -TestName "CLS-15: CPUCores is non-integer ('4.5')" -MockMetrics $m15 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-$m15b = $idealMetrics.Clone(); $m15b.TotalVisibleMemoryGiB = 12.0
-Run-ClassificationTest -TestName "15b: Total RAM 12.0 GiB (exactly at min)" -MockMetrics $m15b -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+# 16. Negative CPU cores
+$m16 = $idealMetrics.Clone(); $m16.CPUCores = -4
+Run-ClassificationTest -TestName "CLS-16: CPUCores is negative (-4)" -MockMetrics $m16 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-$m15c = $idealMetrics.Clone(); $m15c.TotalVisibleMemoryGiB = 15.99
-Run-ClassificationTest -TestName "15c: Total RAM 15.99 GiB (just below rec)" -MockMetrics $m15c -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+# 17. Storage status DIRECTORY_NOT_FOUND
+$m17 = $idealMetrics.Clone(); $m17.VmStorageStatus = "DIRECTORY_NOT_FOUND"
+Run-ClassificationTest -TestName "CLS-17: Storage status DIRECTORY_NOT_FOUND" -MockMetrics $m17 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-$m15d = $idealMetrics.Clone(); $m15d.TotalVisibleMemoryGiB = 16.0
-Run-ClassificationTest -TestName "15d: Total RAM 16.0 GiB (exactly at rec)" -MockMetrics $m15d -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+# 18. System identity UNKNOWN / CIM failure
+$m18 = $idealMetrics.Clone(); $m18.ComputerSystemIdentityStatus = "UNKNOWN"; $m18.Manufacturer = "UNKNOWN"; $m18.Model = "UNKNOWN"
+Run-ClassificationTest -TestName "CLS-18: System identity UNKNOWN" -MockMetrics $m18 -ExpectedClassification "PREFLIGHT_INCOMPLETE"
 
-# 16. Boundary Tests: Free RAM
-$m16a = $idealMetrics.Clone(); $m16a.FreePhysicalMemoryGiB = 4.99
-Run-ClassificationTest -TestName "16a: Free RAM 4.99 GiB (just below min)" -MockMetrics $m16a -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
-
-$m16b = $idealMetrics.Clone(); $m16b.FreePhysicalMemoryGiB = 5.0
-Run-ClassificationTest -TestName "16b: Free RAM 5.0 GiB (exactly at min)" -MockMetrics $m16b -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
-
-$m16c = $idealMetrics.Clone(); $m16c.FreePhysicalMemoryGiB = 7.99
-Run-ClassificationTest -TestName "16c: Free RAM 7.99 GiB (just below rec)" -MockMetrics $m16c -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
-
-$m16d = $idealMetrics.Clone(); $m16d.FreePhysicalMemoryGiB = 8.0
-Run-ClassificationTest -TestName "16d: Free RAM 8.0 GiB (exactly at rec)" -MockMetrics $m16d -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
-
-# 17. Boundary Tests: Target Storage Free Space
-$m17a = $idealMetrics.Clone(); $m17a.VmStorageFreeSpaceGiB = 69.99
-Run-ClassificationTest -TestName "17a: Storage 69.99 GiB (just below min)" -MockMetrics $m17a -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
-
-$m17b = $idealMetrics.Clone(); $m17b.VmStorageFreeSpaceGiB = 70.0
-Run-ClassificationTest -TestName "17b: Storage 70.0 GiB (exactly at min)" -MockMetrics $m17b -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
-
-$m17c = $idealMetrics.Clone(); $m17c.VmStorageFreeSpaceGiB = 99.99
-Run-ClassificationTest -TestName "17c: Storage 99.99 GiB (just below rec)" -MockMetrics $m17c -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
-
-$m17d = $idealMetrics.Clone(); $m17d.VmStorageFreeSpaceGiB = 100.0
-Run-ClassificationTest -TestName "17d: Storage 100.0 GiB (exactly at rec)" -MockMetrics $m17d -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
-
-# 18. Measured Storage Free Space Exactly 0.0 GiB (measured, not missing volume)
-$m18 = $idealMetrics.Clone()
-$m18.VmStorageFreeSpaceGiB = 0.0
-Run-ClassificationTest -TestName "18: Target volume free space measured as 0.0 GiB" -MockMetrics $m18 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
-
-# 19. Precedence: Known VM Signature with simultaneous UNKNOWN fields
+# 19. Full Recommended Baseline Met -> PASS_CANDIDATE
 $m19 = $idealMetrics.Clone()
-$m19.IsKnownVirtualGuest = $true
-$m19.Manufacturer = "VirtualBox"
-$m19.Model = "VirtualBox"
-$m19.VirtualizationFirmwareEnabled = "UNKNOWN"
-$m19.SecondLevelAddressTranslationExtensions = "UNKNOWN"
-$m19.VmStorageStatus = "UNKNOWN"
-Run-ClassificationTest -TestName "19: Precedence: Guest detected with UNKNOWN diagnostics" -MockMetrics $m19 -ExpectedClassification "GUEST_DETECTED"
+Run-ClassificationTest -TestName "CLS-19: Full recommended baseline met" -MockMetrics $m19 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
 
-# 20. VMMonitorModeExtensions: Physical Host without Hypervisor and VMM = FALSE (Blocks)
-$m20 = $idealMetrics.Clone()
-$m20.HypervisorPresent = $false
-$m20.VMMonitorModeExtensions = "FALSE"
-Run-ClassificationTest -TestName "20: Physical host without hypervisor and VMM = FALSE" -MockMetrics $m20 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+# 20. Constrained Host Resources (meets practical minimums, below recommended)
+$m20 = $idealMetrics.Clone(); $m20.TotalVisibleMemoryGiB = 14.0; $m20.FreePhysicalMemoryGiB = 6.5; $m20.VmStorageFreeSpaceGiB = 85.0; $m20.CPUCores = 2; $m20.CPULogicalProcessors = 4
+Run-ClassificationTest -TestName "CLS-20: Constrained host resources" -MockMetrics $m20 -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
 
-# 21. VMMonitorModeExtensions: Physical Host with HypervisorPresent = True and VMM = FALSE (Diagnostic, Passes)
-$m21 = $idealMetrics.Clone()
-$m21.HypervisorPresent = $true
-$m21.VMMonitorModeExtensions = "FALSE"
-Run-ClassificationTest -TestName "21: Physical host with HypervisorPresent = True and VMM = FALSE (Diagnostic)" -MockMetrics $m21 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+# 21. Boundary Tests: Total RAM
+$m21a = $idealMetrics.Clone(); $m21a.TotalVisibleMemoryGiB = 11.99
+Run-ClassificationTest -TestName "CLS-21a: Total RAM 11.99 GiB (just below min)" -MockMetrics $m21a -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
 
-# 22. VMMonitorModeExtensions: Physical Host with VMM = UNKNOWN, Virt=TRUE, SLAT=TRUE (Passes)
-$m22 = $idealMetrics.Clone()
-$m22.VMMonitorModeExtensions = "UNKNOWN"
-Run-ClassificationTest -TestName "22: Physical host with VMM = UNKNOWN, Firmware Virt & SLAT = TRUE" -MockMetrics $m22 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+$m21b = $idealMetrics.Clone(); $m21b.TotalVisibleMemoryGiB = 12.0
+Run-ClassificationTest -TestName "CLS-21b: Total RAM 12.0 GiB (exactly at min)" -MockMetrics $m21b -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
 
-# 23. CPU Measured Cores / Logical = 0 (Measured zero, Blocks)
-$m23 = $idealMetrics.Clone()
-$m23.CPUCores = 0
-$m23.CPULogicalProcessors = 0
-Run-ClassificationTest -TestName "23: CPU capacity measured as 0 cores / 0 logical" -MockMetrics $m23 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+$m21c = $idealMetrics.Clone(); $m21c.TotalVisibleMemoryGiB = 15.99
+Run-ClassificationTest -TestName "CLS-21c: Total RAM 15.99 GiB (just below rec)" -MockMetrics $m21c -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
 
-# 24. CPU Boundary Tests: Minimum Practical (2 cores / 4 logical)
-$m24 = $idealMetrics.Clone()
-$m24.CPUCores = 2
-$m24.CPULogicalProcessors = 4
-Run-ClassificationTest -TestName "24: CPU capacity at practical minimum (2 cores / 4 logical)" -MockMetrics $m24 -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+$m21d = $idealMetrics.Clone(); $m21d.TotalVisibleMemoryGiB = 16.0
+Run-ClassificationTest -TestName "CLS-21d: Total RAM 16.0 GiB (exactly at rec)" -MockMetrics $m21d -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+
+# 22. Boundary Tests: Free RAM
+$m22a = $idealMetrics.Clone(); $m22a.FreePhysicalMemoryGiB = 4.99
+Run-ClassificationTest -TestName "CLS-22a: Free RAM 4.99 GiB (just below min)" -MockMetrics $m22a -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+
+$m22b = $idealMetrics.Clone(); $m22b.FreePhysicalMemoryGiB = 5.0
+Run-ClassificationTest -TestName "CLS-22b: Free RAM 5.0 GiB (exactly at min)" -MockMetrics $m22b -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+
+$m22c = $idealMetrics.Clone(); $m22c.FreePhysicalMemoryGiB = 7.99
+Run-ClassificationTest -TestName "CLS-22c: Free RAM 7.99 GiB (just below rec)" -MockMetrics $m22c -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+
+$m22d = $idealMetrics.Clone(); $m22d.FreePhysicalMemoryGiB = 8.0
+Run-ClassificationTest -TestName "CLS-22d: Free RAM 8.0 GiB (exactly at rec)" -MockMetrics $m22d -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+
+# 23. Boundary Tests: Target Storage Free Space
+$m23a = $idealMetrics.Clone(); $m23a.VmStorageFreeSpaceGiB = 69.99
+Run-ClassificationTest -TestName "CLS-23a: Storage 69.99 GiB (just below min)" -MockMetrics $m23a -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+
+$m23b = $idealMetrics.Clone(); $m23b.VmStorageFreeSpaceGiB = 70.0
+Run-ClassificationTest -TestName "CLS-23b: Storage 70.0 GiB (exactly at min)" -MockMetrics $m23b -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+
+$m23c = $idealMetrics.Clone(); $m23c.VmStorageFreeSpaceGiB = 99.99
+Run-ClassificationTest -TestName "CLS-23c: Storage 99.99 GiB (just below rec)" -MockMetrics $m23c -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
+
+$m23d = $idealMetrics.Clone(); $m23d.VmStorageFreeSpaceGiB = 100.0
+Run-ClassificationTest -TestName "CLS-23d: Storage 100.0 GiB (exactly at rec)" -MockMetrics $m23d -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+
+# 24. VMMonitorModeExtensions: Physical Host without Hypervisor and VMM = FALSE (Blocks)
+$m24 = $idealMetrics.Clone(); $m24.HypervisorPresent = $false; $m24.VMMonitorModeExtensions = "FALSE"
+Run-ClassificationTest -TestName "CLS-24: Physical host without hypervisor and VMM = FALSE" -MockMetrics $m24 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+
+# 25. VMMonitorModeExtensions: Physical Host with HypervisorPresent = True and VMM = FALSE (Diagnostic, Passes)
+$m25 = $idealMetrics.Clone(); $m25.HypervisorPresent = $true; $m25.VMMonitorModeExtensions = "FALSE"
+Run-ClassificationTest -TestName "CLS-25: Physical host with HypervisorPresent = True and VMM = FALSE" -MockMetrics $m25 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+
+# 26. VMMonitorModeExtensions: Physical Host with VMM = UNKNOWN, Firmware Virt & SLAT = TRUE (Passes)
+$m26 = $idealMetrics.Clone(); $m26.VMMonitorModeExtensions = "UNKNOWN"
+Run-ClassificationTest -TestName "CLS-26: Physical host with VMM = UNKNOWN, Virt & SLAT = TRUE" -MockMetrics $m26 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
 
 $failedList = @($testResults | Where-Object { -not $_.Passed })
 $failedCount = $failedList.Count

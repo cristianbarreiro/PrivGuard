@@ -263,6 +263,14 @@ El arnés `scripts/lab/Test-L0HostPreflightLogic.ps1` fue expandido de 28 a **44
 - **Revisiones Automatizadas:** Las tres observaciones originales de `amazon-q-developer[bot]` (extracción por regex, escape de salto de línea y enlaces absolutos) se encuentran plenamente remediadas en código. Los hilos se encuentran atendidos.
 - **Veredicto de Integración:** `READY FOR MERGE` tras la verificación verde del CI para el commit R8.2.
 
+### 11.6 Endurecimiento Fail-Closed Integral R8.3 (87 de 87 PASS)
+En la iteración complementaria **R8.3** (`docs/reports/INFORME-FASE-8B1A7_2-R8_3-FAIL-CLOSED-PR12-FINAL-GATE.md`), el arnés y los módulos fueron reforzados con garantías fail-closed exhaustivas:
+- **Agregación CPU Multi-Socket Estricta:** Si cualquier socket presenta métricas nulas, negativas o faltantes, el inventario se invalida por completo (`isInventoryComplete = $false`) y `CPUCores`/`CPULogicalProcessors` retornan `$null`.
+- **Allowlist Estricta Booleana y Numérica:** Funciones `ConvertTo-L0NormalizedBoolean`, `Test-L0ValidDouble` y `Test-L0ValidInt` rechazan strings ambiguos (`"YES"`, `"1"`), NaN, Infinity y valores negativos.
+- **Resolución de Directorio de Almacenamiento y Tipo de Disco:** `Test-L0StorageTargetResolution` exige la existencia previa del directorio destino (`-PathType Container`) y valida de forma estricta que el volumen sea disco fijo local (`DriveType = 3`).
+- **Suite de Pruebas Expandida:** Creció de 44 a **87 pruebas unitarias herméticas**, ejecutadas con **87 de 87 PASS (100%)** de forma determinista y repetible.
+
+
 ---
 
 ## 12. Protocolo de Handoff para el Operador del Repositorio

@@ -115,13 +115,19 @@ $virtFirmwareEnabled = $cpuAggregation.VirtualizationFirmwareEnabled
 $vmMonitorModeExt = $cpuAggregation.VMMonitorModeExtensions
 $slatExt = $cpuAggregation.SecondLevelAddressTranslationExtensions
 
+if (-not $cpuAggregation.IsInventoryComplete) {
+    foreach ($err in $cpuAggregation.InventoryErrors) {
+        Write-Warning "CPU inventory warning: $err"
+    }
+}
+
 # 5. Storage Inspection: System Drive & Target VM Storage Volume
 $systemDrive = "C:"
 $systemFreeSpaceGiB = 0.0
 try {
     $sysVol = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$systemDrive'" -ErrorAction SilentlyContinue
     if ($sysVol -and $null -ne $sysVol.FreeSpace) {
-        $systemFreeSpaceGiB = [math]::Round($sysVol.FreeSpace / 1GB, 2)
+        $systemFreeSpaceGiB = [math]::Round([double]$sysVol.FreeSpace / 1GB, 2)
     }
 } catch {
     $systemFreeSpaceGiB = 0.0
@@ -139,29 +145,29 @@ if (-not [string]::IsNullOrWhiteSpace($VmStoragePath)) {
         Write-Warning $pathFormat.Reason
     } else {
         $driveId = $pathFormat.DriveId
+        $dirExists = if (Test-Path -LiteralPath $VmStoragePath) { $true } else { $false }
+        $isContainer = if ($dirExists) { (Test-Path -LiteralPath $VmStoragePath -PathType Container) } else { $false }
+
+        $targetVol = $null
         try {
             $targetVol = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$driveId'" -ErrorAction SilentlyContinue
-            if ($null -ne $targetVol) {
-                # Win32_LogicalDisk DriveType: 3 = Local Fixed Disk, 2 = Removable Disk
-                if ($targetVol.DriveType -and $targetVol.DriveType -ne 3 -and $targetVol.DriveType -ne 2) {
-                    $vmStorageStatus = "NOT_LOCAL_DISK"
-                    Write-Warning "Target drive $driveId is not a local disk (DriveType: $($targetVol.DriveType))."
-                } elseif ($null -ne $targetVol.FreeSpace) {
-                    $vmStorageVolumeId = $targetVol.DeviceID
-                    $vmStorageFileSystem = if ($targetVol.FileSystem) { $targetVol.FileSystem } else { "Unknown" }
-                    $vmStorageFreeSpaceGiB = [math]::Round($targetVol.FreeSpace / 1GB, 2)
-                    $vmStorageStatus = "RESOLVED"
-                } else {
-                    $vmStorageStatus = "VOLUME_SPACE_UNKNOWN"
-                    Write-Warning "Could not determine free space for volume: $driveId"
-                }
-            } else {
-                $vmStorageStatus = "VOLUME_NOT_FOUND"
-                Write-Warning "Logical disk not found for drive: $driveId"
-            }
         } catch {
-            $vmStorageStatus = "CIM_QUERY_FAILED"
             Write-Warning "Failed to query logical disk for '$driveId': $($_.ToString())"
+        }
+
+        $storageResolution = Test-L0StorageTargetResolution `
+            -Path $VmStoragePath `
+            -DirectoryExists $dirExists `
+            -IsDirectory $isContainer `
+            -LogicalDisk $targetVol
+
+        $vmStorageStatus      = $storageResolution.Status
+        $vmStorageVolumeId    = if ($storageResolution.DriveId) { $storageResolution.DriveId } else { "" }
+        $vmStorageFileSystem  = $storageResolution.FileSystem
+        $vmStorageFreeSpaceGiB= $storageResolution.FreeSpaceGiB
+
+        if ($vmStorageStatus -ne "RESOLVED") {
+            Write-Warning $storageResolution.Reason
         }
     }
 }

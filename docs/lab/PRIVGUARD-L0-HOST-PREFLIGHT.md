@@ -92,6 +92,10 @@ El script de diagnóstico endurecido se encuentra ubicado en:
 ### 4.1 Parámetro Obligatorio de Almacenamiento Objetivo (`-VmStoragePath`)
 Para evitar falsos positivos y verificar el espacio real en el volumen donde residirá la máquina virtual (que puede ser `C:`, `D:`, `E:`, etc.), se debe especificar explícitamente la ruta de almacenamiento de la VM.
 
+**Contrato de Validación de Almacenamiento:**
+- **Ruta Absoluta de Unidad Local Fija:** La ruta debe iniciar con una letra de unidad y barra (`X:\...`). El volumen debe ser de tipo disco fijo local (`DriveType = 3`). Se rechazan terminantemente unidades de red (UNC `\\servidor\share`), rutas relativas, y medios extraíbles/USB (`DriveType = 2`).
+- **Existencia Previa del Directorio:** El operador debe crear previamente el directorio de destino en el host antes de ejecutar el preflight (por ejemplo, `New-Item -ItemType Directory -Path "D:\PrivGuard-Lab\VMs" -Force`). El script valida la existencia de la carpeta pero no crea directorios ni modifica el sistema (invariante de solo lectura). Si el directorio no existe, el preflight reportará `DIRECTORY_NOT_FOUND` y se mantendrá en `PREFLIGHT_INCOMPLETE`.
+
 ### 4.2 Semántica de Solo Lectura y Escritura de Reporte
 El script realiza estrictamente consultas de solo lectura mediante CIM/WMI y variables de entorno del sistema operativo. **No modifica el firmware, BIOS/UEFI, BCD, registro, servicios ni la configuración de hipervisores**. La única operación de escritura permitida es la generación opcional del archivo JSON de diagnóstico cuando se proporciona el parámetro `-OutputPath`.
 
