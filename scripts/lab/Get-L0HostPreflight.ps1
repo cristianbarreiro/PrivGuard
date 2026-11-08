@@ -105,42 +105,15 @@ $totalMemoryGiB = if ($os -and $null -ne $os.TotalVisibleMemorySize) { [math]::R
 $freeMemoryGiB  = if ($os -and $null -ne $os.FreePhysicalMemory) { [math]::Round($os.FreePhysicalMemory / 1024 / 1024, 2) } else { $null }
 
 # 4. CPU Metrics & Virtualization Flags across all sockets/processors
+$cpuAggregation = Get-L0CpuAggregation -Processors $cpu
 $firstCpu = if ($cpu) { $cpu | Select-Object -First 1 } else { $null }
 $cpuName = if ($firstCpu -and $firstCpu.Name) { $firstCpu.Name.Trim() } else { "UNKNOWN" }
-$cpuPhysicalCount = if ($cpu) { ($cpu | Measure-Object).Count } else { 0 }
-
-$cpuCores = $null
-$cpuLogical = $null
-if ($cpu) {
-    $coresSum = 0
-    $logicalSum = 0
-    foreach ($proc in $cpu) {
-        if ($null -ne $proc.NumberOfCores) { $coresSum += $proc.NumberOfCores }
-        if ($null -ne $proc.NumberOfLogicalProcessors) { $logicalSum += $proc.NumberOfLogicalProcessors }
-    }
-    if ($coresSum -gt 0 -and $logicalSum -gt 0) {
-        $cpuCores = $coresSum
-        $cpuLogical = $logicalSum
-    }
-}
-
-$virtFirmwareEnabled = if ($firstCpu -and $null -ne $firstCpu.VirtualizationFirmwareEnabled) {
-    if ([bool]$firstCpu.VirtualizationFirmwareEnabled) { "TRUE" } else { "FALSE" }
-} else {
-    "UNKNOWN"
-}
-
-$vmMonitorModeExt = if ($firstCpu -and $null -ne $firstCpu.VMMonitorModeExtensions) {
-    if ([bool]$firstCpu.VMMonitorModeExtensions) { "TRUE" } else { "FALSE" }
-} else {
-    "UNKNOWN"
-}
-
-$slatExt = if ($firstCpu -and $null -ne $firstCpu.SecondLevelAddressTranslationExtensions) {
-    if ([bool]$firstCpu.SecondLevelAddressTranslationExtensions) { "TRUE" } else { "FALSE" }
-} else {
-    "UNKNOWN"
-}
+$cpuPhysicalCount = $cpuAggregation.PhysicalSocketCount
+$cpuCores = $cpuAggregation.CPUCores
+$cpuLogical = $cpuAggregation.CPULogicalProcessors
+$virtFirmwareEnabled = $cpuAggregation.VirtualizationFirmwareEnabled
+$vmMonitorModeExt = $cpuAggregation.VMMonitorModeExtensions
+$slatExt = $cpuAggregation.SecondLevelAddressTranslationExtensions
 
 # 5. Storage Inspection: System Drive & Target VM Storage Volume
 $systemDrive = "C:"
@@ -160,25 +133,36 @@ $vmStorageFileSystem = ""
 $vmStorageFreeSpaceGiB = $null
 
 if (-not [string]::IsNullOrWhiteSpace($VmStoragePath)) {
-    try {
-        $resolvedPath = [System.IO.Path]::GetFullPath($VmStoragePath)
-        $pathRoot = [System.IO.Path]::GetPathRoot($resolvedPath)
-        if (-not [string]::IsNullOrWhiteSpace($pathRoot)) {
-            $driveId = $pathRoot.TrimEnd('\')
+    $pathFormat = Resolve-L0VmStoragePathFormat -Path $VmStoragePath
+    if (-not $pathFormat.IsValid) {
+        $vmStorageStatus = $pathFormat.Status
+        Write-Warning $pathFormat.Reason
+    } else {
+        $driveId = $pathFormat.DriveId
+        try {
             $targetVol = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$driveId'" -ErrorAction SilentlyContinue
-            if ($targetVol -and $null -ne $targetVol.FreeSpace) {
-                $vmStorageVolumeId = $targetVol.DeviceID
-                $vmStorageFileSystem = if ($targetVol.FileSystem) { $targetVol.FileSystem } else { "Unknown" }
-                $vmStorageFreeSpaceGiB = [math]::Round($targetVol.FreeSpace / 1GB, 2)
-                $vmStorageStatus = "RESOLVED"
+            if ($null -ne $targetVol) {
+                # Win32_LogicalDisk DriveType: 3 = Local Fixed Disk, 2 = Removable Disk
+                if ($targetVol.DriveType -and $targetVol.DriveType -ne 3 -and $targetVol.DriveType -ne 2) {
+                    $vmStorageStatus = "NOT_LOCAL_DISK"
+                    Write-Warning "Target drive $driveId is not a local disk (DriveType: $($targetVol.DriveType))."
+                } elseif ($null -ne $targetVol.FreeSpace) {
+                    $vmStorageVolumeId = $targetVol.DeviceID
+                    $vmStorageFileSystem = if ($targetVol.FileSystem) { $targetVol.FileSystem } else { "Unknown" }
+                    $vmStorageFreeSpaceGiB = [math]::Round($targetVol.FreeSpace / 1GB, 2)
+                    $vmStorageStatus = "RESOLVED"
+                } else {
+                    $vmStorageStatus = "VOLUME_SPACE_UNKNOWN"
+                    Write-Warning "Could not determine free space for volume: $driveId"
+                }
             } else {
-                $vmStorageStatus = "DRIVE_NOT_FOUND"
-                Write-Warning "Could not retrieve logical disk info for path root: $driveId"
+                $vmStorageStatus = "VOLUME_NOT_FOUND"
+                Write-Warning "Logical disk not found for drive: $driveId"
             }
+        } catch {
+            $vmStorageStatus = "CIM_QUERY_FAILED"
+            Write-Warning "Failed to query logical disk for '$driveId': $($_.ToString())"
         }
-    } catch {
-        $vmStorageStatus = "PATH_RESOLUTION_ERROR"
-        Write-Warning "Failed to resolve VmStoragePath '$VmStoragePath': $($_.ToString())"
     }
 }
 
@@ -226,6 +210,7 @@ $metricsDict = @{
     ComputerSystemIdentityStatus           = $systemIdentityStatus
     Manufacturer                           = $manufacturer
     Model                                  = $model
+    HypervisorPresent                      = if ($null -ne $hypervisorPresent) { $hypervisorPresent } else { $null }
     VirtualizationFirmwareEnabled          = $virtFirmwareEnabled
     VMMonitorModeExtensions                = $vmMonitorModeExt
     SecondLevelAddressTranslationExtensions= $slatExt

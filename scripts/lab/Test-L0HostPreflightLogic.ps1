@@ -1,10 +1,15 @@
 <#
 .SYNOPSIS
-    Automated unit tests for the Get-L0HostClassification logic of Get-L0HostPreflight.ps1.
+    Automated hermetic unit tests for PrivGuard L0 Physical Host Preflight logic.
 
 .DESCRIPTION
-    Validates deterministic unit test cases for host classification under mock metrics
-    without requiring external dependencies or executing native CIM queries on the host.
+    Validates deterministic unit test cases for:
+    1. Resolve-L0VmStoragePathFormat: Local Windows drive format validation (rejecting UNC, relative, empty).
+    2. Get-L0CpuAggregation: Multi-socket CPU core/thread summing and conservative virtualization flag aggregation.
+    3. Get-L0HostClassification: Hardware and diagnostic metrics classification (GUEST_DETECTED, PREFLIGHT_INCOMPLETE,
+       L0_PREFLIGHT_BLOCKED, L0_CAPABLE_CONSTRAINED, L0_PREFLIGHT_PASS_CANDIDATE).
+
+    Hermetic execution: Zero CIM/WMI calls, zero hardware modifications, no administrator required.
 #>
 
 [CmdletBinding()]
@@ -41,6 +46,7 @@ function Run-ClassificationTest {
         $color  = if ($passed) { "Green" } else { "Red" }
         Write-Host "[$status] $TestName (Expected: $ExpectedClassification | Got: $($result.Classification))" -ForegroundColor $color
         $testResults.Add([pscustomobject]@{
+            Category = "Classification"
             TestName = $TestName
             Expected = $ExpectedClassification
             Actual   = $result.Classification
@@ -50,6 +56,7 @@ function Run-ClassificationTest {
     } catch {
         Write-Host "[FAIL-EXCEPTION] $TestName : $($_.ToString())" -ForegroundColor Red
         $testResults.Add([pscustomobject]@{
+            Category = "Classification"
             TestName = $TestName
             Expected = $ExpectedClassification
             Actual   = "EXCEPTION"
@@ -59,6 +66,165 @@ function Run-ClassificationTest {
     }
 }
 
+function Run-PathFormatTest {
+    param(
+        [string]$TestName,
+        [string]$InputPath,
+        [bool]$ExpectedValid,
+        [string]$ExpectedStatus,
+        [string]$ExpectedDriveId
+    )
+
+    try {
+        $res = Resolve-L0VmStoragePathFormat -Path $InputPath
+        $driveMatch = if ($null -eq $ExpectedDriveId -or [string]::IsNullOrEmpty($ExpectedDriveId)) {
+            $null -eq $res.DriveId -or [string]::IsNullOrEmpty($res.DriveId)
+        } else {
+            $res.DriveId -eq $ExpectedDriveId
+        }
+        $passed = ($res.IsValid -eq $ExpectedValid -and $res.Status -eq $ExpectedStatus -and $driveMatch)
+        $status = if ($passed) { "PASS" } else { "FAIL" }
+        $color  = if ($passed) { "Green" } else { "Red" }
+        Write-Host "[$status] $TestName (Valid: $($res.IsValid), Status: $($res.Status), Drive: $($res.DriveId))" -ForegroundColor $color
+        $testResults.Add([pscustomobject]@{
+            Category = "PathFormat"
+            TestName = $TestName
+            Expected = "Valid=$ExpectedValid;Status=$ExpectedStatus;Drive=$ExpectedDriveId"
+            Actual   = "Valid=$($res.IsValid);Status=$($res.Status);Drive=$($res.DriveId)"
+            Passed   = $passed
+            Reasons  = $res.Reason
+        })
+    } catch {
+        Write-Host "[FAIL-EXCEPTION] $TestName : $($_.ToString())" -ForegroundColor Red
+        $testResults.Add([pscustomobject]@{
+            Category = "PathFormat"
+            TestName = $TestName
+            Expected = "Valid=$ExpectedValid;Status=$ExpectedStatus;Drive=$ExpectedDriveId"
+            Actual   = "EXCEPTION"
+            Passed   = $false
+            Reasons  = $_.ToString()
+        })
+    }
+}
+
+function Run-CpuAggTest {
+    param(
+        [string]$TestName,
+        [array]$MockProcessors,
+        [int]$ExpectedCores,
+        [int]$ExpectedLogical,
+        [string]$ExpectedVirt,
+        [string]$ExpectedSlat,
+        [string]$ExpectedVmm
+    )
+
+    try {
+        $agg = Get-L0CpuAggregation -Processors $MockProcessors
+        $passed = ($agg.CPUCores -eq $ExpectedCores -and
+                   $agg.CPULogicalProcessors -eq $ExpectedLogical -and
+                   $agg.VirtualizationFirmwareEnabled -eq $ExpectedVirt -and
+                   $agg.SecondLevelAddressTranslationExtensions -eq $ExpectedSlat -and
+                   $agg.VMMonitorModeExtensions -eq $ExpectedVmm)
+        $status = if ($passed) { "PASS" } else { "FAIL" }
+        $color  = if ($passed) { "Green" } else { "Red" }
+        Write-Host "[$status] $TestName (Cores: $($agg.CPUCores), Logical: $($agg.CPULogicalProcessors), Virt: $($agg.VirtualizationFirmwareEnabled), SLAT: $($agg.SecondLevelAddressTranslationExtensions), VMM: $($agg.VMMonitorModeExtensions))" -ForegroundColor $color
+        $testResults.Add([pscustomobject]@{
+            Category = "CpuAggregation"
+            TestName = $TestName
+            Expected = "Cores=$ExpectedCores;Log=$ExpectedLogical;Virt=$ExpectedVirt;SLAT=$ExpectedSlat;VMM=$ExpectedVmm"
+            Actual   = "Cores=$($agg.CPUCores);Log=$($agg.CPULogicalProcessors);Virt=$($agg.VirtualizationFirmwareEnabled);SLAT=$($agg.SecondLevelAddressTranslationExtensions);VMM=$($agg.VMMonitorModeExtensions)"
+            Passed   = $passed
+            Reasons  = ""
+        })
+    } catch {
+        Write-Host "[FAIL-EXCEPTION] $TestName : $($_.ToString())" -ForegroundColor Red
+        $testResults.Add([pscustomobject]@{
+            Category = "CpuAggregation"
+            TestName = $TestName
+            Expected = "Cores=$ExpectedCores;Log=$ExpectedLogical;Virt=$ExpectedVirt;SLAT=$ExpectedSlat;VMM=$ExpectedVmm"
+            Actual   = "EXCEPTION"
+            Passed   = $false
+            Reasons  = $_.ToString()
+        })
+    }
+}
+
+# --- SECTION 1: STORAGE PATH FORMAT VALIDATION TESTS ---
+Run-PathFormatTest -TestName "PF-01: Empty storage path" -InputPath "" -ExpectedValid $false -ExpectedStatus "PATH_EMPTY" -ExpectedDriveId $null
+Run-PathFormatTest -TestName "PF-02: Whitespace storage path" -InputPath "   " -ExpectedValid $false -ExpectedStatus "PATH_EMPTY" -ExpectedDriveId $null
+Run-PathFormatTest -TestName "PF-03: UNC network share path" -InputPath "\\fileserver\vmshare\disks" -ExpectedValid $false -ExpectedStatus "UNC_PATH_NOT_SUPPORTED" -ExpectedDriveId $null
+Run-PathFormatTest -TestName "PF-04: Relative path without drive" -InputPath "VMs\Windows11" -ExpectedValid $false -ExpectedStatus "INVALID_PATH_FORMAT" -ExpectedDriveId $null
+Run-PathFormatTest -TestName "PF-05: Drive letter without slash (drive-relative)" -InputPath "D:VMs\Windows11" -ExpectedValid $false -ExpectedStatus "INVALID_PATH_FORMAT" -ExpectedDriveId $null
+Run-PathFormatTest -TestName "PF-06: Valid local Windows drive path (backslash)" -InputPath "D:\PrivGuard-Lab\VMs" -ExpectedValid $true -ExpectedStatus "FORMAT_VALID" -ExpectedDriveId "D:"
+Run-PathFormatTest -TestName "PF-07: Valid local Windows drive path (forward slash)" -InputPath "C:/PrivGuard-Lab/VMs" -ExpectedValid $true -ExpectedStatus "FORMAT_VALID" -ExpectedDriveId "C:"
+
+# --- SECTION 2: CPU MULTI-SOCKET AGGREGATION TESTS ---
+$procSingle = @(
+    [pscustomobject]@{
+        NumberOfCores = 8
+        NumberOfLogicalProcessors = 16
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    }
+)
+Run-CpuAggTest -TestName "CPU-01: Single socket normal" -MockProcessors $procSingle -ExpectedCores 8 -ExpectedLogical 16 -ExpectedVirt "TRUE" -ExpectedSlat "TRUE" -ExpectedVmm "TRUE"
+
+$procDualSymmetric = @(
+    [pscustomobject]@{
+        NumberOfCores = 8
+        NumberOfLogicalProcessors = 16
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    },
+    [pscustomobject]@{
+        NumberOfCores = 8
+        NumberOfLogicalProcessors = 16
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    }
+)
+Run-CpuAggTest -TestName "CPU-02: Dual socket symmetric" -MockProcessors $procDualSymmetric -ExpectedCores 16 -ExpectedLogical 32 -ExpectedVirt "TRUE" -ExpectedSlat "TRUE" -ExpectedVmm "TRUE"
+
+$procDualHeteroFail = @(
+    [pscustomobject]@{
+        NumberOfCores = 8
+        NumberOfLogicalProcessors = 16
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    },
+    [pscustomobject]@{
+        NumberOfCores = 8
+        NumberOfLogicalProcessors = 16
+        VirtualizationFirmwareEnabled = $false
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    }
+)
+Run-CpuAggTest -TestName "CPU-03: Dual socket heterogeneous failure (conservative)" -MockProcessors $procDualHeteroFail -ExpectedCores 16 -ExpectedLogical 32 -ExpectedVirt "FALSE" -ExpectedSlat "TRUE" -ExpectedVmm "TRUE"
+
+$procDualUnknownFlag = @(
+    [pscustomobject]@{
+        NumberOfCores = 4
+        NumberOfLogicalProcessors = 8
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = "UNKNOWN"
+        VMMonitorModeExtensions = $true
+    },
+    [pscustomobject]@{
+        NumberOfCores = 4
+        NumberOfLogicalProcessors = 8
+        VirtualizationFirmwareEnabled = $true
+        SecondLevelAddressTranslationExtensions = $true
+        VMMonitorModeExtensions = $true
+    }
+)
+Run-CpuAggTest -TestName "CPU-04: Dual socket with UNKNOWN flag (conservative)" -MockProcessors $procDualUnknownFlag -ExpectedCores 8 -ExpectedLogical 16 -ExpectedVirt "TRUE" -ExpectedSlat "UNKNOWN" -ExpectedVmm "TRUE"
+
+# --- SECTION 3: CLASSIFICATION DETERMINISTIC UNIT TESTS ---
 # Baseline "Ideal" Candidate Metrics
 $idealMetrics = @{
     IsKnownVirtualGuest                    = $false
@@ -210,6 +376,35 @@ $m19.VirtualizationFirmwareEnabled = "UNKNOWN"
 $m19.SecondLevelAddressTranslationExtensions = "UNKNOWN"
 $m19.VmStorageStatus = "UNKNOWN"
 Run-ClassificationTest -TestName "19: Precedence: Guest detected with UNKNOWN diagnostics" -MockMetrics $m19 -ExpectedClassification "GUEST_DETECTED"
+
+# 20. VMMonitorModeExtensions: Physical Host without Hypervisor and VMM = FALSE (Blocks)
+$m20 = $idealMetrics.Clone()
+$m20.HypervisorPresent = $false
+$m20.VMMonitorModeExtensions = "FALSE"
+Run-ClassificationTest -TestName "20: Physical host without hypervisor and VMM = FALSE" -MockMetrics $m20 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+
+# 21. VMMonitorModeExtensions: Physical Host with HypervisorPresent = True and VMM = FALSE (Diagnostic, Passes)
+$m21 = $idealMetrics.Clone()
+$m21.HypervisorPresent = $true
+$m21.VMMonitorModeExtensions = "FALSE"
+Run-ClassificationTest -TestName "21: Physical host with HypervisorPresent = True and VMM = FALSE (Diagnostic)" -MockMetrics $m21 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+
+# 22. VMMonitorModeExtensions: Physical Host with VMM = UNKNOWN, Virt=TRUE, SLAT=TRUE (Passes)
+$m22 = $idealMetrics.Clone()
+$m22.VMMonitorModeExtensions = "UNKNOWN"
+Run-ClassificationTest -TestName "22: Physical host with VMM = UNKNOWN, Firmware Virt & SLAT = TRUE" -MockMetrics $m22 -ExpectedClassification "L0_PREFLIGHT_PASS_CANDIDATE"
+
+# 23. CPU Measured Cores / Logical = 0 (Measured zero, Blocks)
+$m23 = $idealMetrics.Clone()
+$m23.CPUCores = 0
+$m23.CPULogicalProcessors = 0
+Run-ClassificationTest -TestName "23: CPU capacity measured as 0 cores / 0 logical" -MockMetrics $m23 -ExpectedClassification "L0_PREFLIGHT_BLOCKED"
+
+# 24. CPU Boundary Tests: Minimum Practical (2 cores / 4 logical)
+$m24 = $idealMetrics.Clone()
+$m24.CPUCores = 2
+$m24.CPULogicalProcessors = 4
+Run-ClassificationTest -TestName "24: CPU capacity at practical minimum (2 cores / 4 logical)" -MockMetrics $m24 -ExpectedClassification "L0_CAPABLE_CONSTRAINED"
 
 $failedList = @($testResults | Where-Object { -not $_.Passed })
 $failedCount = $failedList.Count

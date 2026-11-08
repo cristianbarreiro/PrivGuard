@@ -1,12 +1,161 @@
 <#
 .SYNOPSIS
-    Pure classification logic module for PrivGuard L0 Physical Host Preflight.
+    Pure classification and validation logic module for PrivGuard L0 Physical Host Preflight.
 
 .DESCRIPTION
-    Contains the pure, deterministic Get-L0HostClassification function used by both
-    Get-L0HostPreflight.ps1 and Test-L0HostPreflightLogic.ps1.
+    Contains the pure, deterministic functions used by Get-L0HostPreflight.ps1 and Test-L0HostPreflightLogic.ps1:
+    - Get-L0HostClassification: Evaluates hardware and diagnostic metrics into standard L0 classifications.
+    - Resolve-L0VmStoragePathFormat: Validates that the requested storage path is a valid local Windows drive path.
+    - Get-L0CpuAggregation: Aggregates cores, logical processors, and virtualization flags conservatively across CPU sockets.
+
     Strictly decoupled from CIM/WMI queries to enable hermetic testing and prevent regressions.
 #>
+
+function Resolve-L0VmStoragePathFormat {
+    [CmdletBinding()]
+    param (
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return @{
+            IsValid = $false
+            Status  = "PATH_EMPTY"
+            Reason  = "Storage path is null, empty, or whitespace."
+            DriveId = $null
+        }
+    }
+
+    # Reject UNC paths (\\server\share or //server/share)
+    if ($Path.StartsWith("\\") -or $Path.StartsWith("//")) {
+        return @{
+            IsValid = $false
+            Status  = "UNC_PATH_NOT_SUPPORTED"
+            Reason  = "UNC network share paths ($Path) are not supported. Target storage must be an absolute local Windows drive (e.g. D:\VMs)."
+            DriveId = $null
+        }
+    }
+
+    # Strict check for absolute local drive root (e.g. "C:\" or "D:/", rejecting relative paths like "C:dir" or "relative\path")
+    if (-not [System.Text.RegularExpressions.Regex]::IsMatch($Path, '^[a-zA-Z]:[\\/]')) {
+        return @{
+            IsValid = $false
+            Status  = "INVALID_PATH_FORMAT"
+            Reason  = "Path '$Path' is not an absolute local drive path. Path must begin with a drive letter and slash (e.g. 'D:\...')."
+            DriveId = $null
+        }
+    }
+
+    $driveLetter = $Path.Substring(0, 1).ToUpper()
+    $driveId = "${driveLetter}:"
+
+    return @{
+        IsValid = $true
+        Status  = "FORMAT_VALID"
+        Reason  = "Path format is a valid local drive path."
+        DriveId = $driveId
+    }
+}
+
+function Get-L0CpuAggregation {
+    [CmdletBinding()]
+    param (
+        [array]$Processors
+    )
+
+    if ($null -eq $Processors -or $Processors.Count -eq 0) {
+        return @{
+            CPUCores                                = $null
+            CPULogicalProcessors                    = $null
+            VirtualizationFirmwareEnabled           = "UNKNOWN"
+            SecondLevelAddressTranslationExtensions = "UNKNOWN"
+            VMMonitorModeExtensions                 = "UNKNOWN"
+            PhysicalSocketCount                     = 0
+        }
+    }
+
+    $coresSum = 0
+    $logicalSum = 0
+    $hasCores = $false
+    $hasLogical = $false
+
+    $virtFirmwareList = [System.Collections.Generic.List[string]]::new()
+    $slatList         = [System.Collections.Generic.List[string]]::new()
+    $vmmExtList       = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($proc in $Processors) {
+        if ($null -ne $proc) {
+            if ($null -ne $proc.NumberOfCores -and $proc.NumberOfCores -ge 0) {
+                $coresSum += [int]$proc.NumberOfCores
+                $hasCores = $true
+            }
+            if ($null -ne $proc.NumberOfLogicalProcessors -and $proc.NumberOfLogicalProcessors -ge 0) {
+                $logicalSum += [int]$proc.NumberOfLogicalProcessors
+                $hasLogical = $true
+            }
+
+            # VirtualizationFirmwareEnabled
+            if ($null -ne $proc.VirtualizationFirmwareEnabled) {
+                if ($proc.VirtualizationFirmwareEnabled -eq $true -or $proc.VirtualizationFirmwareEnabled -eq "TRUE") {
+                    $virtFirmwareList.Add("TRUE")
+                } elseif ($proc.VirtualizationFirmwareEnabled -eq $false -or $proc.VirtualizationFirmwareEnabled -eq "FALSE") {
+                    $virtFirmwareList.Add("FALSE")
+                } else {
+                    $virtFirmwareList.Add("UNKNOWN")
+                }
+            } else {
+                $virtFirmwareList.Add("UNKNOWN")
+            }
+
+            # SecondLevelAddressTranslationExtensions
+            if ($null -ne $proc.SecondLevelAddressTranslationExtensions) {
+                if ($proc.SecondLevelAddressTranslationExtensions -eq $true -or $proc.SecondLevelAddressTranslationExtensions -eq "TRUE") {
+                    $slatList.Add("TRUE")
+                } elseif ($proc.SecondLevelAddressTranslationExtensions -eq $false -or $proc.SecondLevelAddressTranslationExtensions -eq "FALSE") {
+                    $slatList.Add("FALSE")
+                } else {
+                    $slatList.Add("UNKNOWN")
+                }
+            } else {
+                $slatList.Add("UNKNOWN")
+            }
+
+            # VMMonitorModeExtensions
+            if ($null -ne $proc.VMMonitorModeExtensions) {
+                if ($proc.VMMonitorModeExtensions -eq $true -or $proc.VMMonitorModeExtensions -eq "TRUE") {
+                    $vmmExtList.Add("TRUE")
+                } elseif ($proc.VMMonitorModeExtensions -eq $false -or $proc.VMMonitorModeExtensions -eq "FALSE") {
+                    $vmmExtList.Add("FALSE")
+                } else {
+                    $vmmExtList.Add("UNKNOWN")
+                }
+            } else {
+                $vmmExtList.Add("UNKNOWN")
+            }
+        }
+    }
+
+    # Conservative boolean aggregation:
+    # If ANY socket has FALSE -> FALSE (virtualization fails if any CPU lacks capability).
+    # Else if ANY socket has UNKNOWN -> UNKNOWN.
+    # Only if ALL sockets have TRUE -> TRUE.
+    $aggregateFlag = {
+        param([System.Collections.Generic.List[string]]$list)
+        if ($list.Count -eq 0) { return "UNKNOWN" }
+        if ($list.Contains("FALSE")) { return "FALSE" }
+        if ($list.Contains("UNKNOWN")) { return "UNKNOWN" }
+        return "TRUE"
+    }
+
+    return @{
+        CPUCores                                = if ($hasCores) { $coresSum } else { $null }
+        CPULogicalProcessors                    = if ($hasLogical) { $logicalSum } else { $null }
+        VirtualizationFirmwareEnabled           = & $aggregateFlag $virtFirmwareList
+        SecondLevelAddressTranslationExtensions = & $aggregateFlag $slatList
+        VMMonitorModeExtensions                 = & $aggregateFlag $vmmExtList
+        PhysicalSocketCount                     = $Processors.Count
+    }
+}
 
 function Get-L0HostClassification {
     [CmdletBinding()]
@@ -41,7 +190,7 @@ function Get-L0HostClassification {
         $incomplete = $true
     }
 
-    # 2.2 Hardware Virtualization Flags
+    # 2.2 Hardware Virtualization Flags (Authoritative: Firmware & SLAT)
     if (-not $Metrics.ContainsKey("VirtualizationFirmwareEnabled") -or $Metrics.VirtualizationFirmwareEnabled -eq "UNKNOWN" -or $null -eq $Metrics.VirtualizationFirmwareEnabled) {
         $reasons.Add("VirtualizationFirmwareEnabled could not be determined from processor CIM query.")
         $incomplete = $true
@@ -102,6 +251,19 @@ function Get-L0HostClassification {
         $reasons.Add("Second-Level Address Translation (SLAT / EPT / NPT) is not supported by host CPU.")
         $blocked = $true
     }
+
+    # VMMonitorModeExtensions Evaluation:
+    # If HypervisorPresent is TRUE on physical host (e.g. Hyper-V root partition / VBS), VMMonitorModeExtensions
+    # may report FALSE/UNKNOWN because the hypervisor already claims VMX root. In that case, it is diagnostic.
+    # However, if HypervisorPresent is NOT true and VMMonitorModeExtensions is explicitly FALSE, the CPU lacks VMM capability.
+    $hypervisorActive = ($Metrics.ContainsKey("HypervisorPresent") -and ($Metrics.HypervisorPresent -eq $true -or $Metrics.HypervisorPresent -eq "TRUE"))
+    $vmmExtVal = if ($Metrics.ContainsKey("VMMonitorModeExtensions")) { $Metrics.VMMonitorModeExtensions } else { "UNKNOWN" }
+
+    if (-not $hypervisorActive -and ($vmmExtVal -eq $false -or $vmmExtVal -eq "FALSE")) {
+        $reasons.Add("Virtual Machine Monitor Mode Extensions (VT-x / AMD-V) are not supported by the host CPU.")
+        $blocked = $true
+    }
+
     if ($totalRam -lt 12.0) {
         $reasons.Add("Host total physical RAM ($totalRam GiB) is below minimum practical requirement (12.0 GiB) to support Host OS + Windows 11 VM.")
         $blocked = $true
@@ -162,4 +324,4 @@ function Get-L0HostClassification {
     }
 }
 
-Export-ModuleMember -Function Get-L0HostClassification
+Export-ModuleMember -Function Get-L0HostClassification, Resolve-L0VmStoragePathFormat, Get-L0CpuAggregation
