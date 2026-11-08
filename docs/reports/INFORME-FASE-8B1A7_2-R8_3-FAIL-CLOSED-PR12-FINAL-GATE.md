@@ -7,11 +7,15 @@
 - **Pull Request Canónico:** [#12 — docs: repair R7 evidence and harden L0 preflight gate](https://github.com/cristianbarreiro/PrivGuard/pull/12)
 - **Base de Integración (`main`):** `f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5`
 - **Head SHA Previo (R8.2 en remote origin):** `12ee0407f3b80f5de1303141553529b0e305b2cc`
-- **Head SHA Local Histórico R8.3 (snapshot intermedio):** `f41a737f957eb3091cc24ba13a282a876d0c02e3`
-- **Head SHA Publicado Canónico R8.3:** `1cd0783ffb9ef6b15af9e64cdc3259b60678341a`
+- **Head SHA Publicado R8.3:** `1cd0783ffb9ef6b15af9e64cdc3259b60678341a`
+- **Head SHA Publicado R8.3.1:** `59de117563664912a338c291f6a0b04c8327728d`
 - **Veredicto Global de Fase:**
   ```text
-  R8.3 PASS — ALL GATES VERIFIED — PR #12 READY FOR MERGE (ZERO MERGE EXECUTED)
+  R8.3 TECHNICAL VALIDATION PASS
+  R8.3.1 REMOTE EVIDENCE RECONCILED
+  PR #12 OPEN / MERGEABLE
+  MERGE POLICY / REVIEW THREADS PENDING
+  ZERO MERGE EXECUTED
   ```
 
 ---
@@ -23,12 +27,12 @@ La iteración **Fase 8B.1A.7.2-R8.3** cierra de manera exhaustiva y adversarial 
 ### Estado Actual del PR #12 en GitHub:
 - **Número:** `#12`
 - **Estado:** `OPEN`
-- **Merged:** `False`
-- **Draft:** `False`
-- **Mergeable:** `True` (MergeableState: `clean`)
+- **Merged:** `false`
+- **Draft:** `false`
+- **Mergeable:** `true` (MergeableState: `clean`)
 - **Base:** `main` (`f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5`)
-- **Head:** `docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight`
-- **Commits:** 4 commits por delante de `main` localmente (`f41a737f957eb3091cc24ba13a282a876d0c02e3`), 0 commits por detrás. Remoto origin en `12ee0407f3b80f5de1303141553529b0e305b2cc` (3 commits ahead, CI Run #106 en PASS).
+- **Head:** `docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight` (`59de117563664912a338c291f6a0b04c8327728d`)
+- **Commits:** 5 commits por delante de `main` en remoto (`f581a1c..59de117`), 0 commits por detrás. CI Run #108 en `completed / success` (7/7 jobs green).
 
 ---
 
@@ -95,7 +99,9 @@ La suite de pruebas [`scripts/lab/Test-L0HostPreflightLogic.ps1`](../../scripts/
 
 ---
 
-## 6. Verificación de Integración Continua (CI Run #106)
+## 6. Verificación de Integración Continua Histórica R8.2 (CI Run #106)
+
+*Nota Histórica:* Run #106 corresponde al commit previo R8.2 (SHA `12ee040...`). Para la evidencia de CI de R8.3 ver Run #107 (Sección 9.2) y para R8.3.1 ver Run #108 (Sección 10).
 
 - **Workflow:** `PrivGvard CI/CD — Multiplatform Matrix`
 - **Run ID:** `42499040076`
@@ -129,28 +135,30 @@ La suite de pruebas [`scripts/lab/Test-L0HostPreflightLogic.ps1`](../../scripts/
 | **Tests local run 1** | `PASS` | 87 tests ejecutados, 87 aprobados, 0 fallos (exit code 0) |
 | **Tests local run 2** | `PASS` | 87 tests ejecutados, 87 aprobados, 0 fallos (determinismo 100%) |
 | **Smoke tests** | `PASS` | Read-only smoke test y snapshot temporal validados sin efectos colaterales |
-| **CI exact SHA** | `PASS` | Run #106 (`42499040076`) sobre PR #12 `completed` / `success` |
+| **CI exact SHA** | `PASS` | Run #107 (SHA `1cd0783...`: PASS) y Run #108 (SHA `59de117...`: PASS) |
 | **CI jobs** | `PASS` | 7 de 7 jobs en `success`, paso de PowerShell aprobado |
-| **Thread 1 (PII/Links)** | `REMEDIADO` | Enlaces relativos portables; 0 patrones `file:///` o nombres locales |
-| **Thread 2 (Escape newline)** | `REMEDIADO` | Comillas dobles y salto de línea validado |
-| **Thread 3 (Regex harness)** | `REMEDIADO` | Módulo `L0HostPreflight.Logic.psm1` importado directamente sin regex |
-| **Merge gate** | **`READY FOR MERGE`** | Todos los criterios de validación cumplidos |
+| **Thread 1 (PII/Links)** | `REMEDIADO EN CÓDIGO` | Enlaces relativos portables; `is_outdated=true`, `is_resolved=false` en API |
+| **Thread 2 (Escape newline)** | `REMEDIADO EN CÓDIGO` | Comillas dobles y salto validado; `is_outdated=true`, `is_resolved=false` en API |
+| **Thread 3 (Regex harness)** | `REMEDIADO EN CÓDIGO` | Importación directa de módulo; `is_outdated=true`, `is_resolved=false` en API |
+| **Merge gate** | **`TECHNICALLY GREEN — MERGE POLICY NOT VERIFIED`** | Código y tests 100% verificados; pendiente resolución de threads y branch rules |
 | **LAB HOLD** | **`MAINTAINED`** | TEST-09.7 y FUS en hold pendiente de host físico L0 |
 | **Merge ejecutado** | **NO** | Ningún merge ni cierre de PR ejecutado en esta fase |
 
 ---
 
-## 8. Handoff y Próximo Paso Operativo para el Propietario
+## 8. Handoff Condicional y Próximos Pasos para el Propietario
 
-Con el PR #12 en estado formal `READY FOR MERGE`, el propietario del repositorio puede proceder con la fusión en `main`:
+El código de la rama se encuentra técnicamente validado con CI verde. La fusión en `main` debe realizarse de forma condicional una vez cumplidos los siguientes pasos por el operador del repositorio:
 
-1. **Ejecutar el Merge en GitHub:** Fusionar el PR #12 hacia `main` (Create a merge commit / Squash and merge según política de ramas).
-2. **Sincronizar Localmente:**
+1. **Resolver Formalmente los 3 Hilos de Revisión en GitHub:** Acceder a las 3 conversaciones y marcar `Resolve conversation` (r4506388933, r4506388935, r4506388938).
+2. **Verificar Branch Rules y Approvals Requeridas:** Revisar configuración de `main` en GitHub Settings para comprobar si se requieren approvals humanos.
+3. **Ejecutar el Merge en GitHub:** Fusionar el PR #12 hacia `main` (Create a merge commit / Squash and merge según política de ramas).
+4. **Sincronizar Localmente:**
    ```powershell
    git checkout main
    git pull origin main
    ```
-3. **Ejecutar Preflight en Host Físico L0 (Bare Metal):**
+5. **Ejecutar Preflight en Host Físico L0 (Bare Metal):**
    Una vez en el equipo físico (fuera de VirtualBox):
    ```powershell
    # 1. Crear previamente el directorio de destino en un volumen local fijo
@@ -264,3 +272,74 @@ La consulta al endpoint de protección de rama de `main` devolvió `403 Resource
 | **Merge gate** | **`TECHNICALLY GREEN — MERGE POLICY NOT VERIFIED`** | Código y tests 100% validados; pendiente resolución formal de threads y branch rules |
 | **LAB HOLD** | **`MAINTAINED`** | Host clasificado como `GUEST_DETECTED`; dynamic VM testing (TEST-09.7) en hold |
 | **Merge ejecutado** | **`NO`** | 0 operaciones de merge sobre `main` o en GitHub |
+
+---
+
+## 10. R8.3.2 — Final Documentation and Merge Reconciliation
+
+- **Fecha y Hora de Auditoría:** 2026-11-08T23:14:00Z – 2026-11-08T23:25:00Z
+- **Fase del Proyecto:** 8B.1A.7.2 / R8.3.2
+- **SHA Baseline Auditado:** `59de117563664912a338c291f6a0b04c8327728d` (R8.3.1 publicado en `origin`)
+- **Veredicto Reconciliado Final:**
+  ```text
+  TECHNICALLY GREEN — MERGE POLICY / REVIEW THREADS PENDING (ZERO MERGE EXECUTED)
+  ```
+
+### 10.1 Verificación de Integración Continua para el Commit R8.3.1 (Run #108)
+El commit `59de117563664912a338c291f6a0b04c8327728d` fue procesado íntegramente por GitHub Actions:
+- **Workflow:** `PrivGvard CI/CD — Multiplatform Matrix`
+- **Run ID:** `42547466292`
+- **Run Number:** **#108**
+- **URL:** [Actions Run #108](https://github.com/cristianbarreiro/PrivGuard/actions/runs/42547466292)
+- **Evento:** `pull_request` (PR #12)
+- **Head SHA:** `59de117563664912a338c291f6a0b04c8327728d`
+- **Status:** `completed`
+- **Conclusion:** `success`
+- **Finalización UTC:** `2026-11-09T01:51:37Z`
+- **Matriz de Jobs (7 de 7 exitosos — 100% PASS):**
+  1. `Build & Test (windows-latest)` (ID: `128935461396`) — `success` (0 warnings, 0 errors, platform tests pass, Release-Store MSIX pass, L0 preflight pass: `Test Summary: Total: 87 | Passed: 87 | Failed: 0`).
+  2. `Build & Test (macos-latest)` (ID: `128935461009`) — `success`
+  3. `Build & Test (ubuntu-latest)` (ID: `128935461241`) — `success`
+  4. `Publish Single-File (win-x64)` (ID: `128935996579`) — `success`
+  5. `Publish Single-File (win-arm64)` (ID: `128935996542`) — `success`
+  6. `Publish Single-File (linux-x64)` (ID: `128935996609`) — `success`
+  7. `Publish Single-File (osx-arm64)` (ID: `128935996550`) — `success`
+
+### 10.2 Erradicación de Contradicciones Internas del Informe
+En la fase R8.3.2 se armonizaron todas las secciones del presente informe:
+- Se eliminaron las afirmaciones obsoletas de `READY FOR MERGE` de las Secciones 0/1, 7 y 8.
+- La portada y las tablas de gates reflejan con precisión que el código y CI están aprobados (`TECHNICALLY GREEN`), mientras que la política de branch protection y la resolución formal de hilos de revisión en la interfaz de GitHub continúan pendientes de acción por parte del propietario del repositorio.
+- La Sección 8 fue convertida en un protocolo de handoff estrictamente condicional.
+
+### 10.3 Estado Real de Review Threads y Branch Protection
+- **Hilos de Revisión:** Los 3 hilos de `amazon-q-developer[bot]` continúan con código 100% remediado en la rama pero con estado en la API de GitHub de `is_outdated = true` y `is_resolved = false`. No se simula éxito; se transfieren los enlaces directos al propietario para su resolución manual en GitHub UI:
+  - [Thread 1 — r4506388933](https://github.com/cristianbarreiro/PrivGuard/pull/12#discussion_r4506388933)
+  - [Thread 2 — r4506388935](https://github.com/cristianbarreiro/PrivGuard/pull/12#discussion_r4506388935)
+  - [Thread 3 — r4506388938](https://github.com/cristianbarreiro/PrivGuard/pull/12#discussion_r4506388938)
+- **Branch Protection:** La API devolvió `401/403`. Las reglas de protección de rama de `main` deben ser comprobadas directamente por el propietario en GitHub Settings (Branches / Rulesets).
+
+### 10.4 Tabla Final Obligatoria de Cierre de Gates (R8.3.2)
+
+| Gate | Estado | Evidencia |
+|---|:---:|---|
+| **PR #12** | **`OPEN`** | `state: open`, `draft: false`, `merged: false`, `mergeable: true` (`clean`) vía GitHub API |
+| **Base SHA / Head SHA** | **`MATCH`** | Base: `f581a1c05d44f2a8c98cbf40f1dcddf6eb59a5a5` / Head: `59de117563664912a338c291f6a0b04c8327728d` |
+| **Ahead / behind** | **`MATCH`** | 5 commits ahead / 0 behind (`origin/main...origin/docs/8b1a7-2-r8-r7-evidence-integrity-l0-preflight`) |
+| **R8.3.1 commit publicado** | **`59de117...`** | Publicado en origin (`59de117563664912a338c291f6a0b04c8327728d`) |
+| **Run #108** | **`PASS`** | Run ID `42547466292`, `completed / success`, 7/7 jobs green |
+| **CI del SHA final** | **`PASS`** | Run #108 cubre exactamente el head `59de117...` |
+| **Windows build/tests** | **`PASS`** | Job ID `128935461396`: 0 warnings, 0 errors, platform tests exitosos |
+| **L0 harness** | **`PASS`** | 87/87 tests exitosos en CI Windows y en doble ejecución local determinista |
+| **Informe R8.3 contradicciones** | **`RESUELTO`** | Secciones 0/1, 7 y 8 unificadas bajo veredicto armónico sin contradicciones |
+| **PROJECT_CONTEXT** | **`PASS`** | Fecha 2026-11-08, Runs #104–#108 registrados, review threads pendientes de resolución |
+| **AUDIT-ROADMAP** | **`PASS`** | Fecha 2026-11-08, fila 101 en `TECHNICALLY GREEN — MERGE POLICY / REVIEW THREADS PENDING` |
+| **Rutas personales** | **`PASS`** | 0 ocurrencias de esquemas absolutos de host o carpetas de usuario |
+| **UTF-8 / mojibake** | **`PASS`** | Codificación UTF-8 estricta sin BOM; 0 caracteres corrompidos (`U+FFFD`) |
+| **Thread 1** | **`OUTDATED / UNRESOLVED`** | Remediado en código; pendiente resolución humana en UI (r4506388933) |
+| **Thread 2** | **`OUTDATED / UNRESOLVED`** | Remediado en código; pendiente resolución humana en UI (r4506388935) |
+| **Thread 3** | **`OUTDATED / UNRESOLVED`** | Remediado en código; pendiente resolución humana en UI (r4506388938) |
+| **Branch protection** | **`NOT VERIFIED (401/403)`** | Endpoint 401/403; requiere verificación manual del propietario en GitHub Settings |
+| **Approvals requeridas** | **`NOT VERIFIED`** | Revisión de bot fue `COMMENTED`; pendiente confirmar reglas de review en repo |
+| **Merge gate** | **`TECHNICALLY GREEN — MERGE POLICY / REVIEW THREADS PENDING`** | Código y CI 100% aprobados; pendiente resolución de hilos y verificación de reglas |
+| **LAB HOLD** | **`MAINTAINED`** | Host clasificado como `GUEST_DETECTED`; dynamic VM testing (TEST-09.7) en hold |
+| **Merge ejecutado** | **`NO`** | 0 operaciones de merge ejecutadas sobre `main` o en GitHub |
