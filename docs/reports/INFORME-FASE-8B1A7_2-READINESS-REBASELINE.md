@@ -1,4 +1,4 @@
-# PrivGuard — Fase 8B.1A.7.2-R6: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Endurecimiento de Reintento FUS (Reconciliación Post-Push #101, Hardening R5, Mutexes Reales `Local\` y Criterios TEST-09.7 Post-Fix)
+# PrivGuard — Fase 8B.1A.7.2-R7: Rebaseline de Supuestos, Readiness del Laboratorio VM, Carrera de Orden de Liberación de Mutexes y Endurecimiento de Reintento FUS (Reconciliación Post-Push #102, Verificación CI R6, Auditoría de Deadline R5 y Gate L0)
 
 **Fecha de emisión original:** 2026-11-07<br />
 **Fecha de revisión factual R1:** 2026-11-07<br />
@@ -7,13 +7,15 @@
 **Fecha de revisión factual R4:** 2026-11-07<br />
 **Fecha de revisión factual R5:** 2026-11-07<br />
 **Fecha de reconciliación post-push R6:** 2026-11-07<br />
+**Fecha de reconciliación post-push y gate L0 R7:** 2026-11-08<br />
 **Autor:** Principal .NET / Windows Security Engineer, Auditor de Sincronización Interproceso y Responsable de Calidad de Evidencia<br />
-**Rama activa de trabajo:** `fix/8b1a7-2-r5-retry-contract-hardening`<br />
-**Baseline de código inicial auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`<br />
-**HEAD remoto canónico (`origin/main`):** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`<br />
-**Parent directo en `main` (Commit R4):** `86d6adcef9234b579e9313215673cf540e9fa52b`<br />
-**Último workflow CI:** Run #101 (ID: `42438637184`, commit `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`, evento `push`, **7/7 jobs `success`**)<br />
+**Rama activa de trabajo:** `docs/8b1a7-2-r7-post-r6-reconciliation`<br />
+**Baseline de código funcional auditado:** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` (Commit R5)<br />
+**HEAD remoto canónico (`origin/main`):** `e6a57ae58d7d0cd30265834fc51e2bab32928732` (Commit R6 Documental)<br />
+**Parent directo en `main` (Commit R5):** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`<br />
+**Último workflow CI:** Run #102 (ID: `42444149346`, commit `e6a57ae58d7d0cd30265834fc51e2bab32928732`, evento `push`, **7/7 jobs `success`**)<br />
 **Workflows CI previos relevantes (SHAs completos verificados vía GitHub Actions API):**<br />
+- Run #101 (ID: `42438637184`, commit `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #100 (ID: `42435675882`, commit `86d6adcef9234b579e9313215673cf540e9fa52b`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #99 (ID: `42432585253`, commit `4d674ebd933f70edd2a1be789df2e3414e1b59f0`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #98 (ID: `42429999278`, commit `2f1281b0df0fa4906f14f690d95be42beadf15aa`, evento `push`, **7/7 jobs `success`**)<br />
@@ -27,9 +29,9 @@
 - Run #90 (ID: `42384884759`, commit `b9d4b8f1627c74b70b977f509cbc56acc7989ad0`, evento `push`, **7/7 jobs `success`**)<br />
 - Run #89 (ID: `42379421580`, commit `d8ca7acc703397cabec8d5cbba92f39329fa940a`, evento `push`, **7/7 jobs `success`**)<br />
 - Runs #87 y #86 (IDs: `42346415046` y `42342850877`, commits `391d79e9255cb07f87f6e13748225cd55fc6f514` y `0a270a1b7fb50bb894b0137cd17ef2dc65dcc246`, evento `pull_request`, `head_branch`: `feature/sprint-1-store-profile-guards-d01-d02`, destino: `main`, PR #11, **7/7 jobs `success`**)<br />
-**Veredicto de Rebaseline R6:** **R6 PASS — R5 REMOTE RECONCILIATION COMPLETE — CI R5 PASS — LAB HOLD**<br />
+**Veredicto de Rebaseline R7:** **R7 PASS — R6 REMOTE STATE RECONCILED — CI R6 PASS — L0 NOT VERIFIED — LAB HOLD**<br />
 **Clasificación de Host Preflight:** **GUEST DETECTED — L0 NOT VERIFIED**<br />
-**Readiness del Laboratorio VM:** **HOLD — Requiere aprovisionamiento/acción del propietario en Hipervisor L0**<br />
+**Readiness del Laboratorio VM:** **HOLD — Requiere aprovisionamiento del propietario en Hipervisor L0 (Topología B)**<br />
 **Estado Microsoft Store:** **CONDITIONAL HOLD**<br />
 **Estado Fase 8B.1C:** **BLOCKED / NOT AUTHORIZED**
 
@@ -196,12 +198,28 @@ Los informes y runbooks previos de virtualización (Fases 8B.1A.5, 8B.1A.6 y 8B.
 4. **Gate Pre-Laboratorio:**
    - Todo el código de producción y pruebas se encuentra reconciliado, verificado en CI (Run #101) y reproducido localmente. El entorno de desarrollo actual permanece como `GUEST DETECTED — L0 NOT VERIFIED`, por lo que el conjunto de pruebas dinámicas (TEST-01 a TEST-11, incluido TEST-09.7) permanece formalmente bajo **`LAB HOLD / NOT RUN`**, a la espera de que el propietario del repositorio aprovisione una VM aislada directa en el hipervisor físico L0 (Topología B).
 
+#### Addendum R7: Reconciliación Post-Push R6, Verificación CI Run #102, Auditoría de Deadline R5 y Gate L0
+1. **Reconciliación Factual Post-Push del Commit R6 (`e6a57ae`):**
+   - La consulta directa a las referencias remotas (`git ls-remote --heads origin`) y a la API de GitHub (`GET /repos/cristianbarreiro/PrivGuard/branches/main`, consultado 2026-11-08T00:29:40Z) confirma que el commit R6 `e6a57ae58d7d0cd30265834fc51e2bab32928732` (`docs: reconcile R5 post-push evidence and CI state`) se encuentra publicado en la rama `main` de `origin` y constituye su HEAD canónico actual.
+   - El diff `85d3f71..e6a57ae` es estrictamente documental (4 archivos de documentación modificados, cero archivos de código de producción o pruebas).
+   - Se rectifica la declaración de cierre de la sesión R6 (`ZERO PUSH / local only`): describía rigurosamente las acciones locales ejecutadas en dicha sesión, pero quedó superada por la publicación remota posterior. No se atribuye quién realizó el push ni mediante qué cliente/herramienta de sincronización.
+2. **Verificación de GitHub Actions para R6 (Run #102 — `CI R6 PASS`):**
+   - La consulta por `head_sha=e6a57ae58d7d0cd30265834fc51e2bab32928732` arrojó el workflow **Run #102** (ID: `42444149346`, evento `push`, rama `main`, conclusión `success`, 7/7 jobs exitosos).
+   - Todos los pasos en Windows (Restore, Build, Domain, Application, Infrastructure, Windows Platform Tests [334 tests] y Validate Release-Store MSIX Packaging) concluyeron en `success`.
+   - Se publicaron 4 ejecutables single-file (`PrivGvard-win-x64`, `PrivGvard-win-arm64`, `PrivGvard-osx-arm64`, `PrivGvard-linux-x64`). Cero paquetes `.msix` o archivos `BUILD-PROVENANCE.json` descargables.
+3. **Auditoría del Borde Temporal de `WindowsUninstallRequestListener` (R7-04 — `DOCUMENTED ACCEPTANCE`):**
+   - Se evaluó estáticamente el matiz por el cual `WaitOne(waitInterval)` en la última iteración puede retornar tras cruzar la ventana nominal `timeout` debido a la granularidad del temporizador de Windows (~15.6 ms) y al límite inferior `MinWaitHandleInterval = 1 ms`.
+   - Se adoptó formalmente la **Opción A (Deadline Aproximado Aceptado)**: el contrato de timeout en handoff es monotónico (`Stopwatch`) y acotado por sondeo (*polling bounded*); no constituye una garantía de tiempo real duro sub-milisegundo. Descartar una adquisición legítima post-deadline por microsegundos provocaría un falso negativo destructivo para la desinstalación. Cero cambios en código de producción.
+4. **Preparación del Gate de Aprovisionamiento en Host Físico L0 (Topología B):**
+   - Se elaboró el script PowerShell read-only [`scripts/lab/Get-L0HostPreflight.ps1`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/scripts/lab/Get-L0HostPreflight.ps1) y el runbook [`docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md).
+   - Se ratifica el estado **`L0 NOT VERIFIED — LAB HOLD`** hasta que el propietario ejecute el diagnóstico en el hardware físico anfitrión.
+
 ### 1.2 Veredicto Oficial
 
-$$\mathbf{VEREDICTO:\ REBASELINE\ R6\ PASS\ —\ R5\ REMOTE\ RECONCILIATION\ COMPLETE\ —\ CI\ R5\ PASS\ —\ LAB\ HOLD}$$
+$$\mathbf{VEREDICTO:\ REBASELINE\ R7\ PASS\ —\ R6\ REMOTE\ STATE\ RECONCILED\ —\ CI\ R6\ PASS\ —\ L0\ NOT\ VERIFIED\ —\ LAB\ HOLD}$$
 
-- **Rebaseline, Reconciliación Run #101 y Hardening R5:** **PASS**. Se reconcilia el commit `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` en `origin/main` y el Run #101 (`42438637184`), se valida la integridad del diff R5 (6 archivos modificados, 0 regresiones), se confirman 7/7 jobs exitosos en CI, se reproduce la suite de 616 pruebas locales al 100% PASS, se reconcilia forensemente el intento previo `task-9809`, y se actualizan los literales exactos de timeout y los 16 nombres de métodos de prueba en la documentación canónica.
-- **Readiness del Laboratorio VM:** **HOLD**. El host permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED` (Guest VirtualBox con 3.98 GB RAM visible y ~0.39 GB libre, sin nested VT-x). Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
+- **Rebaseline, Reconciliación Run #102 y Aceptación de Deadline R7:** **PASS**. Se reconcilia el commit R6 `e6a57ae58d7d0cd30265834fc51e2bab32928732` en `origin/main` y el Run #102 (`42444149346`, 7/7 jobs green), se ratifica el baseline de código funcional R5 (`85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`), se dictamina `DOCUMENTED ACCEPTANCE` para el contrato de timeout aproximado de desinstalación, y se preparan el script y la guía de preflight para el host físico L0.
+- **Readiness del Laboratorio VM:** **HOLD**. El host de desarrollo actual permanece clasificado como `GUEST DETECTED — L0 NOT VERIFIED` (Guest VirtualBox con 3.98 GB RAM visible y ~0.56 GB libre, sin nested VT-x). Se requiere aprovisionamiento de una VM aislada directa en el host físico L0 del propietario (Topología B).
 - **Salvaguardas Invariantes:** Microsoft Store en `CONDITIONAL HOLD`, Fase 8B.1C en `BLOCKED / NOT AUTHORIZED`.
 
 ---
@@ -210,11 +228,11 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R6\ PASS\ —\ R5\ REMOTE\ RECONCILIATION\ COM
 
 ### 2.1 Verificación de Git y Remoto
 - **Repositorio:** `cristianbarreiro/PrivGuard`
-- **Rama activa de trabajo:** `fix/8b1a7-2-r5-retry-contract-hardening`
-- **HEAD Remoto Canónico (`origin/main`):** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`
-- **Parent directo en `main`:** `86d6adcef9234b579e9313215673cf540e9fa52b`
-- **Baseline de código inicial auditado:** `653be31040da53bea72a540ddb2a111f16b35d50`
-- **Historial `d8ca7acc..85d3f71d` (12 commits documentales + 2 commits funcionales R4 y R5 en `main`):**
+- **Rama activa de trabajo:** `docs/8b1a7-2-r7-post-r6-reconciliation`
+- **HEAD Remoto Canónico (`origin/main`):** `e6a57ae58d7d0cd30265834fc51e2bab32928732` (R6 documental)
+- **Parent directo en `main`:** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` (R5 funcional)
+- **Baseline de código funcional auditado:** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`
+- **Historial `d8ca7acc..e6a57ae` (13 commits documentales + 2 commits funcionales R4 y R5 en `main`):**
   1. `dded99c` — Documental: corrección de evidencia Sprint 1.2 postflight.
   2. `b9d4b8f` — Documental: ajuste de afirmaciones Sprint 1.2 postflight.
   3. `07e4188` — Documental: reconciliación Sprint 1.2 con estado remoto.
@@ -228,19 +246,21 @@ $$\mathbf{VEREDICTO:\ REBASELINE\ R6\ PASS\ —\ R5\ REMOTE\ RECONCILIATION\ COM
   11. `2f1281b0df0fa4906f14f690d95be42beadf15aa` — Documental: reconciliación R2 de máquina de estados FUS y preflight de host.
   12. `4d674ebd933f70edd2a1be789df2e3414e1b59f0` — Documental: reconciliación R3 de carrera de liberación y diseño TEST-09.7.
   13. `86d6adcef9234b579e9313215673cf540e9fa52b` — Funcional + Documental (R4): remediación de reintento FUS ante contención transitoria en uninstall-gate y tests unitarios.
-  14. `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` — Funcional + Documental (R5): hardening de contrato de reintento, preservación de signatura pública de 5 parámetros, diagnósticos de timeout diferenciados y tests con mutexes reales `Local\` (HEAD canónico en `origin/main`).
-- **Ramas Remotas en `origin`:** `main` (`85d3f71...`), `dev` (`85d028e...`), `feature/sprint-1-store-profile-guards-d01-d02` (`391d79e...`). No existen ramas remotas para R4 ni R5.
-- **Forma Real de Integración en Remoto:** Integración directa mediante push sin Pull Request. La API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. No existen Pull Requests abiertas actualmente (`0` open PRs).
-- **Estado del Árbol de Trabajo:** Modificado localmente en la rama `fix/8b1a7-2-r5-retry-contract-hardening` (sincronización documental de R6, sin push ni PR).
-- **Código Funcional y Pruebas Reconciliados en `main` (`85d3f71d`):**
-  - `src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs` (restauración de sobrecarga pública de 5 parámetros + sobrecarga `internal` con `TimeSpan pollInterval`, validación estricta de `timeout` y `pollInterval` incluyendo `Timeout.InfiniteTimeSpan` e intervalos `< 1 ms`, acotamiento mínimo de 1ms contra truncamiento a `0 ms`, y diagnósticos de timeout diferenciados según `lastContentionOutcome`).
-  - `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (3 tests con mutexes con nombre reales `Local\` entre hilos dedicados del SO verificando `UninstallGateBusy`, `SingleInstanceBusy` con liberación de gate y `Acquired` + `Release()`).
-  - `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (16 métodos de prueba / 20 casos ejecutables incluyendo reflexión de signatura pública de 5 parámetros, validación de intervalos inválidos, diagnósticos por última causa observada, verificación en hilo separado de mutex abandonado y test de integración intra-sesión con mutexes reales `Local\` para la carrera de orden de liberación).
+  14. `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` — Funcional + Documental (R5): hardening de contrato de reintento, preservación de signatura pública de 5 parámetros, diagnósticos de timeout diferenciados y tests con mutexes reales `Local\`.
+  15. `e6a57ae58d7d0cd30265834fc51e2bab32928732` — Documental (R6): reconciliación post-push R5, verificación Run #101 en CI y sincronización de documentación canónica (HEAD canónico en `origin/main`).
+- **Ramas Remotas en `origin`:** `main` (`e6a57ae...`), `dev` (`85d028e...`), `feature/sprint-1-store-profile-guards-d01-d02` (`391d79e...`). No existen ramas remotas para R4, R5 ni R6.
+- **Forma Real de Integración en Remoto:** Integración directa mediante push sin Pull Request. La API de GitHub (`/branches/main`) confirma `protected: false`, `protection.enabled = false` y lista vacía de rulesets. Existen `0` Pull Requests abiertas actualmente.
+- **Estado del Árbol de Trabajo:** Modificado localmente en la rama `docs/8b1a7-2-r7-post-r6-reconciliation` (sincronización documental de R7, sin push ni PR).
+- **Código Funcional y Pruebas Vigentes (`85d3f71d` / `e6a57ae`):**
+  - `src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs` (signatura pública de 5 parámetros + sobrecarga `internal` de 6 parámetros, validación de intervalos pre-handle, deadline aproximado monotónico acotado por sondeo, y diagnósticos diferenciados de contención).
+  - `tests/PrivLock.Platform.Windows.Tests/WindowsSingleInstanceStartupTests.cs` (3 tests con mutexes con nombre reales `Local\` entre hilos dedicados del SO).
+  - `tests/PrivLock.Platform.Windows.Tests/WindowsUninstallRequestListenerTests.cs` (16 métodos de prueba / 20 casos ejecutables).
 
-### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #101)
+### 2.2 Evidencia de GitHub Actions (Runs #86, #87 y #89 al #102)
 
 | Run ID | Commit SHA (40 caracteres verificados vía API) | Rama / Ref | Evento | Conclusión | Jobs Exitosos | Artefactos Publicados |
 |---|---|---|---|---|---|---|
+| **42444149346** (#102) | `e6a57ae58d7d0cd30265834fc51e2bab32928732` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42438637184** (#101) | `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42435675882** (#100) | `86d6adcef9234b579e9313215673cf540e9fa52b` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
 | **42432585253** (#99) | `4d674ebd933f70edd2a1be789df2e3414e1b59f0` | `main` | `push` | `success` | 7/7 | 4 Single-File executables (Sin MSIX ni provenance) |
@@ -304,12 +324,13 @@ Al auditar directamente el desinstalador Inno Setup ([`installer/setup.iss#L18-L
 - `setup.iss` enumera los perfiles interactivos desde `ProfileList` en HKLM y bloquea la desinstalación (*fail-closed*) si detecta un diario o marcador activo.
 - **Límite Estricto:** Esta protección es exclusiva del instalador Standalone Inno Setup. **No tiene intervención ni capacidad para bloquear la desinstalación del paquete MSIX por parte de Windows**.
 
-### 4.3 Cuantificación de Commits (`9f856c0..85d3f71d`)
+### 4.3 Cuantificación de Commits (`9f856c0..e6a57ae`)
 El historial se divide en:
 1. **Rango `9f856c0..d8ca7acc` (5 commits funcionales / CI / merge):** `7066b3b` (Docs 8B.1A), `0a270a1` (Sprint 1.0 D-01/D-02), `391d79e` (Sprint 1.1 Inmutabilidad), `ffc2273` (Merge PR #11), `d8ca7ac` (Sprint 1.2 CI Gate).
 2. **Rango `d8ca7acc..4d674ebd` (12 commits exclusivamente documentales):** `dded99c`, `b9d4b8f`, `07e4188`, `653be31` (baseline de código auditado), `3f08f12`, `54fb446` (`54fb44670c55...`), `aedd19c` (`aedd19c819dd...`), `fc345eb`, `11a7e49`, `405f948d`, `2f1281b0` y `4d674ebd933f70edd2a1be789df2e3414e1b59f0`.
 3. **Commit funcional + documental R4 en `origin/main`:** `86d6adcef9234b579e9313215673cf540e9fa52b` (remediación de reintento FUS y tests unitarios deterministas; parent directo de R5).
-4. **Commit funcional + documental R5 en `origin/main`:** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` (endurecimiento del contrato de reintento FUS, preservación de signatura pública, diagnósticos de timeout diferenciados y tests con mutexes reales `Local\`; HEAD canónico en `origin/main`).
+4. **Commit funcional + documental R5 en `origin/main`:** `85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a` (endurecimiento del contrato de reintento FUS, preservación de signatura pública, diagnósticos de timeout diferenciados y tests con mutexes reales `Local\`; parent directo de R6).
+5. **Commit documental R6 en `origin/main`:** `e6a57ae58d7d0cd30265834fc51e2bab32928732` (reconciliación post-push R5, verificación CI Run #101 y sincronización canónica; HEAD remoto canónico verificado en Run #102).
 
 ### 4.4 Mutex Global, DACL, Dos Mutexes en Guard, Release-Order Race y Máquina de Estados FUS
 La auditoría estática adversarial sobre los objetos de sincronización y control de instancia en Windows (`net10.0-windows10.0.19041.0`) establece las siguientes precisiones técnicas rigurosas:
@@ -444,6 +465,21 @@ Para resolver la *Release-Order Race* y la contención transitoria sin alterar l
 | **Camino E** | **Error de DACL o Creación:** Excepción de Win32 / Permisos al abrir o crear mutexes en la guarda. | Excepción no estructurada o salida con código 1. | **FAIL-CLOSED DETERMINISTA:** Retorna de inmediato `false` con mensaje de error específico sin bucles innecesarios. | **ROBUSTEZ Y FAIL-CLOSED** |
 | **Camino F** | **Mutex Abandonado:** Caída anómala de UserA dejando mutex de sondeo en estado abandonado. | Sondeo captura `AbandonedMutexException`, libera y prueba guard. | **Preservado y Verificado:** Sondeo captura `AbandonedMutexException`, libera el handle de sondeo antes de invocar la guarda y deja recuento recursivo cero tras `guard.Release()`. | **Preservado y Endurecido en Tests (R5)** |
 | **Camino G** | **Gate Ocupado sin Instancia (`UninstallGateBusy`):** Instalador previo retiene gate durante todo el plazo. | Aborta en 1er intento si no hay evento. | Reintenta de forma acotada sin busy-spin sub-milisegundo; al expirar timeout retorna diagnóstico explícito de `UninstallGateBusy`. | **CONTROL DE CONCURRENCIA (R5-01 / R5-03)** |
+
+##### C. Auditoría del Borde Temporal de Timeout (R7-04) — Dictamen: DOCUMENTED ACCEPTANCE
+
+En la Fase R7 se auditó adversarialmente la frontera de tiempo de [`WindowsUninstallRequestListener.TryRequestRunningInstanceAndAcquire`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/src/PrivLock.Platform.Windows/System/WindowsUninstallRequestListener.cs#L131-L193):
+1. **Mecanismo de Temporización en Bucle:**
+   - La condición de control del bucle es `while (stopwatch.Elapsed < timeout)`, gobernada por un `Stopwatch.StartNew()` monotónico.
+   - En cada iteración, se calcula `remaining = timeout - stopwatch.Elapsed`. Si `remaining <= TimeSpan.Zero`, se rompe el bucle de inmediato sin intentar nuevas esperas.
+   - La ventana de espera sobre el mutex de sondeo se acota mediante `waitInterval = pollInterval <= remaining ? pollInterval : remaining;`, aplicando el límite inferior de seguridad `if (waitInterval < MinWaitHandleInterval) waitInterval = MinWaitHandleInterval;` (1 ms).
+2. **Matiz de Borde Evaluado:**
+   - Si en la última iteración `remaining` es inferior a 1 ms (ej. 0.2 ms), `waitInterval` se eleva a 1 ms para evitar `WaitOne(0)` (espera activa/busy spin). Si el mutex de sondeo se adquiere en ese último milisegundo, la llamada posterior `TryAcquireSingleInstanceDetail` puede ejecutarse y retornar `true` habiendo rebasado levemente la ventana nominal `timeout`.
+3. **Dictamen Formal: `DOCUMENTED ACCEPTANCE` (Opción A):**
+   - El timeout de handoff en sincronización interproceso en modo usuario de Windows opera por definición como un **deadline aproximado acotado por sondeo (*monotonic polling-bounded timeout*)**, sujeto a la granularidad del temporizador del sistema operativo (~15.6 ms en Windows estándar) y al quantum mínimo de 1 ms.
+   - Un llamador de handoff de desinstalación (Inno Setup o script de cierre) utiliza plazos del orden de segundos (ej. 5 s) con el propósito de garantizar que ninguna instancia quede activa antes de remover archivos; no requiere garantías de tiempo real duro (*hard real-time*) sub-milisegundo.
+   - Abortar con falso negativo una desinstalación cuando la instancia previa liberó legítimamente la guarda dentro de la ventana de espera introduciría un fallo de disponibilidad injustificado.
+   - Por tanto, se documenta expresamente esta semántica en el contrato arquitectónico y se mantiene el código de producción 100% estable sin modificaciones funcionales ni dependencias temporales artificiales.
 
 ---
 
@@ -656,20 +692,14 @@ Se mantiene la separación estricta de hashes entre las etapas del ciclo de vida
 - **Decisión D-05:** **Pendiente** de formalización e integración en los stores reales.
 - **Microsoft Store:** **`CONDITIONAL HOLD`** (publicación bloqueada).
 - **Fase 8B.1C:** **`BLOCKED / NOT AUTHORIZED`** (desarrollo prohibido).
-- **Fase 8B.1A.7.2 / R6:** **Reconciliación R6 completada — `PASS — R5 REMOTE RECONCILIATION COMPLETE — CI R5 PASS — LAB HOLD`** (pruebas físicas dinámicas multi-sesión bloqueadas por entorno de laboratorio).
+- **Fase 8B.1A.7.2 / R7:** **Reconciliación y Gate L0 completados — `PASS — R6 REMOTE STATE RECONCILED — CI R6 PASS — L0 NOT VERIFIED — LAB HOLD`** (pruebas físicas dinámicas multi-sesión retenidas a la espera del aprovisionamiento por el propietario en el host físico L0 según Topología B).
 
 ---
 
 ## 9. Próximos Pasos Recomendados
 
-1. **Gobernanza del Repositorio en GitHub (Recomendación Documental):**
-   - Configurar la protección de la rama `main` en GitHub Settings (Branch Protection Rules o Repository Rulesets) estableciendo:
-     - Requerimiento obligatorio de Pull Request antes de fusionar en `main`.
-     - Required status checks asociados a los jobs esenciales del workflow de CI (`CI / build-test (windows-latest)` y comprobación de packaging MSIX Store).
-     - Bloqueo estricto de `force-push` y de eliminación de la rama `main`.
-     - No exigir reviewer adicional si el flujo corresponde a un desarrollador único.
-   - *Nota de auditoría:* Esta recomendación se formula con fines de planificación y no fue ejecutada en esta fase para respetar la frontera documental y de no alteración de configuraciones.
-2. **Consolidación Documental Local R6:** Mantener el commit documental local de reconciliación R6 bajo política estricta de ZERO PUSH y ZERO PR en esta sesión.
-3. **Acción del Propietario en el Host Físico (L0):** Aprovisionar una máquina virtual Windows 11 independiente en el host físico según las especificaciones de la Topología B (sección 5.2).
-4. **Generación de Artefactos desde HEAD Vigente:** Tras disponer de la VM, compilar el paquete `Release-Store` desde el HEAD canónico actual (`85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a`) y registrar la doble proveniencia criptográfica (unsigned en build stage y signed tras test-signing dentro de la VM).
-5. **Ejecución del Runbook 8B.1A.7.2:** Llevar a cabo los tests normativos TEST-01 a TEST-11, con prioridad sobre la verificación experimental de TEST-09.7 (secciones 6.1, 6.2 y 6.3), TEST-09 y TEST-10 en la VM aislada con capturas de ProcMon.
+1. **Preflight en Host Físico (L0):** El propietario del repositorio debe ejecutar [`scripts/lab/Get-L0HostPreflight.ps1`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/scripts/lab/Get-L0HostPreflight.ps1) en el equipo físico anfitrión para confirmar fabricante, CPU, memoria física libre y habilitación de virtualización en firmware (VT-x/AMD-V).
+2. **Aprovisionamiento de la VM Aislada (Topología B):** Configurar la máquina virtual Windows 11 según las directrices de [`docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/lab/PRIVGUARD-L0-HOST-PREFLIGHT.md) (2 vCPUs, 4–8 GB vRAM, vTPM 2.0, Secure Boot, red interna aislada y snapshots limpios).
+3. **Generación de Artefactos con Doble Proveniencia:** Tras verificar L0, compilar el paquete Release-Store desde el HEAD canónico aprobado (`e6a57ae58d7d0cd30265834fc51e2bab32928732`) y registrar la proveniencia criptográfica antes de iniciar el runbook dinámico (`TEST-09.7`, `TEST-09`, `TEST-10` y `TEST-01..TEST-11`).
+4. **Gobernanza del Repositorio en GitHub (Recomendación Documental):** Configurar la protección de la rama `main` en GitHub Settings (requerimiento de PR y status checks asociados a `windows-latest` y MSIX packaging) sin realizar cambios en esta sesión.
+5. **Consolidación Documental Local R7:** Mantener la rama local `docs/8b1a7-2-r7-post-r6-reconciliation` bajo política estricta de ZERO PUSH y ZERO PR en esta sesión.

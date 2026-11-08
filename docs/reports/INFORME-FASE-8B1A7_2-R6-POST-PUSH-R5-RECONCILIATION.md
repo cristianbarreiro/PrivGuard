@@ -257,3 +257,33 @@ Las pruebas dinámicas permanecen bloqueadas en **`LAB HOLD / NOT RUN`** hasta d
 - **Microsoft Store:** **`CONDITIONAL HOLD`**.
 - **Fase 8B.1C:** **`BLOCKED / NOT AUTHORIZED`**.
 - **Próximo Paso Operativo:** No se requieren nuevas modificaciones sobre el código de handoff FUS mientras no exista evidencia empírica nueva procedente del laboratorio. El siguiente paso bloqueante es el aprovisionamiento de la VM Windows 11 en el host físico L0 por parte del propietario, la compilación fresca del paquete `Release-Store` con doble proveniencia criptográfica (unsigned/signed) desde el HEAD canónico aprobado, y la ejecución controlada del runbook dinámico (`TEST-09.7`, `TEST-09`, `TEST-10` y restantes casos `TEST-01..TEST-11`).
+
+---
+
+## 12. Addendum R7: Reconciliación Post-Push R6, Verificación CI Run #102 y Aclaración de Alcance de Logs
+
+**Fecha y hora UTC de consulta R7:** 2026-11-08T00:29:40Z (01:29:40 CET)
+
+1. **Reconciliación Factual Post-Push del Commit R6 (`e6a57ae`):**
+   - La consulta directa a las referencias remotas (`git ls-remote --heads origin`) y a la API de GitHub (`GET /repos/cristianbarreiro/PrivGuard/branches/main`) confirma que el commit R6 `e6a57ae58d7d0cd30265834fc51e2bab32928732` (`docs: reconcile R5 post-push evidence and CI state`) se encuentra publicado en la rama `main` de `origin` y constituye su HEAD canónico actual.
+   - La comparación `R5..R6` (`85d3f71d2c7a1be72d00fc06e47c37d6cdafa15a..e6a57ae58d7d0cd30265834fc51e2bab32928732`) confirma `ahead 1, behind 0` y un diff estrictamente documental que afecta a 4 archivos (`docs/ai/AUDIT-ROADMAP.md`, `docs/ai/PROJECT_CONTEXT.md`, `docs/reports/INFORME-FASE-8B1A7_2-R6-POST-PUSH-R5-RECONCILIATION.md`, `docs/reports/INFORME-FASE-8B1A7_2-READINESS-REBASELINE.md`), con cero modificaciones en código de producción ni de pruebas.
+   - **Rectificación de la declaración `ZERO PUSH` de R6:** La afirmación de cierre de la sesión R6 describía fielmente las acciones locales del agente en el momento de crear el commit documental, pero ha quedado superada por la realidad observable posterior en el remoto. De acuerdo con el principio de integridad de evidencia, no se formula ninguna atribución sobre el actor, herramienta o sincronización externa que haya efectuado dicho push.
+
+2. **Verificación de GitHub Actions para el Commit R6 (Run #102):**
+   - La consulta a GitHub Actions por `head_sha=e6a57ae58d7d0cd30265834fc51e2bab32928732` arrojó el workflow **Run #102**:
+     - `id`: `42444149346`, `run_number`: `102`, `name`: `PrivGvard CI/CD — Multiplatform Matrix`
+     - `event`: `push`, `head_branch`: `main`, `head_sha`: `e6a57ae58d7d0cd30265834fc51e2bab32928732`
+     - `status`: `completed`, `conclusion`: `success`, `run_attempt`: `1`
+     - `created_at`: `2026-11-08T03:47:13Z`, `updated_at`: `2026-11-08T03:51:04Z` (Duración: 3m 51s)
+     - `html_url`: `https://github.com/cristianbarreiro/PrivGuard/actions/runs/42444149346`
+     - **7/7 Jobs completados en `success`:**
+       - Job `128619439781`: `Build & Test (windows-latest)` (`success` — Restore, Build, Domain Tests, Application Tests, Infrastructure Tests, Windows Platform Tests, Validate Release-Store MSIX Packaging todos exitosos).
+       - Job `128619439900`: `Build & Test (ubuntu-latest)` (`success`).
+       - Job `128619439922`: `Build & Test (macos-latest)` (`success`).
+       - Jobs `128619848714`, `128619848727`, `128619848746`, `128619848757`: Publicación de binarios single-file (`linux-x64`, `osx-arm64`, `win-x64`, `win-arm64` todos `success`).
+     - **4 Artefactos publicados:** `PrivGvard-win-x64` (`13603220691`, 50,538,126 bytes), `PrivGvard-win-arm64` (`13602708851`, 48,530,894 bytes), `PrivGvard-osx-arm64` (`13602708799`, 43,859,561 bytes), `PrivGvard-linux-x64` (`13602223478`, 42,416,122 bytes). Cero paquetes `.msix` o archivos `BUILD-PROVENANCE.json` descargables.
+   - **Dictamen CI R6:** **`CI R6 PASS`**.
+
+3. **Aclaración sobre Acceso a Logs de Jobs en CI:**
+   - La respuesta HTTP `403 Forbidden` documentada en la Sección 4.1 de R6 correspondió estrictamente a intentos de descarga de logs brutos no autenticados a través del endpoint anónimo `/actions/jobs/<id>/logs`.
+   - Cuando se cuenta con una integración autenticada o consultas estructuradas a la API de GitHub Actions, los metadatos de los jobs, los steps individuales, los estados de conclusión y los logs de ejecución pueden inspeccionarse directamente, confirmando `Build succeeded`, `0 Warning(s)`, `0 Error(s)` y el paso de validación del manifiesto MSIX Store sin capacidades de elevación.
