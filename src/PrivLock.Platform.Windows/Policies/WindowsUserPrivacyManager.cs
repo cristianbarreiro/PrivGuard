@@ -1,15 +1,38 @@
 using Microsoft.Win32;
 using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Policies;
 
 /// <summary>
-/// Manages user-level privacy permissions in the Windows Capability Consent Store (HKCU).
-/// Enforces standard camera and microphone blocking on Windows without requiring administrative elevation.
+/// Read-only contract for inspecting Windows HKCU CapabilityAccessManager ConsentStore status.
+/// Permitted in both Standalone and Store editions to observe the OS privacy settings state.
 /// </summary>
-public sealed class WindowsUserPrivacyManager
+public interface IWindowsUserPrivacyReader
+{
+    BlockStatus GetCameraUserPrivacyStatus();
+    BlockStatus GetMicrophoneUserPrivacyStatus();
+}
+
+/// <summary>
+/// Write contract for modifying Windows HKCU CapabilityAccessManager ConsentStore values.
+/// Strictly restricted to Standalone edition; prohibited in Store and Untrusted profiles (D-02).
+/// </summary>
+public interface IWindowsUserPrivacyWriter
+{
+    OperationResult SetCameraUserPrivacy(BlockStatus status);
+    OperationResult SetMicrophoneUserPrivacy(BlockStatus status);
+}
+
+/// <summary>
+/// Manages user-level privacy permissions in the Windows Capability Consent Store (HKCU).
+/// Separates read observation from write mutation and enforces edition profile guards (D-02).
+/// </summary>
+public class WindowsUserPrivacyManager : IWindowsUserPrivacyReader, IWindowsUserPrivacyWriter
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsUserPrivacyManager>();
 
@@ -19,8 +42,34 @@ public sealed class WindowsUserPrivacyManager
     internal const string ConsentStoreMicNonPackagedPath = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone\NonPackaged";
     internal const string ConsentValueName = "Value";
 
-    internal OperationResult SetCameraUserPrivacy(BlockStatus status)
+    private readonly IEditionProfileResolver _editionProfileResolver;
+    private readonly Action<string, string, string> _registryWriter;
+
+    public WindowsUserPrivacyManager()
+        : this(new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector()), null)
     {
+    }
+
+    public WindowsUserPrivacyManager(
+        IEditionProfileResolver editionProfileResolver,
+        Action<string, string, string>? registryWriter = null)
+    {
+        ArgumentNullException.ThrowIfNull(editionProfileResolver);
+        _editionProfileResolver = editionProfileResolver;
+        _registryWriter = registryWriter ?? DefaultSetRegistryStringValue;
+    }
+
+    public virtual OperationResult SetCameraUserPrivacy(BlockStatus status)
+    {
+        if (_editionProfileResolver.Profile != EditionProfile.Standalone)
+        {
+            Log.Warning(
+                "Rejected ConsentStore Camera write attempt under edition profile {Profile}",
+                _editionProfileResolver.ProfileName);
+            return OperationResult.Fail(
+                $"Writing to HKCU ConsentStore is prohibited under edition profile '{_editionProfileResolver.ProfileName}'.");
+        }
+
         Log.Information("Setting Windows user privacy for Camera: Status={Status}", status);
 
         try
@@ -29,10 +78,10 @@ public sealed class WindowsUserPrivacyManager
             var consentValue = isBlocked ? "Deny" : "Allow";
 
             // 1. Consent Store (UWP / Windows Camera App / Packaged Apps)
-            SetRegistryStringValue(Registry.CurrentUser, ConsentStoreCameraPath, ConsentValueName, consentValue);
+            _registryWriter(ConsentStoreCameraPath, ConsentValueName, consentValue);
 
             // 2. Consent Store NonPackaged (Desktop Apps: Chrome, Firefox, Zoom, Teams, OBS, etc.)
-            SetRegistryStringValue(Registry.CurrentUser, ConsentStoreCameraNonPackagedPath, ConsentValueName, consentValue);
+            _registryWriter(ConsentStoreCameraNonPackagedPath, ConsentValueName, consentValue);
 
             return OperationResult.Ok();
         }
@@ -43,8 +92,17 @@ public sealed class WindowsUserPrivacyManager
         }
     }
 
-    internal OperationResult SetMicrophoneUserPrivacy(BlockStatus status)
+    public virtual OperationResult SetMicrophoneUserPrivacy(BlockStatus status)
     {
+        if (_editionProfileResolver.Profile != EditionProfile.Standalone)
+        {
+            Log.Warning(
+                "Rejected ConsentStore Microphone write attempt under edition profile {Profile}",
+                _editionProfileResolver.ProfileName);
+            return OperationResult.Fail(
+                $"Writing to HKCU ConsentStore is prohibited under edition profile '{_editionProfileResolver.ProfileName}'.");
+        }
+
         Log.Information("Setting Windows user privacy for Microphone: Status={Status}", status);
 
         try
@@ -53,10 +111,10 @@ public sealed class WindowsUserPrivacyManager
             var consentValue = isBlocked ? "Deny" : "Allow";
 
             // 1. Consent Store (UWP / Voice Recorder / Packaged Apps)
-            SetRegistryStringValue(Registry.CurrentUser, ConsentStoreMicPath, ConsentValueName, consentValue);
+            _registryWriter(ConsentStoreMicPath, ConsentValueName, consentValue);
 
             // 2. Consent Store NonPackaged (Desktop Apps: Chrome, Zoom, Teams, Discord, etc.)
-            SetRegistryStringValue(Registry.CurrentUser, ConsentStoreMicNonPackagedPath, ConsentValueName, consentValue);
+            _registryWriter(ConsentStoreMicNonPackagedPath, ConsentValueName, consentValue);
 
             return OperationResult.Ok();
         }
@@ -67,16 +125,22 @@ public sealed class WindowsUserPrivacyManager
         }
     }
 
-    public BlockStatus GetCameraUserPrivacyStatus()
+    public virtual BlockStatus GetCameraUserPrivacyStatus()
     {
+        if (_editionProfileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+            return BlockStatus.Unknown;
+
         return ReadCombinedConsentStatus(
             ConsentStoreCameraPath,
             ConsentStoreCameraNonPackagedPath,
             "Camera");
     }
 
-    public BlockStatus GetMicrophoneUserPrivacyStatus()
+    public virtual BlockStatus GetMicrophoneUserPrivacyStatus()
     {
+        if (_editionProfileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+            return BlockStatus.Unknown;
+
         return ReadCombinedConsentStatus(
             ConsentStoreMicPath,
             ConsentStoreMicNonPackagedPath,
@@ -111,7 +175,7 @@ public sealed class WindowsUserPrivacyManager
 
     private static BlockStatus ReadConsentValue(string path)
     {
-        using var key = Registry.CurrentUser.OpenSubKey(path);
+        using var key = Registry.CurrentUser.OpenSubKey(path, writable: false);
         if (key == null || !key.GetValueNames().Contains(ConsentValueName, StringComparer.OrdinalIgnoreCase))
             return BlockStatus.Allowed;
         if (key.GetValueKind(ConsentValueName) != RegistryValueKind.String)
@@ -127,9 +191,9 @@ public sealed class WindowsUserPrivacyManager
         return BlockStatus.Unknown;
     }
 
-    private static void SetRegistryStringValue(RegistryKey root, string subKeyPath, string valueName, string value)
+    private static void DefaultSetRegistryStringValue(string subKeyPath, string valueName, string value)
     {
-        using var key = root.CreateSubKey(subKeyPath, writable: true)
+        using var key = Registry.CurrentUser.CreateSubKey(subKeyPath, writable: true)
             ?? throw new IOException($"Could not create/open Registry key '{subKeyPath}'.");
         key.SetValue(valueName, value, RegistryValueKind.String);
     }

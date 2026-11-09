@@ -11,6 +11,14 @@ public sealed class DefaultLegacyArtifactDetector : ILegacyArtifactDetector
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<DefaultLegacyArtifactDetector>();
     private readonly string? _customDirectory;
+    private readonly IEditionProfileResolver? _profileResolver;
+
+    public DefaultLegacyArtifactDetector(IEditionProfileResolver profileResolver)
+    {
+        ArgumentNullException.ThrowIfNull(profileResolver);
+        _profileResolver = profileResolver;
+        _customDirectory = profileResolver.DataDirectory;
+    }
 
     public DefaultLegacyArtifactDetector(string? customDirectory = null)
     {
@@ -21,6 +29,9 @@ public sealed class DefaultLegacyArtifactDetector : ILegacyArtifactDetector
     {
         try
         {
+            if (_profileResolver != null && _profileResolver.Profile != EditionProfile.Standalone)
+                return false;
+
             var dataDir = _customDirectory ?? StorageMigrationHelper.GetDefaultDataDirectory();
             var recoveryDir = Path.Combine(dataDir, "Recovery");
             var explicitMarker = Path.Combine(recoveryDir, "legacy-untracked.marker");

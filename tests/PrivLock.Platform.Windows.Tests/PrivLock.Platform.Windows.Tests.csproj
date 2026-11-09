@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -16,6 +17,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PrivLock.Platform.Windows\PrivLock.Platform.Windows.csproj" />
     <ProjectReference Include="..\..\src\PrivLock.Desktop\PrivLock.Desktop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\installer\setup.iss" Link="setup.iss" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

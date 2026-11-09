@@ -27,4 +27,8 @@
     <ProjectReference Include="..\PrivLock.Application\PrivLock.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PrivLock.Platform.Windows.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -5,6 +5,7 @@ using PrivLock.Application.Services;
 using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Infrastructure.Common.Packaging;
 using PrivLock.Infrastructure.Common.Storage;
 using PrivLock.Platform.Abstractions;
 using PrivLock.UI;
@@ -21,35 +22,62 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        var (identityDetector, profileResolver) = ResolveProcessEditionSnapshot();
+
         // 1. Accept only the authenticated, PID-bound elevated worker entry point.
         // The former --privileged-exec dispatcher was intentionally removed because a public
         // command-line mutation path could bypass the durable privacy-session journal.
         if (args.Length > 0 && args[0].Equals("--privileged-worker", StringComparison.OrdinalIgnoreCase))
         {
-            return RunPrivilegedWorker(args);
+            return RunPrivilegedWorker(args, profileResolver);
         }
 
         if (args.Length > 0 && args[0].Equals("--privileged-exec", StringComparison.OrdinalIgnoreCase))
             return RejectRemovedPrivilegedDispatcher();
 
         // The user-facing process must always remain unelevated. Privileged work is accepted only
-        // through the authenticated worker branch above.
+        // through the authenticated worker branch above. Windows may invoke the machine-wide
+        // Programs and Features uninstall command elevated, so allow only the dedicated safe
+        // uninstall wrapper through this gate; it validates its installation paths before work.
         if (OperatingSystem.IsWindows() &&
-            !SafeUninstallLauncher.TryConfirmStandardUserToken(out var elevationError))
+            !SafeUninstallLauncher.TryConfirmStandardUserToken(out var elevationError) &&
+            !(profileResolver.Profile == EditionProfile.Standalone && SafeUninstallLauncher.AllowsElevatedToken(args)))
         {
             System.Diagnostics.Trace.TraceError(
                 "Rejected elevated PrivGvard user process: {0}",
                 elevationError ?? "token verification failed");
             return 1;
         }
+        // 2. Initialize standard logging
+        if (profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            System.Diagnostics.Trace.TraceError(
+                "PrivGvard terminated immediately: untrusted or indeterminate package identity (Kind={0}).",
+                identityDetector.Kind);
+            return 1;
+        }
 
         // 2. Initialize standard logging
-        LoggingConfiguration.Initialize();
-        Log.Information("=== PrivGvard Desktop Starting ===");
+        LoggingConfiguration.Initialize(profileResolver.LogsDirectory);
+        CrashReporter.ConfigureDefaultDirectory(profileResolver.CrashReportsDirectory);
+        Log.Information(
+            "=== PrivGvard Desktop Starting (IdentityKind={IdentityKind}, EditionProfile={EditionProfile}, SupportsPrivileged={SupportsPrivileged}) ===",
+            identityDetector.Kind,
+            profileResolver.Profile,
+            profileResolver.SupportsPrivilegedOperations);
 
         SafeUninstallPlan? safeUninstallPlan = null;
         if (SafeUninstallLauncher.IsRequested(args))
         {
+            if (profileResolver.Profile != EditionProfile.Standalone || !profileResolver.SupportsPrivilegedOperations)
+            {
+                var nonStandaloneMsg =
+                    $"Safe-uninstall wrapper is only supported in the Standalone edition (current profile: {profileResolver.Profile}).";
+                Log.Error("Rejected safe-uninstall wrapper request in non-Standalone profile: {Error}", nonStandaloneMsg);
+                Log.CloseAndFlush();
+                return 1;
+            }
+
             if (!SafeUninstallLauncher.TryCreatePlan(
                     args,
                     Environment.ProcessPath,
@@ -76,7 +104,8 @@ public static class Program
                     _shutdownCoordinator?.GetDiagnosticSummary());
                 Log.Fatal(ex, "Fatal domain exception. Crash report: {ReportPath}", reportPath);
             }
-            if (Volatile.Read(ref _privilegedBarrierFailed) == 0)
+            if (Volatile.Read(ref _privilegedBarrierFailed) == 0 &&
+                profileResolver.Profile != EditionProfile.UntrustedOrIndeterminate)
             {
                 _shutdownCoordinator?.TryRestoreWithin(
                     "AppDomain.UnhandledException",
@@ -98,7 +127,8 @@ public static class Program
 
         AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
         {
-            if (Volatile.Read(ref _privilegedBarrierFailed) == 0)
+            if (Volatile.Read(ref _privilegedBarrierFailed) == 0 &&
+                profileResolver.Profile != EditionProfile.UntrustedOrIndeterminate)
             {
                 _shutdownCoordinator?.TryRestoreWithin(
                     "ProcessExit",
@@ -110,25 +140,105 @@ public static class Program
 
         ServiceProvider? serviceProvider = null;
         ISingleInstanceGuard? singleInstanceGuard = null;
+        IApplicationActivationListener? activationListener = null;
+        IUninstallRequestListener? uninstallRequestListener = null;
+        AutostartStateService? autostartStateService = null;
+        OperationResult? autostartMigrationResult = null;
         try
         {
             // 4. Build Dependency Injection Service Provider
             var services = new ServiceCollection();
-            ConfigureServices(services);
+            ConfigureServices(services, identityDetector, profileResolver);
             serviceProvider = services.BuildServiceProvider();
+
+            if (OperatingSystem.IsWindows())
+                activationListener = serviceProvider.GetRequiredService<IApplicationActivationListener>();
 
             // 5. Acquire single-instance ownership before recovery or CLI cleanup touches shared state.
             singleInstanceGuard = serviceProvider.GetRequiredService<ISingleInstanceGuard>();
             if (!singleInstanceGuard.TryAcquireSingleInstance())
             {
-                Log.Warning("Another instance of PrivGvard is already running. Exiting without changing system state.");
-                Log.CloseAndFlush();
-                return 2;
+                var acquiredForUninstall = false;
+                string? handoffError = null;
+                if (safeUninstallPlan != null && OperatingSystem.IsWindows())
+                {
+                    acquiredForUninstall =
+                        Platform.Windows.System.WindowsUninstallRequestListener.TryRequestRunningInstanceAndAcquire(
+                            singleInstanceGuard,
+                            SafeUninstallLauncher.AdmissionTimeout,
+                            out handoffError);
+                }
+
+                if (!acquiredForUninstall)
+                {
+                    if (ShouldRequestExistingInstanceActivation(args, safeUninstallPlan != null) &&
+                        OperatingSystem.IsWindows())
+                    {
+                        string? activationError = null;
+                        var activationRequested =
+                            activationListener?.TryRequestExistingInstanceActivation(out activationError) == true;
+                        if (activationRequested)
+                        {
+                            Log.Information("Requested the running PrivGvard instance to show its main window.");
+                        }
+                        else if (activationError != null)
+                        {
+                            Log.Warning("Could not request activation of the running PrivGvard instance: {Error}",
+                                activationError);
+                        }
+                        else
+                        {
+                            Log.Information("No running PrivGvard window activation listener was available.");
+                        }
+                    }
+
+                    var duplicateMessage = safeUninstallPlan == null
+                        ? "Another instance of PrivGvard is already running. Exiting without changing system state."
+                        : handoffError ?? "PrivGvard could not safely close the running instance for uninstallation.";
+                    Log.Warning("{Message}", duplicateMessage);
+                    if (safeUninstallPlan != null)
+                        SafeUninstallLauncher.ShowErrorFeedback(duplicateMessage, safeUninstallPlan.Quiet);
+                    Log.CloseAndFlush();
+                    return safeUninstallPlan == null ? 2 : 1;
+                }
+
+                Log.Information("The running PrivGvard instance completed safe shutdown for Windows uninstall.");
+            }
+
+            if (ShouldStartDesktopUi(args, safeUninstallPlan != null))
+            {
+                activationListener?.Start();
+            }
+
+            if (ShouldStartDesktopUi(args, safeUninstallPlan != null) &&
+                OperatingSystem.IsWindows() &&
+                profileResolver.Profile == EditionProfile.Standalone)
+            {
+                uninstallRequestListener = serviceProvider.GetRequiredService<IUninstallRequestListener>();
+                uninstallRequestListener.Start();
+            }
+
+            // Migrate only PrivGvard-owned autostart entries after single-instance admission and
+            // before recovery. This path never starts a privileged worker or changes privacy state.
+            if (profileResolver.Profile != EditionProfile.UntrustedOrIndeterminate)
+            {
+                autostartMigrationResult = serviceProvider
+                    .GetRequiredService<IAutostartProvider>()
+                    .MigrateLegacyEntriesAsync()
+                    .GetAwaiter()
+                    .GetResult();
+                if (!autostartMigrationResult.Success)
+                {
+                    Log.Error("Autostart migration failed independently of startup recovery: {Error}",
+                        autostartMigrationResult.ErrorMessage);
+                }
             }
 
             _shutdownCoordinator = serviceProvider.GetRequiredService<ShutdownCoordinator>();
 
-            if (OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows() &&
+                profileResolver.Profile == EditionProfile.Standalone &&
+                profileResolver.SupportsPrivilegedOperations)
             {
                 var quiesce = Platform.Windows.Privileged.WindowsPrivilegedExecutor
                     .WaitForPreviousPrivilegedOperation(TimeSpan.FromSeconds(30));
@@ -164,14 +274,53 @@ public static class Program
                     args.Any(a => a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) ||
                                   a.Equals("-u", StringComparison.OrdinalIgnoreCase)))
                 {
+                    if (profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+                    {
+                        Log.Error("Rejected CLI recovery/uninstall because EditionProfile is UntrustedOrIndeterminate.");
+                        Log.CloseAndFlush();
+                        return 1;
+                    }
+
                     Log.Information("CLI recovery requested. Restoring only journal-owned changes...");
                     var settingsService = serviceProvider.GetRequiredService<SettingsService>();
                     var restoreReason = safeUninstallPlan == null
                         ? "CommandLineUnblockAndExit"
                         : "SafeUninstallWrapper";
                     var restore = _shutdownCoordinator.RestoreAsync(restoreReason).GetAwaiter().GetResult();
+                    var autostartCleanupError = (string?)null;
                     if (restore.SafeToExit)
-                        settingsService.SetAutostart(false);
+                    {
+                        try
+                        {
+                            var autostartResult = settingsService.SetAutostartAsync(false).GetAwaiter().GetResult();
+                            if (!autostartResult.Success)
+                            {
+                                if (safeUninstallPlan != null)
+                                {
+                                    Log.Error("Safe uninstall autostart cleanup failed: {Error}", autostartResult.ErrorMessage);
+                                    autostartCleanupError = autostartResult.ErrorMessage ??
+                                        "PrivGvard could not verify removal of its Windows startup registration.";
+                                }
+                                else
+                                {
+                                    Log.Warning("Autostart could not be disabled during command-line recovery: {Error}",
+                                        autostartResult.ErrorMessage);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (safeUninstallPlan != null)
+                            {
+                                autostartCleanupError = "PrivGvard could not remove its Windows startup registration.";
+                                Log.Error(ex, "Safe uninstall stopped because autostart cleanup failed");
+                            }
+                            else
+                            {
+                                Log.Warning(ex, "Autostart disable failed during command-line recovery");
+                            }
+                        }
+                    }
 
                     var workerStopped = true;
                     if (safeUninstallPlan != null && restore.SafeToExit)
@@ -200,6 +349,14 @@ public static class Program
                             uninstallResult = new SafeUninstallResult(
                                 SafeUninstallStatus.WorkerNotStopped,
                                 "PrivGvard could not prove elevated worker quiescence prior to uninstallation.");
+                            Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
+                            SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
+                        }
+                        else if (autostartCleanupError != null)
+                        {
+                            uninstallResult = new SafeUninstallResult(
+                                SafeUninstallStatus.AutostartCleanupFailed,
+                                autostartCleanupError);
                             Log.Error("Safe uninstall aborted: Status={Status}, Message={Message}", uninstallResult.Status, uninstallResult.Message);
                             SafeUninstallLauncher.ShowErrorFeedback(uninstallResult.Message!, safeUninstallPlan.Quiet);
                         }
@@ -256,28 +413,63 @@ public static class Program
 
             var mainViewModel = serviceProvider.GetRequiredService<MainViewModel>();
             var settingsViewModel = serviceProvider.GetRequiredService<SettingsViewModel>();
+            autostartStateService = serviceProvider.GetRequiredService<AutostartStateService>();
+            autostartStateService.StartAsync().GetAwaiter().GetResult();
+            var startupMessages = new List<string>();
             if (!startupRecovery.SafeToExit || startupRecovery.ConflictCount > 0)
             {
-                mainViewModel.ReportExternalError(
-                    startupRecovery.ErrorMessage ?? localizationService.GetString("StartupRecoveryFailed", "A previous privacy session could not be fully restored."));
+                startupMessages.Add(
+                    startupRecovery.ErrorMessage ??
+                    localizationService.GetString("StartupRecoveryFailed", "A previous privacy session could not be fully restored."));
             }
             else if (!reconcileResult.Success)
             {
-                mainViewModel.ReportExternalError(
-                    reconcileResult.ErrorMessage ?? localizationService.GetString("StartupReconcileFailed", "Desired privacy protection could not be applied at startup."));
+                startupMessages.Add(
+                    reconcileResult.ErrorMessage ??
+                    localizationService.GetString("StartupReconcileFailed", "Desired privacy protection could not be applied at startup."));
             }
+
+            if (autostartMigrationResult is { Success: false })
+            {
+                startupMessages.Add(string.Format(
+                    localizationService.GetString(
+                        "AutostartMigrationFailed",
+                        "PrivGvard startup settings could not be migrated: {0}"),
+                    autostartMigrationResult.ErrorMessage ??
+                    localizationService.GetString("ErrorAutostart", "Windows startup migration failed.")));
+            }
+            var startupErrorMessage = startupMessages.Count > 0
+                ? string.Join(Environment.NewLine, startupMessages)
+                : null;
 
             // Strip --minimized from args before passing to Avalonia to avoid unknown-argument warnings
             var avaloniaArgs = args.Where(a => !a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)).ToArray();
 
-            var exitCode = BuildAvaloniaApp(mainViewModel, _shutdownCoordinator, settingsViewModel, localizationService, startMinimized)
+            var exitCode = BuildAvaloniaApp(
+                    mainViewModel,
+                    _shutdownCoordinator,
+                    settingsViewModel,
+                    localizationService,
+                    startMinimized,
+                    uninstallRequestListener,
+                    autostartStateService,
+                    activationListener,
+                    startupErrorMessage)
                 .StartWithClassicDesktopLifetime(avaloniaArgs);
 
-            var finalRestoreFinished = _shutdownCoordinator.TryRestoreWithin(
-                "ApplicationLifetimeExited",
-                TimeSpan.FromSeconds(10),
-                out var finalRestore);
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            var finalRestoreFinished = true;
+            PrivacyRecoveryResult? finalRestore = null;
+            if (profileResolver.Profile != EditionProfile.UntrustedOrIndeterminate)
+            {
+                finalRestoreFinished = _shutdownCoordinator.TryRestoreWithin(
+                    "ApplicationLifetimeExited",
+                    TimeSpan.FromSeconds(10),
+                    out finalRestore);
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+                profileResolver.Profile == EditionProfile.Standalone &&
+                profileResolver.SupportsPrivilegedOperations)
             {
                 Platform.Windows.Privileged.WindowsPrivilegedSession.Instance.CloseSession();
             }
@@ -287,7 +479,9 @@ public static class Program
                 finalRestore?.SafeToExit == true);
             _shutdownCoordinator = null;
             Log.CloseAndFlush();
-            return finalRestoreFinished && finalRestore is { SafeToExit: true } ? exitCode : 1;
+            return finalRestoreFinished && (finalRestore is { SafeToExit: true } || profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+                ? exitCode
+                : 1;
         }
         catch (Exception ex)
         {
@@ -296,8 +490,15 @@ public static class Program
                 "Program.Main",
                 _shutdownCoordinator?.GetDiagnosticSummary());
             Log.Fatal(ex, "Unhandled exception during application lifecycle: {ReportPath}", reportPath);
-            if (Volatile.Read(ref _privilegedBarrierFailed) == 0)
+            if (Volatile.Read(ref _privilegedBarrierFailed) == 0 &&
+                profileResolver.Profile != EditionProfile.UntrustedOrIndeterminate)
                 _shutdownCoordinator?.TryRestoreWithin("Program.Main.Catch", TimeSpan.FromSeconds(10), out _);
+            if (safeUninstallPlan != null)
+            {
+                SafeUninstallLauncher.ShowErrorFeedback(
+                    "PrivGvard could not safely prepare for uninstall. No files were removed; review the application log and try again.",
+                    safeUninstallPlan.Quiet);
+            }
             _shutdownCoordinator = null;
             Log.CloseAndFlush();
             return 1;
@@ -306,18 +507,36 @@ public static class Program
         {
             // Keep both DI services and the single-instance lease alive through fatal recovery.
             // Releasing either earlier permits a new process to race the old process's cleanup.
+            autostartStateService?.StopAsync().GetAwaiter().GetResult();
             singleInstanceGuard?.Release();
             serviceProvider?.Dispose();
         }
     }
 
-    private static int RunPrivilegedWorker(string[] args)
+    internal static (IPackageIdentityDetector IdentityDetector, IEditionProfileResolver ProfileResolver)
+        ResolveProcessEditionSnapshot(IPackageIdentityDetector? customDetector = null)
+    {
+        IPackageIdentityDetector detector = customDetector ?? (OperatingSystem.IsWindows()
+            ? new Platform.Windows.System.WindowsPackageIdentityDetector()
+            : new NonWindowsPackageIdentityDetector());
+        var resolver = new DefaultEditionProfileResolver(detector);
+        return (detector, resolver);
+    }
+
+    private static int RunPrivilegedWorker(string[] args, IEditionProfileResolver profileResolver)
     {
         // The elevated worker must never create logs/crash files below LocalAppData. That tree is
         // controlled by the unelevated user and may contain hostile reparse points.
         CrashReporter.SuppressFileOutputForCurrentProcess();
         try
         {
+            if (profileResolver.Profile != EditionProfile.Standalone || !profileResolver.SupportsPrivilegedOperations)
+            {
+                System.Diagnostics.Trace.TraceError(
+                    $"Rejected privileged-worker launch in {profileResolver.Profile} edition profile.");
+                return 1;
+            }
+
             if (OperatingSystem.IsWindows() &&
                 args.Length == 4 &&
                 int.TryParse(args[2], out var parentProcessId) &&
@@ -329,7 +548,8 @@ public static class Program
                 return Platform.Windows.Privileged.WindowsPrivilegedWorker.Run(
                     args[1],
                     parentProcessId,
-                    args[3]);
+                    args[3],
+                    profileResolver);
             }
 
             System.Diagnostics.Trace.TraceError("Rejected an invalid privileged-worker launch context");
@@ -353,36 +573,99 @@ public static class Program
         return 1;
     }
 
+    internal static bool ShouldRequestExistingInstanceActivation(
+        IReadOnlyList<string> args,
+        bool safeUninstallRequested) =>
+        !safeUninstallRequested &&
+        args.All(a => !a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)) &&
+        args.All(a => !a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) &&
+                      !a.Equals("-u", StringComparison.OrdinalIgnoreCase));
+
+    internal static bool ShouldStartDesktopUi(
+        IReadOnlyList<string> args,
+        bool safeUninstallRequested) =>
+        !safeUninstallRequested &&
+        args.All(a => !a.Equals("--unblock-and-exit", StringComparison.OrdinalIgnoreCase) &&
+                      !a.Equals("-u", StringComparison.OrdinalIgnoreCase));
+
     public static AppBuilder BuildAvaloniaApp(
         MainViewModel viewModel,
         ShutdownCoordinator shutdownCoordinator,
         SettingsViewModel? settingsViewModel = null,
         LocalizationService? localizationService = null,
-        bool startMinimized = false) =>
-        AppBuilder.Configure<App>(() => new App(viewModel, shutdownCoordinator, settingsViewModel, localizationService, startMinimized))
-            .UsePlatformDetect()
-            .WithInterFont()
-            .LogToTrace();
-
-    private static void ConfigureServices(IServiceCollection services)
+        bool startMinimized = false,
+        IUninstallRequestListener? uninstallRequestListener = null,
+        AutostartStateService? autostartStateService = null,
+        IApplicationActivationListener? activationListener = null,
+        string? startupErrorMessage = null)
     {
+        var appBuilder = AppBuilder.Configure<App>(() => new App(
+                viewModel,
+                shutdownCoordinator,
+                settingsViewModel,
+                localizationService,
+                startMinimized,
+                uninstallRequestListener,
+                autostartStateService,
+                activationListener))
+            .WithInterFont()
+            .AfterSetup(_ =>
+            {
+                viewModel.Initialize();
+                settingsViewModel?.Initialize();
+
+                if (!string.IsNullOrWhiteSpace(startupErrorMessage))
+                    viewModel.ReportExternalError(startupErrorMessage);
+            });
+
+        return ConfigureAvaloniaPlatform(appBuilder);
+    }
+
+    internal static AppBuilder ConfigureAvaloniaPlatform(AppBuilder appBuilder) =>
+        OperatingSystem.IsWindows()
+            ? appBuilder.UseWin32().UseSkia().LogToTrace()
+            : appBuilder.UsePlatformDetect().LogToTrace();
+
+    internal static void ConfigureServices(
+        IServiceCollection services,
+        IPackageIdentityDetector? identityDetector = null,
+        IEditionProfileResolver? profileResolver = null)
+    {
+        var (resolvedDetector, resolvedProfile) = identityDetector != null && profileResolver != null
+            ? (identityDetector, profileResolver)
+            : ResolveProcessEditionSnapshot(identityDetector);
+
+        services.AddSingleton<IPackageIdentityDetector>(resolvedDetector);
+        services.AddSingleton<IEditionProfileResolver>(resolvedProfile);
+
         // 1. Common Storage & Infrastructure
-        services.AddSingleton<IStateStore, FileStateStore>();
-        services.AddSingleton<ILegacyArtifactDetector, DefaultLegacyArtifactDetector>();
-        services.AddSingleton<IActivePrivacySessionMarker>(_ =>
+        // NOTE (D-05 boundary): Storage, WAL, active markers, logs, and crash reports keep their
+        // existing canonical paths until D-05 is explicitly approved.
+        services.AddSingleton<IStateStore>(sp =>
+            new FileStateStore(sp.GetRequiredService<IEditionProfileResolver>()));
+        services.AddSingleton<ILegacyArtifactDetector>(sp =>
+            new DefaultLegacyArtifactDetector(sp.GetRequiredService<IEditionProfileResolver>()));
+        services.AddSingleton<IActivePrivacySessionMarker>(sp =>
             OperatingSystem.IsWindows()
-                ? new FileActivePrivacySessionMarker(GetWindowsActiveMarkerDirectory())
+                ? new FileActivePrivacySessionMarker(sp.GetRequiredService<IEditionProfileResolver>().RecoveryDirectory)
                 : new NoOpActivePrivacySessionMarker());
         services.AddSingleton<IPrivacySessionStore>(serviceProvider =>
             new FilePrivacySessionStore(
+                serviceProvider.GetRequiredService<IEditionProfileResolver>(),
                 serviceProvider.GetRequiredService<IActivePrivacySessionMarker>()));
 
         // 2. Platform-Specific Native Providers
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            ConfigureWindowsServices(services);
+            services.AddSingleton<ICrossEditionCoordinator>(sp =>
+                new Platform.Windows.System.WindowsCrossEditionCoordinator(
+                    sp.GetRequiredService<IEditionProfileResolver>()));
+            ConfigureWindowsServices(services, resolvedProfile);
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else
+        {
+            services.AddSingleton<ICrossEditionCoordinator, NoOpCrossEditionCoordinator>();
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             ConfigureLinuxServices(services);
         }
@@ -394,6 +677,7 @@ public static class Program
         {
             throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
         }
+        }
 
         // 3. Application Services
         services.AddSingleton<ProtectionService>();
@@ -401,6 +685,8 @@ public static class Program
         services.AddSingleton<PrivacyRecoveryService>();
         services.AddSingleton<ShutdownCoordinator>();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<IAutostartChangeObserver, NoOpAutostartChangeObserver>();
+        services.AddSingleton<AutostartStateService>();
         services.AddSingleton<LocalizationService>();
 
         // 4. UI ViewModels
@@ -408,23 +694,35 @@ public static class Program
         services.AddSingleton<SettingsViewModel>();
     }
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static void ConfigureWindowsServices(IServiceCollection services)
+    [System.Runtime.Versioning.SupportedOSPlatform("windows10.0.19041")]
+    private static void ConfigureWindowsServices(
+        IServiceCollection services,
+        IEditionProfileResolver profileResolver)
     {
+        Platform.Windows.Privileged.WindowsPrivilegedSession.ConfigureDefaultProfileResolver(profileResolver);
+
         services.AddSingleton<Platform.Windows.Devices.WindowsDeviceDetector>();
         services.AddSingleton<Platform.Windows.Devices.WindowsDeviceController>();
         services.AddSingleton<Platform.Windows.Devices.WindowsCoreAudioController>();
         services.AddSingleton<Platform.Windows.Policies.WindowsPolicyManager>();
         services.AddSingleton<Platform.Windows.Policies.WindowsUserPrivacyManager>();
+        services.AddSingleton<Platform.Windows.Policies.IWindowsUserPrivacyReader>(
+            sp => sp.GetRequiredService<Platform.Windows.Policies.WindowsUserPrivacyManager>());
+        services.AddSingleton<Platform.Windows.Policies.IWindowsUserPrivacyWriter>(
+            sp => sp.GetRequiredService<Platform.Windows.Policies.WindowsUserPrivacyManager>());
 
         services.AddSingleton<IDeviceDetector>(sp => sp.GetRequiredService<Platform.Windows.Devices.WindowsDeviceDetector>());
         services.AddSingleton<IDeviceProtectionProvider, Platform.Windows.WindowsProtectionProvider>();
         services.AddSingleton<IPrivacySessionPlatformAdapter, Platform.Windows.WindowsPrivacySessionPlatformAdapter>();
         services.AddSingleton<IElevationProvider, Platform.Windows.Elevation.WindowsElevationProvider>();
         services.AddSingleton<IPlatformCapabilityProvider, Platform.Windows.WindowsCapabilityProvider>();
+        services.AddSingleton<IPrivacySettingsLauncher, Platform.Windows.System.WindowsPrivacySettingsLauncher>();
         services.AddSingleton<IAutostartProvider, Platform.Windows.System.WindowsAutostartProvider>();
+        services.AddSingleton<IAutostartChangeObserver, Platform.Windows.System.WindowsAutostartChangeObserver>();
         services.AddSingleton<IGlobalHotkeyProvider, Platform.Windows.System.WindowsHotkeyProvider>();
-        services.AddSingleton<ISingleInstanceGuard, Platform.Windows.System.WindowsSingleInstanceGuard>();
+        services.AddSingleton<ISingleInstanceGuard>(sp => new Platform.Windows.System.WindowsSingleInstanceGuard(sp.GetRequiredService<IEditionProfileResolver>()));
+        services.AddSingleton<IUninstallRequestListener, Platform.Windows.System.WindowsUninstallRequestListener>();
+        services.AddSingleton<IApplicationActivationListener, Platform.Windows.System.WindowsApplicationActivationListener>();
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("linux")]
@@ -438,6 +736,7 @@ public static class Program
         services.AddSingleton<IPrivacySessionPlatformAdapter, UnsupportedPrivacySessionPlatformAdapter>();
         services.AddSingleton<IElevationProvider, Platform.Linux.Elevation.LinuxElevationProvider>();
         services.AddSingleton<IPlatformCapabilityProvider, Platform.Linux.LinuxCapabilityProvider>();
+        services.AddSingleton<IPrivacySettingsLauncher, NoOpPrivacySettingsLauncher>();
         services.AddSingleton<IAutostartProvider, Platform.Linux.System.LinuxAutostartProvider>();
         services.AddSingleton<ISingleInstanceGuard, Platform.Linux.System.LinuxSingleInstanceGuard>();
     }
@@ -453,6 +752,7 @@ public static class Program
         services.AddSingleton<IPrivacySessionPlatformAdapter, UnsupportedPrivacySessionPlatformAdapter>();
         services.AddSingleton<IElevationProvider, Platform.MacOS.Elevation.MacOSElevationProvider>();
         services.AddSingleton<IPlatformCapabilityProvider, Platform.MacOS.MacOSCapabilityProvider>();
+        services.AddSingleton<IPrivacySettingsLauncher, NoOpPrivacySettingsLauncher>();
         services.AddSingleton<IAutostartProvider, Platform.MacOS.System.MacOSAutostartProvider>();
         services.AddSingleton<ISingleInstanceGuard, Platform.MacOS.System.MacOSSingleInstanceGuard>();
     }
@@ -466,4 +766,11 @@ public static class Program
         return Path.Combine(userProfile, "AppData", "Local", "PrivGvard", "Recovery");
     }
 
+    private sealed class NonWindowsPackageIdentityDetector : IPackageIdentityDetector
+    {
+        public PackageIdentityKind Kind => PackageIdentityKind.NotPackaged;
+        public string? PackageFamilyName => null;
+        public string? PackageFullName => null;
+        public bool HasExpectedPackageIdentity() => false;
+    }
 }

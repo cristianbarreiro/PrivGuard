@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "productName": "PrivGuard",
+  "edition": "Store",
+  "identity": {
+    "name": "cdevstudios.PrivGuard",
+    "publisher": "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD",
+    "publisherDisplayName": "cdev studios",
+    "version": "2.0.0.0",
+    "processorArchitecture": "x64"
+  },
+  "packageArtifact": {
+    "fileName": "PrivGuard-2.0.0.0-x64.msix",
+    "path": "release/store/PrivGuard-2.0.0.0-x64.msix",
+    "sizeBytes": 58573769,
+    "sha256": "707857E283D304F0965BD1BCFECC1636017B732E9C6497B883FF7AA28BC45BA7"
+  },
+  "capabilities": {
+    "declaredCapabilities": [
+      "runFullTrust"
+    ],
+    "restrictedCapabilitiesVerified": true,
+    "forbiddenCapabilitiesAbsent": [
+      "allowElevation",
+      "unvirtualizedResources"
+    ]
+  },
+  "buildMetadata": {
+    "builtAtUtc": "2026-11-09T15:02:40Z",
+    "configuration": "Release-Store",
+    "targetFramework": "net10.0-windows10.0.19041.0",
+    "dotnetSdkVersion": "10.0.403",
+    "commitBase": "47410df712c094effc2aa747b5dec1615d717a28",
+    "branch": "main",
+    "tools": {
+      "makeAppx": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.28000.0\\x64\\makeappx.exe",
+      "makePri": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.28000.0\\x64\\makepri.exe"
+    }
+  },
+  "verification": {
+    "script": "scripts/verify-store-msix.ps1",
+    "status": "PASS",
+    "activeTestSuite": {
+      "totalPassed": 632,
+      "failed": 0,
+      "skipped": 0,
+      "projects": [
+        "PrivLock.Domain.Tests (25 passed)",
+        "PrivLock.Infrastructure.Tests (95 passed)",
+        "PrivLock.Application.Tests (167 passed)",
+        "PrivLock.Platform.Windows.Tests (345 passed)"
+      ]
+    },
+    "wackEvaluation": {
+      "tool": "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\appcert.exe",
+      "status": "EXTERNAL_LAB_VALIDATION_PENDING",
+      "reason": "Host execution of appcert.exe returned 'Solicitud no compatible' due to non-interactive guest virtualization constraints. External lab validation required prior to Store publication."
+    }
+  }
+}

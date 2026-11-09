@@ -1,4 +1,5 @@
 using PrivLock.Domain.Results;
+using System.Threading.Tasks;
 
 namespace PrivLock.Platform.Abstractions;
 
@@ -8,17 +9,44 @@ namespace PrivLock.Platform.Abstractions;
 public interface IAutostartProvider
 {
     /// <summary>
-    /// Checks whether autostart is currently enabled for the current user.
+    /// Reads the effective state of the mechanism used by the current distribution.
     /// </summary>
-    bool IsAutostartEnabled();
+    Task<AutostartStatus> GetAutostartStatusAsync();
 
     /// <summary>
-    /// Enables autostart with the operating system.
+    /// Enables and verifies autostart with the operating system.
     /// </summary>
-    OperationResult EnableAutostart();
+    Task<OperationResult> EnableAutostartAsync();
 
     /// <summary>
-    /// Disables autostart with the operating system.
+    /// Disables and verifies autostart with the operating system.
     /// </summary>
-    OperationResult DisableAutostart();
+    Task<OperationResult> DisableAutostartAsync();
+
+    /// <summary>
+    /// Removes only registrations owned by earlier PrivGvard versions or distributions.
+    /// </summary>
+    Task<OperationResult> MigrateLegacyEntriesAsync() =>
+        Task.FromResult(OperationResult.Ok());
+}
+
+/// <summary>
+/// Observes external changes to the effective autostart mechanism.
+/// </summary>
+public interface IAutostartChangeObserver
+{
+    /// <summary>
+    /// Indicates whether the active settings UI should refresh periodically because the
+    /// platform does not expose a native change notification.
+    /// </summary>
+    bool RequiresVisiblePolling { get; }
+
+    /// <summary>
+    /// Waits for external changes. Implementations must return on cancellation and report
+    /// terminal observation failures through <paramref name="onError"/>.
+    /// </summary>
+    Task ObserveChangesAsync(
+        Action onChanged,
+        Action<Exception> onError,
+        CancellationToken cancellationToken);
 }

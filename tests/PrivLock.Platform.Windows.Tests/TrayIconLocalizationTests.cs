@@ -10,8 +10,76 @@ using Xunit;
 
 namespace PrivLock.Platform.Windows.Tests;
 
+[Collection("AvaloniaUI")]
 public class TrayIconLocalizationTests
 {
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, true)]
+    public void MinimizedStartup_HidesOnlyWhenTrayIsReady(
+        bool startMinimized,
+        bool trayInitialized,
+        bool expected)
+    {
+        Assert.Equal(expected, App.ShouldHideStartupWindow(startMinimized, trayInitialized));
+    }
+
+    [Fact]
+    public void TrayProbe_ReportsUnsupportedBackendWhenNoImplementationIsRegistered()
+    {
+        Assert.False(App.HasTrayIconImplementation(() => null));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    public void Close_HidesOnlyWhenTrayIsAvailable(
+        bool trayAvailable,
+        bool allowApplicationClose,
+        bool expectedHide)
+    {
+        Assert.Equal(
+            expectedHide,
+            PrivLock.UI.Views.MainWindow.ShouldHideOnClose(trayAvailable, allowApplicationClose));
+    }
+
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    public void Close_RequestsCoordinatedShutdownOnlyWhenTrayIsUnavailable(
+        bool trayAvailable,
+        bool allowApplicationClose,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            PrivLock.UI.Views.MainWindow.ShouldRequestCoordinatedClose(trayAvailable, allowApplicationClose));
+    }
+
+    [Fact]
+    public void WindowCloseWithoutTray_RaisesTheCoordinatedShutdownRequest()
+    {
+        EnsureAppInitialized();
+        var window = new PrivLock.UI.Views.MainWindow();
+        window.SetTrayAvailability(false);
+        var requestCount = 0;
+        window.UserCloseRequested += (_, _) => requestCount++;
+
+        window.Show();
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(1, requestCount);
+        Assert.True(window.IsVisible);
+        window.AllowApplicationClose();
+        window.Close();
+    }
+
     private sealed class InMemoryStateStore : IStateStore
     {
         public DesiredState State { get; set; } = new DesiredState { Language = "es" };
@@ -59,24 +127,24 @@ public class TrayIconLocalizationTests
         Assert.NotNull(exitItem);
 
         // 1. Spanish (Initial)
-        Assert.Equal("Abrir PrivGvard", openItem.Header);
+        Assert.Equal("Abrir PrivGuard", openItem.Header);
         Assert.Equal("Salir", exitItem.Header);
-        Assert.Equal("PrivGvard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
+        Assert.Equal("PrivGuard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
 
         // 2. Switch to English
         localizationService.SetLanguage("en");
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("Open PrivGvard", openItem.Header);
+        Assert.Equal("Open PrivGuard", openItem.Header);
         Assert.Equal("Exit", exitItem.Header);
-        Assert.Equal("PrivGvard - Camera & Microphone Blocker", trayIcon.ToolTipText);
+        Assert.Equal("PrivGuard - Camera & Microphone Blocker", trayIcon.ToolTipText);
 
         // 3. Switch back to Spanish
         localizationService.SetLanguage("es");
         Dispatcher.UIThread.RunJobs();
 
-        Assert.Equal("Abrir PrivGvard", openItem.Header);
+        Assert.Equal("Abrir PrivGuard", openItem.Header);
         Assert.Equal("Salir", exitItem.Header);
-        Assert.Equal("PrivGvard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
+        Assert.Equal("PrivGuard - Bloqueador de Cámara y Micrófono", trayIcon.ToolTipText);
     }
 }

@@ -20,19 +20,29 @@ public sealed class LinuxAutostartProvider : IAutostartProvider
         _desktopFilePath = Path.Combine(autostartDir, "privgvard.desktop");
     }
 
-    public bool IsAutostartEnabled()
+    public Task<AutostartStatus> GetAutostartStatusAsync()
     {
-        return File.Exists(_desktopFilePath);
+        try
+        {
+            return Task.FromResult(File.Exists(_desktopFilePath)
+                ? new AutostartStatus(AutostartState.Enabled)
+                : new AutostartStatus(AutostartState.Disabled));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to read Linux autostart state");
+            return Task.FromResult(new AutostartStatus(AutostartState.Failed, ex.Message));
+        }
     }
 
-    public OperationResult EnableAutostart()
+    public Task<OperationResult> EnableAutostartAsync()
     {
         try
         {
             var exePath = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
-                return OperationResult.Fail("Cannot determine executable path for Linux autostart.");
+                return Task.FromResult(OperationResult.Fail("Cannot determine executable path for Linux autostart."));
             }
 
             var dir = Path.GetDirectoryName(_desktopFilePath);
@@ -54,17 +64,23 @@ public sealed class LinuxAutostartProvider : IAutostartProvider
                 """;
 
             File.WriteAllText(_desktopFilePath, desktopEntry);
+            if (!File.Exists(_desktopFilePath) ||
+                !File.ReadAllText(_desktopFilePath).Contains($"Exec=\"{exePath}\" --minimized", StringComparison.Ordinal))
+            {
+                return Task.FromResult(OperationResult.Fail("Linux autostart registration could not be verified."));
+            }
+
             Log.Information("Linux autostart enabled at {Path}", _desktopFilePath);
-            return OperationResult.Ok();
+            return Task.FromResult(OperationResult.Ok());
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to create Linux autostart desktop entry");
-            return OperationResult.Fail(ex.Message);
+            return Task.FromResult(OperationResult.Fail(ex.Message));
         }
     }
 
-    public OperationResult DisableAutostart()
+    public Task<OperationResult> DisableAutostartAsync()
     {
         try
         {
@@ -73,12 +89,14 @@ public sealed class LinuxAutostartProvider : IAutostartProvider
                 File.Delete(_desktopFilePath);
                 Log.Information("Linux autostart disabled");
             }
-            return OperationResult.Ok();
+            return Task.FromResult(File.Exists(_desktopFilePath)
+                ? OperationResult.Fail("Linux autostart disable could not be verified.")
+                : OperationResult.Ok());
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to remove Linux autostart desktop entry");
-            return OperationResult.Fail(ex.Message);
+            return Task.FromResult(OperationResult.Fail(ex.Message));
         }
     }
 }

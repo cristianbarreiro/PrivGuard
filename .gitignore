@@ -10,6 +10,12 @@ publish/
 publish_out/
 installer_out/
 publish_dist/
+staging-*/
+release/**/staging-*/
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
 
 # User-specific files
 *.rsuser

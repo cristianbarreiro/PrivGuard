@@ -41,6 +41,13 @@ public sealed class FilePrivacySessionStore : IPrivacySessionStore
     private readonly object _pathLock;
     private readonly IActivePrivacySessionMarker _activeSessionMarker;
 
+    public FilePrivacySessionStore(
+        IEditionProfileResolver profileResolver,
+        IActivePrivacySessionMarker activeSessionMarker)
+        : this(profileResolver?.RecoveryDirectory, activeSessionMarker)
+    {
+    }
+
     public FilePrivacySessionStore(string? customDirectory = null)
         : this(customDirectory, new NoOpActivePrivacySessionMarker())
     {
@@ -448,15 +455,21 @@ public sealed class FilePrivacySessionStore : IPrivacySessionStore
             return true;
 
         return resource is
-            { JournalState: PrivacyResourceJournalState.ApplyPending,
-              ModifiedByPrivLock: false,
-              OwnershipUncertain: true } or
-            { JournalState: PrivacyResourceJournalState.RestorePending,
-              ModifiedByPrivLock: false,
-              OwnershipUncertain: true } or
-            { JournalState: PrivacyResourceJournalState.Applied,
-              ModifiedByPrivLock: true,
-              OwnershipUncertain: false };
+        {
+            JournalState: PrivacyResourceJournalState.ApplyPending,
+            ModifiedByPrivLock: false,
+            OwnershipUncertain: true
+        } or
+        {
+            JournalState: PrivacyResourceJournalState.RestorePending,
+            ModifiedByPrivLock: false,
+            OwnershipUncertain: true
+        } or
+        {
+            JournalState: PrivacyResourceJournalState.Applied,
+            ModifiedByPrivLock: true,
+            OwnershipUncertain: false
+        };
     }
 
     private static bool IsAllowedPrivacyDeviceClass(string deviceClass, BlockTarget target) =>

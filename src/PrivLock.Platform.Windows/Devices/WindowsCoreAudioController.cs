@@ -1,6 +1,10 @@
 using System.Runtime.InteropServices;
+using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
 using PrivLock.Infrastructure.Common.Logging;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Devices;
@@ -9,15 +13,42 @@ namespace PrivLock.Platform.Windows.Devices;
 /// Controls and queries individual Windows Core Audio capture endpoint mute states.
 /// Endpoint-level operations ensure recovery never unmutes a microphone that was muted before PrivLock.
 /// </summary>
-public sealed class WindowsCoreAudioController
+public class WindowsCoreAudioController
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsCoreAudioController>();
     private static readonly Guid IID_IAudioEndpointVolume = new("5CDF2C82-841E-4546-9722-0CF74078229A");
+    public const uint ENDPOINT_HARDWARE_SUPPORT_MUTE = 0x00000002;
     private const uint CLSCTX_ALL = 23;
     private const uint DEVICE_STATE_ACTIVE = 1;
 
-    public WindowsAudioEndpointQueryResult GetMicrophoneMuteStates()
+    private readonly IEditionProfileResolver _profileResolver;
+
+    public WindowsCoreAudioController(IEditionProfileResolver? profileResolver = null)
     {
+        _profileResolver = profileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+    }
+
+    public static AudioEndpointHardwareMuteSupport ParseHardwareMuteSupport(int hresult, uint hardwareSupportMask)
+    {
+        // COM SUCCEEDED: hr >= 0 (includes S_OK = 0 and S_FALSE = 1). Negative HRESULTs are failures.
+        if (hresult < 0)
+            return AudioEndpointHardwareMuteSupport.Unknown;
+
+        return (hardwareSupportMask & ENDPOINT_HARDWARE_SUPPORT_MUTE) != 0
+            ? AudioEndpointHardwareMuteSupport.Supported
+            : AudioEndpointHardwareMuteSupport.NotSupported;
+    }
+
+    public virtual WindowsAudioEndpointQueryResult GetMicrophoneMuteStates()
+    {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            Log.Warning("Rejected Core Audio endpoint query because EditionProfile is UntrustedOrIndeterminate.");
+            return WindowsAudioEndpointQueryResult.Failed(
+                "Core Audio query is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         IMMDeviceEnumerator? enumerator = null;
         IMMDeviceCollection? collection = null;
 
@@ -60,7 +91,21 @@ public sealed class WindowsCoreAudioController
                     if (hr != 0)
                         return QueryFailure($"Failed to query capture endpoint mute. HR=0x{hr:X8}");
 
-                    states.Add(new WindowsAudioEndpointMuteState(endpointId, isMuted));
+                    var hwSupport = AudioEndpointHardwareMuteSupport.Unknown;
+                    var hwHr = volume.QueryHardwareSupport(out var hwMask);
+                    if (hwHr >= 0)
+                    {
+                        hwSupport = ParseHardwareMuteSupport(hwHr, hwMask);
+                    }
+                    else
+                    {
+                        Log.Warning(
+                            "QueryHardwareSupport failed for capture endpoint index {Index} (HR=0x{Hr:X8}). Hardware mute support is Unknown.",
+                            index,
+                            hwHr);
+                    }
+
+                    states.Add(new WindowsAudioEndpointMuteState(endpointId, isMuted, hwSupport));
                 }
                 finally
                 {
@@ -84,7 +129,7 @@ public sealed class WindowsCoreAudioController
         }
     }
 
-    public WindowsAudioEndpointLookupResult GetMicrophoneMuteState(string endpointId)
+    public virtual WindowsAudioEndpointLookupResult GetMicrophoneMuteState(string endpointId)
     {
         var query = GetMicrophoneMuteStates();
         if (!query.Success)
@@ -94,11 +139,21 @@ public sealed class WindowsCoreAudioController
             string.Equals(state.EndpointId, endpointId, StringComparison.OrdinalIgnoreCase));
         return match == null
             ? WindowsAudioEndpointLookupResult.Missing()
-            : WindowsAudioEndpointLookupResult.Found(match.IsMuted);
+            : WindowsAudioEndpointLookupResult.Found(match.IsMuted, match.HardwareMuteSupport);
     }
 
-    public OperationResult SetMicrophoneMute(string endpointId, bool mute)
+    public virtual OperationResult SetMicrophoneMute(string endpointId, bool mute)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            Log.Warning(
+                "Rejected Core Audio endpoint mute mutation (EndpointId={EndpointId}, Mute={Mute}) because EditionProfile is UntrustedOrIndeterminate.",
+                endpointId,
+                mute);
+            return OperationResult.Fail(
+                "Core Audio mute mutation is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         IMMDeviceEnumerator? enumerator = null;
         IMMDevice? device = null;
         IAudioEndpointVolume? volume = null;
@@ -161,6 +216,12 @@ public sealed class WindowsCoreAudioController
 
     internal OperationResult SetMicrophonesMute(bool mute)
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            return OperationResult.Fail(
+                "Core Audio mute mutation is blocked because the runtime edition profile is untrusted or indeterminate.");
+        }
+
         Log.Information("Setting Windows Core Audio capture endpoints mute={Mute}", mute);
         var query = GetMicrophoneMuteStates();
         if (!query.Success)
@@ -187,6 +248,9 @@ public sealed class WindowsCoreAudioController
 
     public bool IsDefaultMicrophoneMuted()
     {
+        if (_profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+            return false;
+
         IMMDeviceEnumerator? enumerator = null;
         IMMDevice? device = null;
         IAudioEndpointVolume? volume = null;
@@ -324,7 +388,17 @@ public sealed class WindowsCoreAudioController
     #endregion
 }
 
-public sealed record WindowsAudioEndpointMuteState(string EndpointId, bool IsMuted);
+public enum AudioEndpointHardwareMuteSupport
+{
+    Unknown = 0,
+    Supported = 1,
+    NotSupported = 2,
+}
+
+public sealed record WindowsAudioEndpointMuteState(
+    string EndpointId,
+    bool IsMuted,
+    AudioEndpointHardwareMuteSupport HardwareMuteSupport = AudioEndpointHardwareMuteSupport.Unknown);
 
 public sealed record WindowsAudioEndpointQueryResult(bool Success, IReadOnlyList<WindowsAudioEndpointMuteState> States, string? ErrorMessage)
 {
@@ -332,9 +406,21 @@ public sealed record WindowsAudioEndpointQueryResult(bool Success, IReadOnlyList
     public static WindowsAudioEndpointQueryResult Failed(string errorMessage) => new(false, [], errorMessage);
 }
 
-public sealed record WindowsAudioEndpointLookupResult(bool QuerySucceeded, bool IsPresent, bool IsMuted, string? ErrorMessage)
+public sealed record WindowsAudioEndpointLookupResult(
+    bool QuerySucceeded,
+    bool IsPresent,
+    bool IsMuted,
+    string? ErrorMessage,
+    AudioEndpointHardwareMuteSupport HardwareMuteSupport = AudioEndpointHardwareMuteSupport.Unknown)
 {
-    public static WindowsAudioEndpointLookupResult Found(bool isMuted) => new(true, true, isMuted, null);
-    public static WindowsAudioEndpointLookupResult Missing() => new(true, false, false, null);
-    public static WindowsAudioEndpointLookupResult Failed(string errorMessage) => new(false, false, false, errorMessage);
+    public static WindowsAudioEndpointLookupResult Found(
+        bool isMuted,
+        AudioEndpointHardwareMuteSupport hardwareMuteSupport = AudioEndpointHardwareMuteSupport.Unknown) =>
+        new(true, true, isMuted, null, hardwareMuteSupport);
+
+    public static WindowsAudioEndpointLookupResult Missing() =>
+        new(true, false, false, null, AudioEndpointHardwareMuteSupport.Unknown);
+
+    public static WindowsAudioEndpointLookupResult Failed(string errorMessage) =>
+        new(false, false, false, errorMessage, AudioEndpointHardwareMuteSupport.Unknown);
 }

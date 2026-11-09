@@ -3,13 +3,28 @@ using Serilog;
 
 namespace PrivLock.Platform.Windows.System;
 
+internal enum WindowsSingleInstanceAcquisitionResult
+{
+    Acquired,
+    UninstallGateBusy,
+    SingleInstanceBusy,
+    AccessOrCreationError
+}
+
+internal interface IWindowsDetailedSingleInstanceGuard
+{
+    WindowsSingleInstanceAcquisitionResult TryAcquireSingleInstanceDetail(bool suppressLogging = false);
+}
+
 /// <summary>
 /// Ensures single-instance execution on Windows using a system-wide named Mutex.
 /// </summary>
-public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
+public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard, IWindowsDetailedSingleInstanceGuard
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsSingleInstanceGuard>();
-    private const string MutexName = @"Global\PrivLock_SingleInstance";
+    internal const string MutexName = @"Global\PrivLock_SingleInstance";
+    private readonly string _mutexName;
+    private readonly string _uninstallGateMutexName;
     private const string UninstallGateMutexName = @"Global\PrivLock_UninstallGate";
 
     private Mutex? _mutex;
@@ -17,33 +32,59 @@ public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
     private bool _hasAcquired;
     private bool _hasUninstallGate;
 
+    public WindowsSingleInstanceGuard(IEditionProfileResolver profileResolver)
+        : this(profileResolver?.SingleInstanceMutexName ?? MutexName, UninstallGateMutexName)
+    {
+    }
+
+    public WindowsSingleInstanceGuard()
+        : this(MutexName, UninstallGateMutexName)
+    {
+    }
+
+    internal WindowsSingleInstanceGuard(string mutexName, string uninstallGateMutexName = UninstallGateMutexName)
+    {
+        _mutexName = mutexName;
+        _uninstallGateMutexName = uninstallGateMutexName;
+    }
+
     public bool TryAcquireSingleInstance()
+    {
+        return TryAcquireSingleInstanceDetail(suppressLogging: false) == WindowsSingleInstanceAcquisitionResult.Acquired;
+    }
+
+    internal WindowsSingleInstanceAcquisitionResult TryAcquireSingleInstanceDetail(bool suppressLogging = false)
     {
         try
         {
             if (_mutex != null || _uninstallGate != null)
-                return _hasAcquired && _hasUninstallGate;
+                return (_hasAcquired && _hasUninstallGate)
+                    ? WindowsSingleInstanceAcquisitionResult.Acquired
+                    : WindowsSingleInstanceAcquisitionResult.SingleInstanceBusy;
 
-            _uninstallGate = new Mutex(initiallyOwned: false, UninstallGateMutexName);
+            _uninstallGate = new Mutex(initiallyOwned: false, _uninstallGateMutexName);
             _hasUninstallGate = TryAcquire(_uninstallGate);
             if (!_hasUninstallGate)
             {
-                Log.Information("PrivGvard cannot start while the uninstall gate is owned.");
+                if (!suppressLogging)
+                    Log.Information("PrivGvard cannot start while the uninstall gate is owned.");
                 DisposeUnowned(ref _uninstallGate);
-                return false;
+                return WindowsSingleInstanceAcquisitionResult.UninstallGateBusy;
             }
 
-            _mutex = new Mutex(initiallyOwned: false, MutexName);
+            _mutex = new Mutex(initiallyOwned: false, _mutexName);
             _hasAcquired = TryAcquire(_mutex);
 
             if (!_hasAcquired)
             {
-                Log.Information("Another instance of PrivGvard is already running on Windows.");
+                if (!suppressLogging)
+                    Log.Information("Another instance of PrivGvard is already running on Windows.");
                 DisposeUnowned(ref _mutex);
                 ReleaseUninstallGateCore();
+                return WindowsSingleInstanceAcquisitionResult.SingleInstanceBusy;
             }
 
-            return _hasAcquired;
+            return WindowsSingleInstanceAcquisitionResult.Acquired;
         }
         catch (Exception ex)
         {
@@ -51,9 +92,12 @@ public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard
             ReleaseMutexCore(ref _mutex, ref _hasAcquired, "single-instance");
             ReleaseUninstallGateCore();
             _hasAcquired = false;
-            return false; // Recovery journal safety requires exclusive ownership.
+            return WindowsSingleInstanceAcquisitionResult.AccessOrCreationError; // Recovery journal safety requires exclusive ownership.
         }
     }
+
+    WindowsSingleInstanceAcquisitionResult IWindowsDetailedSingleInstanceGuard.TryAcquireSingleInstanceDetail(bool suppressLogging) =>
+        TryAcquireSingleInstanceDetail(suppressLogging);
 
     /// <summary>
     /// Releases only the uninstall gate while retaining the main single-instance mutex. The safe

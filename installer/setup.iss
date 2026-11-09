@@ -12,10 +12,12 @@
 #define UninstallGateMutex "Global\PrivLock_UninstallGate"
 #define HandoffArgumentPrefix "/PRIVLOCK_HANDOFF="
 #define HandoffEventPrefix "Global\PrivLock_UninstallReady_"
+#define UninstallHandoffTimeoutMilliseconds 30000
 #define OwnershipRegistryKey "SOFTWARE\PrivLock\PrivilegedOwnership\v2"
 #define ProfileListRegistryKey "SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 #define RecoveryRelativePath "AppData\Local\PrivGvard\Recovery\"
 #define LegacyRecoveryRelativePath "AppData\Local\PrivLock\Recovery\"
+#define ModernRecoveryRelativePath "AppData\Local\PrivGuard\Recovery\"
 #define ActiveMarkerFile "active-session-v1.marker"
 #define JournalFile "privacy-session-v1.json"
 
@@ -420,17 +422,15 @@ begin
   Result := StartsText('S-1-5-21-', Sid) or StartsText('S-1-12-1-', Sid);
 end;
 
-function ProfilePathMayHaveActiveSessionInDir(const ProfilePath, RelativeDir: String): Boolean;
+function RecoveryDirectoryAncestorsSafe(const ProfilePath, RelativeDir: String; var DirectoryExists: Boolean): Boolean;
 var
   RecoveryPath: String;
-  PrimaryJournal: String;
   ParentPath: String;
   Exists: Boolean;
   Index: Integer;
 begin
-  Result := True;
-  // The marker uses the conventional profile path even when LocalAppData is redirected.
-  // Reject unknown/redirected ancestors before considering any missing child authoritative.
+  Result := False;
+  DirectoryExists := False;
   RecoveryPath := AddBackslash(ProfilePath) + RelativeDir;
   for Index := 4 to Length(RecoveryPath) do
   begin
@@ -442,22 +442,67 @@ begin
       begin
         // A missing profile is not proof that its offline or deleted recovery state is safe.
         if Length(ParentPath) <= Length(ProfilePath) then exit;
-        Result := False;
+        DirectoryExists := False;
+        Result := True;
         exit;
       end;
     end;
   end;
+  DirectoryExists := True;
+  Result := True;
+end;
+
+function ProfilePathMayHaveActiveMarkerInDir(const ProfilePath, RelativeDir: String): Boolean;
+var
+  RecoveryPath: String;
+  DirSafe: Boolean;
+  DirExists: Boolean;
+  Exists: Boolean;
+begin
+  Result := True;
+  DirSafe := RecoveryDirectoryAncestorsSafe(ProfilePath, RelativeDir, DirExists);
+  if not DirSafe then exit;
+  if not DirExists then
+  begin
+    Result := False;
+    exit;
+  end;
+  RecoveryPath := AddBackslash(ProfilePath) + RelativeDir;
   if not TryInspectPath(RecoveryPath + '{#ActiveMarkerFile}', False, Exists) then exit;
-  if Exists then exit;
+  Result := Exists;
+end;
+
+function ProfilePathMayHaveActiveJournalInDir(const ProfilePath, RelativeDir: String): Boolean;
+var
+  RecoveryPath: String;
+  PrimaryJournal: String;
+  DirSafe: Boolean;
+  DirExists: Boolean;
+begin
+  Result := True;
+  DirSafe := RecoveryDirectoryAncestorsSafe(ProfilePath, RelativeDir, DirExists);
+  if not DirSafe then exit;
+  if not DirExists then
+  begin
+    Result := False;
+    exit;
+  end;
+  RecoveryPath := AddBackslash(ProfilePath) + RelativeDir;
   PrimaryJournal := RecoveryPath + '{#JournalFile}';
-  // A completed commit durably updates both copies before clearing the marker.
   Result := JournalMayBeActive(PrimaryJournal) or JournalMayBeActive(PrimaryJournal + '.bak');
+end;
+
+function ProfilePathMayHaveActiveSessionInDir(const ProfilePath, RelativeDir: String): Boolean;
+begin
+  Result := ProfilePathMayHaveActiveMarkerInDir(ProfilePath, RelativeDir) or
+            ProfilePathMayHaveActiveJournalInDir(ProfilePath, RelativeDir);
 end;
 
 function ProfileMayHaveActiveSession(const ProfilePath: String): Boolean;
 begin
   Result := ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#RecoveryRelativePath}') or
-            ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#LegacyRecoveryRelativePath}');
+            ProfilePathMayHaveActiveSessionInDir(ProfilePath, '{#LegacyRecoveryRelativePath}') or
+            ProfilePathMayHaveActiveJournalInDir(ProfilePath, '{#ModernRecoveryRelativePath}');
 end;
 
 function AnyProfileMayHaveActiveSession: Boolean;
@@ -573,6 +618,36 @@ begin
   end;
 end;
 
+function WaitForApplicationInstanceRelease: Boolean;
+var
+  InstanceMutexHandle: THandle;
+  WaitResult: LongWord;
+begin
+  Result := False;
+  InstanceMutexHandle := CreateMutexW(0, False, 'Global\PrivLock_SingleInstance');
+  if InstanceMutexHandle = 0 then
+  begin
+    Log('PrivGvard uninstall could not open the application instance mutex.');
+    exit;
+  end;
+
+  WaitResult := WaitForSingleObject(InstanceMutexHandle, {#UninstallHandoffTimeoutMilliseconds});
+  if (WaitResult = WAIT_OBJECT_0) or (WaitResult = WAIT_ABANDONED) then
+  begin
+    Result := ReleaseMutex(InstanceMutexHandle);
+    if not Result then
+      Log('PrivGvard uninstall acquired but could not release the application instance mutex.');
+  end
+  else
+    Log('PrivGvard uninstall could not confirm application shutdown before the handoff expired.');
+
+  if not CloseHandle(InstanceMutexHandle) then
+  begin
+    Log('PrivGvard uninstall could not close the application instance mutex handle.');
+    Result := False;
+  end;
+end;
+
 function SignalWrapperAdmission: Boolean;
 var
   Index: Integer;
@@ -663,7 +738,7 @@ begin
   end;
 end;
 
-// Every invocation, including a direct unins000.exe launch, independently proves that no process,
+// Every invocation, including a direct unins???.exe launch, independently proves that no process,
 // user-profile session, or machine ownership claim still needs the installed recovery binary.
 function InitializeUninstall: Boolean;
 begin
@@ -690,27 +765,17 @@ begin
     exit;
   end;
 
-  Result := True;
-end;
-
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var
-  SingleInstanceMutex: THandle;
-  WaitResult: LongWord;
-begin
-  if CurUninstallStep = usUninstall then
+  // The wrapper exits after receiving the admission event. Prove its main-instance mutex is
+  // released before the Inno UI or file-removal phase can proceed.
+  if not WaitForApplicationInstanceRelease then
   begin
-    // Ensure the safe-uninstall wrapper process has fully exited and released
-    // PrivGvard.exe before Inno begins file deletions.
-    SingleInstanceMutex := CreateMutexW(0, False, 'Global\PrivLock_SingleInstance');
-    if SingleInstanceMutex <> 0 then
-    begin
-      WaitResult := WaitForSingleObject(SingleInstanceMutex, 10000);
-      if (WaitResult = WAIT_OBJECT_0) or (WaitResult = WAIT_ABANDONED) then
-        ReleaseMutex(SingleInstanceMutex);
-      CloseHandle(SingleInstanceMutex);
-    end;
+    MsgBox('PrivGvard could not confirm a safe application shutdown. The uninstall was cancelled; close PrivGvard normally and try again.',
+      mbCriticalError, MB_OK);
+    ReleaseUninstallGate;
+    exit;
   end;
+
+  Result := True;
 end;
 
 procedure DeinitializeUninstall;

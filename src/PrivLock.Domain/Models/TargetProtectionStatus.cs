@@ -1,6 +1,39 @@
 namespace PrivLock.Domain.Models;
 
 /// <summary>
+/// Operational hardware presence / discovery status for a device category.
+/// Separates confirmed physical absence from error states or privacy verification failures.
+/// </summary>
+public enum TargetDeviceAvailability
+{
+    Available = 0,
+    NotDetected = 1,
+    Unknown = 2
+}
+
+/// <summary>
+/// Operational availability of audio capture endpoints (WASAPI).
+/// Distinct from PnP hardware presence to prevent conflating missing active endpoints with hardware absence.
+/// </summary>
+public enum AudioEndpointAvailability
+{
+    Available = 0,
+    NotDetected = 1,
+    Unknown = 2
+}
+
+/// <summary>
+/// Aggregated summary of reported hardware mute capabilities across individual audio endpoints.
+/// </summary>
+public sealed record AudioHardwareMuteSummary
+{
+    public int SupportedCount { get; init; }
+    public int NotSupportedCount { get; init; }
+    public int UnknownCount { get; init; }
+    public int TotalCount { get; init; }
+}
+
+/// <summary>
 /// Detailed protection status for a single target (Camera or Microphone),
 /// containing explicit states for both Standard and Secure protection levels.
 /// </summary>
@@ -9,7 +42,52 @@ public sealed record TargetProtectionStatus
     public required BlockTarget Target { get; init; }
     public required StandardProtectionState StandardState { get; init; }
     public required SecureProtectionState SecureState { get; init; }
-    public bool IsVerified { get; init; }
+    public TargetDeviceAvailability Availability { get; init; } = TargetDeviceAvailability.Available;
+    public AudioEndpointAvailability? EndpointAvailability { get; init; }
+    public AudioHardwareMuteSummary? HardwareMuteSummary { get; init; }
+
+    private readonly bool _standardIsVerified;
+    private readonly bool _hasExplicitStandardIsVerified;
+
+    public bool StandardIsVerified
+    {
+        get => _hasExplicitStandardIsVerified
+            ? _standardIsVerified
+            : (_hasExplicitIsVerified ? _isVerified : StandardState != StandardProtectionState.Unknown);
+        init
+        {
+            _standardIsVerified = value;
+            _hasExplicitStandardIsVerified = true;
+        }
+    }
+
+    private readonly bool _secureIsVerified;
+    private readonly bool _hasExplicitSecureIsVerified;
+
+    public bool SecureIsVerified
+    {
+        get => _hasExplicitSecureIsVerified
+            ? _secureIsVerified
+            : (_hasExplicitIsVerified ? _isVerified : SecureState != SecureProtectionState.Unknown);
+        init
+        {
+            _secureIsVerified = value;
+            _hasExplicitSecureIsVerified = true;
+        }
+    }
+
+    private readonly bool _isVerified;
+    private readonly bool _hasExplicitIsVerified;
+
+    public bool IsVerified
+    {
+        get => _hasExplicitIsVerified ? _isVerified : (StandardIsVerified && SecureIsVerified);
+        init
+        {
+            _isVerified = value;
+            _hasExplicitIsVerified = true;
+        }
+    }
     public string? StatusMessage { get; init; }
 
     /// <summary>

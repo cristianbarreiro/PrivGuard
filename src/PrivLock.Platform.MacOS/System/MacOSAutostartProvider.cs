@@ -20,19 +20,29 @@ public sealed class MacOSAutostartProvider : IAutostartProvider
         _plistFilePath = Path.Combine(launchAgentsDir, "com.cdevstudio.privgvard.plist");
     }
 
-    public bool IsAutostartEnabled()
+    public Task<AutostartStatus> GetAutostartStatusAsync()
     {
-        return File.Exists(_plistFilePath);
+        try
+        {
+            return Task.FromResult(File.Exists(_plistFilePath)
+                ? new AutostartStatus(AutostartState.Enabled)
+                : new AutostartStatus(AutostartState.Disabled));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to read macOS autostart state");
+            return Task.FromResult(new AutostartStatus(AutostartState.Failed, ex.Message));
+        }
     }
 
-    public OperationResult EnableAutostart()
+    public Task<OperationResult> EnableAutostartAsync()
     {
         try
         {
             var exePath = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
-                return OperationResult.Fail("Cannot determine executable path for macOS autostart.");
+                return Task.FromResult(OperationResult.Fail("Cannot determine executable path for macOS autostart."));
             }
 
             var dir = Path.GetDirectoryName(_plistFilePath);
@@ -60,17 +70,23 @@ public sealed class MacOSAutostartProvider : IAutostartProvider
                 """;
 
             File.WriteAllText(_plistFilePath, plistContent);
+            if (!File.Exists(_plistFilePath) ||
+                !File.ReadAllText(_plistFilePath).Contains($"<string>{exePath}</string>", StringComparison.Ordinal))
+            {
+                return Task.FromResult(OperationResult.Fail("macOS autostart registration could not be verified."));
+            }
+
             Log.Information("macOS autostart enabled at {Path}", _plistFilePath);
-            return OperationResult.Ok();
+            return Task.FromResult(OperationResult.Ok());
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to create macOS LaunchAgent plist");
-            return OperationResult.Fail(ex.Message);
+            return Task.FromResult(OperationResult.Fail(ex.Message));
         }
     }
 
-    public OperationResult DisableAutostart()
+    public Task<OperationResult> DisableAutostartAsync()
     {
         try
         {
@@ -79,12 +95,14 @@ public sealed class MacOSAutostartProvider : IAutostartProvider
                 File.Delete(_plistFilePath);
                 Log.Information("macOS autostart disabled");
             }
-            return OperationResult.Ok();
+            return Task.FromResult(File.Exists(_plistFilePath)
+                ? OperationResult.Fail("macOS autostart disable could not be verified.")
+                : OperationResult.Ok());
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to remove macOS LaunchAgent plist");
-            return OperationResult.Fail(ex.Message);
+            return Task.FromResult(OperationResult.Fail(ex.Message));
         }
     }
 }

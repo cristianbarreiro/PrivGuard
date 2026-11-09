@@ -35,13 +35,28 @@ public sealed class PrivacySessionService
 
     public bool SupportsPersistentRecovery => _platform.SupportsPersistentRecovery;
 
+    private readonly ICrossEditionCoordinator? _coordinator;
+
     public PrivacySessionService(
         IPrivacySessionStore sessionStore,
-        IPrivacySessionPlatformAdapter platform)
+        IPrivacySessionPlatformAdapter platform,
+        ICrossEditionCoordinator? coordinator = null)
     {
         _sessionStore = sessionStore;
         _platform = platform;
+        _coordinator = coordinator;
     }
+
+    private void SaveSession(PrivacySession session)
+    {
+        _sessionStore.Save(session);
+        if (!session.IsActive)
+        {
+            _coordinator?.TryReleaseOwnership(session.SessionId);
+        }
+    }
+
+
 
     public async Task<PrivacyBlockPreparation> PrepareBlockAsync(
         ProtectionLayer layer,
@@ -74,7 +89,7 @@ public sealed class PrivacySessionService
                 foreach (var resource in session.Resources.Where(resource => resource.ExecutionMayStillBeInFlight))
                     resource.ExecutionMayStillBeInFlight = false;
                 session.UpdatedAtUtc = MaxTimestamp(now, session.CreatedAtUtc, session.UpdatedAtUtc);
-                _sessionStore.Save(session);
+                SaveSession(session);
                 throw new InvalidOperationException(
                     "A previous uncertain privacy operation was quiesced; restore it before applying new protection changes.");
             }
@@ -154,8 +169,18 @@ public sealed class PrivacySessionService
                 session.UpdatedAtUtc,
                 session.Resources.Select(resource => resource.LastUpdatedAtUtc).DefaultIfEmpty().Max());
 
+            if (_coordinator != null)
+            {
+                var acq = _coordinator.TryAcquireOwnership(session.SessionId);
+                if (!acq.Success)
+                {
+                    throw new InvalidOperationException(
+                        acq.ErrorMessage ?? "Cannot acquire privacy session ownership across editions.");
+                }
+            }
+
             // This commit is the safety boundary: the caller must not mutate the OS if it fails.
-            _sessionStore.Save(session);
+            SaveSession(session);
 
             Log.Information(
                 "Privacy snapshot committed: SessionId={SessionId}, Layer={Layer}, Target={Target}, ResourceCount={ResourceCount}",
@@ -442,7 +467,7 @@ public sealed class PrivacySessionService
             if (!session.Resources.Any(IsOutstandingOwnedChange))
             {
                 RecalculateSessionStatus(session);
-                _sessionStore.Save(session);
+                SaveSession(session);
             }
 
             if (!platformResult.Success)
@@ -750,7 +775,7 @@ public sealed class PrivacySessionService
                         SetMonotonicProgressTimestamp(session, resource);
                     }
                     RecalculateSessionStatus(session);
-                    _sessionStore.Save(session);
+                    SaveSession(session);
                 }
                 catch (Exception ex)
                 {
@@ -863,7 +888,7 @@ public sealed class PrivacySessionService
                     DateTimeOffset.UtcNow,
                     session.CreatedAtUtc,
                     session.UpdatedAtUtc);
-                _sessionStore.Save(session);
+                SaveSession(session);
             }
 
             var restoredCount = 0;
@@ -1030,86 +1055,86 @@ public sealed class PrivacySessionService
                         break;
 
                     case PrivacyResourceObservationKind.MatchesProtected:
-                    {
-                        // Persist ambiguity before native dispatch. A crash can then never turn a
-                        // merely protected value into authority for a blind second restore.
-                        resource.JournalState = PrivacyResourceJournalState.RestorePending;
-                        resource.ModifiedByPrivLock = false;
-                        resource.OwnershipUncertain = true;
-                        resource.ExecutionMayStillBeInFlight = false;
-                        PersistResourceProgress(session, resource);
+                        {
+                            // Persist ambiguity before native dispatch. A crash can then never turn a
+                            // merely protected value into authority for a blind second restore.
+                            resource.JournalState = PrivacyResourceJournalState.RestorePending;
+                            resource.ModifiedByPrivLock = false;
+                            resource.OwnershipUncertain = true;
+                            resource.ExecutionMayStillBeInFlight = false;
+                            PersistResourceProgress(session, resource);
 
-                        OperationResult restoreResult;
-                        try
-                        {
-                            // Once RestorePending is durable, caller cancellation must not create a
-                            // deterministic pre-dispatch ambiguity. Platform implementations are
-                            // internally bounded and return explicit outcome/quiescence metadata.
-                            restoreResult = await _platform.RestoreOriginalAsync(
-                                resource,
-                                CancellationToken.None);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Error(ex, "Platform restore threw after RestorePending checkpoint: Resource={Resource}",
-                                ToSafeLogId(resource.ResourceId));
-                            restoreResult = OperationResult.Fail(ex.Message, outcomeUncertain: true);
-                        }
-                        if (!restoreResult.Success)
-                        {
-                            if (restoreResult.ExecutionStillInFlight)
+                            OperationResult restoreResult;
+                            try
                             {
-                                RequireMutationQuiescence();
-                                resource.ExecutionMayStillBeInFlight = true;
-                                resource.ModifiedByPrivLock = false;
-                                resource.OwnershipUncertain = true;
-                                resource.JournalState = PrivacyResourceJournalState.RestorePending;
+                                // Once RestorePending is durable, caller cancellation must not create a
+                                // deterministic pre-dispatch ambiguity. Platform implementations are
+                                // internally bounded and return explicit outcome/quiescence metadata.
+                                restoreResult = await _platform.RestoreOriginalAsync(
+                                    resource,
+                                    CancellationToken.None);
                             }
-                            else if (restoreResult.OutcomeUncertain)
+                            catch (Exception ex)
                             {
-                                // The restore write may have committed. Relinquish definite
-                                // ownership so a later pass compares but never blindly rewrites.
+                                Log.Error(ex, "Platform restore threw after RestorePending checkpoint: Resource={Resource}",
+                                    ToSafeLogId(resource.ResourceId));
+                                restoreResult = OperationResult.Fail(ex.Message, outcomeUncertain: true);
+                            }
+                            if (!restoreResult.Success)
+                            {
+                                if (restoreResult.ExecutionStillInFlight)
+                                {
+                                    RequireMutationQuiescence();
+                                    resource.ExecutionMayStillBeInFlight = true;
+                                    resource.ModifiedByPrivLock = false;
+                                    resource.OwnershipUncertain = true;
+                                    resource.JournalState = PrivacyResourceJournalState.RestorePending;
+                                }
+                                else if (restoreResult.OutcomeUncertain)
+                                {
+                                    // The restore write may have committed. Relinquish definite
+                                    // ownership so a later pass compares but never blindly rewrites.
+                                    resource.ModifiedByPrivLock = false;
+                                    resource.OwnershipUncertain = true;
+                                    resource.JournalState = PrivacyResourceJournalState.RestoreFailed;
+                                }
+                                else
+                                {
+                                    // A non-uncertain failure is a contractual guarantee that the
+                                    // platform performed no mutation; reclaim the prior ownership.
+                                    resource.JournalState = PrivacyResourceJournalState.RestoreFailed;
+                                    resource.ModifiedByPrivLock = true;
+                                    resource.OwnershipUncertain = false;
+                                }
+                                resource.LastError = restoreResult.ErrorMessage;
+                                failedCount++;
+                                break;
+                            }
+
+                            var verification = await _platform.ObserveAsync(resource, CancellationToken.None);
+                            if (verification.Kind == PrivacyResourceObservationKind.MatchesOriginal)
+                            {
+                                resource.JournalState = PrivacyResourceJournalState.Restored;
                                 resource.ModifiedByPrivLock = false;
-                                resource.OwnershipUncertain = true;
-                                resource.JournalState = PrivacyResourceJournalState.RestoreFailed;
+                                resource.OwnershipUncertain = false;
+                                resource.LastError = null;
+                                restoredCount++;
                             }
                             else
                             {
-                                // A non-uncertain failure is a contractual guarantee that the
-                                // platform performed no mutation; reclaim the prior ownership.
-                                resource.JournalState = PrivacyResourceJournalState.RestoreFailed;
-                                resource.ModifiedByPrivLock = true;
+                                // Every platform restore contract verifies the original value before
+                                // returning success. A different second observation is therefore a
+                                // post-restore external change (or disappearance), never permission to
+                                // overwrite the protected value again.
+                                resource.JournalState = PrivacyResourceJournalState.Conflict;
+                                resource.ModifiedByPrivLock = false;
                                 resource.OwnershipUncertain = false;
+                                resource.LastError = verification.ErrorMessage ??
+                                    $"State changed or became unavailable after a verified restoration ({verification.Kind}); PrivLock ownership was relinquished.";
+                                conflictCount++;
                             }
-                            resource.LastError = restoreResult.ErrorMessage;
-                            failedCount++;
                             break;
                         }
-
-                        var verification = await _platform.ObserveAsync(resource, CancellationToken.None);
-                        if (verification.Kind == PrivacyResourceObservationKind.MatchesOriginal)
-                        {
-                            resource.JournalState = PrivacyResourceJournalState.Restored;
-                            resource.ModifiedByPrivLock = false;
-                            resource.OwnershipUncertain = false;
-                            resource.LastError = null;
-                            restoredCount++;
-                        }
-                        else
-                        {
-                            // Every platform restore contract verifies the original value before
-                            // returning success. A different second observation is therefore a
-                            // post-restore external change (or disappearance), never permission to
-                            // overwrite the protected value again.
-                            resource.JournalState = PrivacyResourceJournalState.Conflict;
-                            resource.ModifiedByPrivLock = false;
-                            resource.OwnershipUncertain = false;
-                            resource.LastError = verification.ErrorMessage ??
-                                $"State changed or became unavailable after a verified restoration ({verification.Kind}); PrivLock ownership was relinquished.";
-                            conflictCount++;
-                        }
-                        break;
-                    }
 
                     case PrivacyResourceObservationKind.Missing:
                         resource.JournalState = PrivacyResourceJournalState.Missing;
@@ -1141,7 +1166,7 @@ public sealed class PrivacySessionService
             }
 
             RecalculateSessionStatus(session);
-            _sessionStore.Save(session);
+            SaveSession(session);
 
             var completeForScope = missingCount == 0 && failedCount == 0;
             Log.Information(
@@ -1319,7 +1344,7 @@ public sealed class PrivacySessionService
     private void PersistResourceProgress(PrivacySession session, PrivacyResourceState resource)
     {
         SetMonotonicProgressTimestamp(session, resource);
-        _sessionStore.Save(session);
+        SaveSession(session);
     }
 
     private static void SetMonotonicProgressTimestamp(
@@ -1368,7 +1393,7 @@ public sealed class PrivacySessionService
             session.CreatedAtUtc,
             session.UpdatedAtUtc,
             session.Resources.Select(resource => resource.LastUpdatedAtUtc).DefaultIfEmpty().Max());
-        _sessionStore.Save(session);
+        SaveSession(session);
     }
 
     private static IEnumerable<PrivacyResourceState> SelectResources(

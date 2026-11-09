@@ -13,7 +13,7 @@ public sealed class StorageMigrationHelperTests : IDisposable
     {
         _testRoot = Path.Combine(Path.GetTempPath(), $"PrivGvard_MigrationTests_{Guid.NewGuid():N}");
         _legacyDir = Path.Combine(_testRoot, "PrivLock");
-        _targetDir = Path.Combine(_testRoot, "PrivGvard");
+        _targetDir = Path.Combine(_testRoot, "PrivGuard");
     }
 
     [Fact]
@@ -65,6 +65,23 @@ public sealed class StorageMigrationHelperTests : IDisposable
         StorageMigrationHelper.MigrateDirectory(_targetDir, _legacyDir);
 
         Assert.Equal("{\"language\":\"en\"}", File.ReadAllText(targetState));
+    }
+
+
+    [Fact]
+    public void MigrateDirectory_BothGvardAndLegacyExist_PrioritizesGvardWithoutOverwrite()
+    {
+        var gvardDir = Path.Combine(_testRoot, "PrivGvard");
+        Directory.CreateDirectory(gvardDir);
+        File.WriteAllText(Path.Combine(gvardDir, "state.json"), "{\"source\":\"gvard\"}");
+
+        Directory.CreateDirectory(_legacyDir);
+        File.WriteAllText(Path.Combine(_legacyDir, "state.json"), "{\"source\":\"legacy\"}");
+
+        StorageMigrationHelper.MigrateDirectory(_targetDir, gvardDir);
+        StorageMigrationHelper.MigrateDirectory(_targetDir, _legacyDir);
+
+        Assert.Equal("{\"source\":\"gvard\"}", File.ReadAllText(Path.Combine(_targetDir, "state.json")));
     }
 
     public void Dispose()

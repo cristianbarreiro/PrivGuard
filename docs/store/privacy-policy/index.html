@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrivGuard — Privacy Policy / Política de Privacidad</title>
+  <meta name="description" content="Official Privacy Policy for PrivGuard Store Edition (cdevstudios.PrivGuard). Pure local privacy management with zero network transmission.">
+  <style>
+    :root {
+      --bg: #0f141c;
+      --card-bg: #18202c;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --border: #334155;
+      --code-bg: #090d14;
+      --table-header: #1e293b;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text: #0f172a;
+        --text-muted: #475569;
+        --accent: #0284c7;
+        --border: #cbd5e1;
+        --code-bg: #f1f5f9;
+        --table-header: #e2e8f0;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .meta {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+    .nav-lang {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+    .nav-lang a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+    }
+    .nav-lang a:hover {
+      background-color: var(--accent);
+      color: var(--bg);
+    }
+    article {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-bottom: 3rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.3rem;
+      color: var(--accent);
+    }
+    h3 {
+      font-size: 1.2rem;
+      margin-top: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+    p, ul, ol {
+      margin-bottom: 1rem;
+    }
+    ul, ol {
+      padding-left: 1.5rem;
+    }
+    li {
+      margin-bottom: 0.4rem;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+      background: var(--code-bg);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+      border: 1px solid var(--border);
+    }
+    .table-container {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+    th, td {
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      background-color: var(--table-header);
+      font-weight: 600;
+    }
+    .callout {
+      background-color: var(--code-bg);
+      border-left: 4px solid var(--accent);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0 4px 4px 0;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    a {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PrivGuard</h1>
+      <p class="meta">Privacy Policy &bull; Política de Privacidad (Store Edition)</p>
+      <p class="meta">Version 2.0 &bull; November / Noviembre 2026 &bull; Publisher: cdev studios</p>
+      <div class="nav-lang">
+        <a href="#english">English Version</a>
+        <a href="#espanol">Versión en Español</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ENGLISH SECTION -->
+      <article id="english">
+        <h2>English Version (en-us)</h2>
+        <div class="callout">
+          <strong>Core Privacy Commitment:</strong> PrivGuard is an offline, local-first privacy utility for Windows 10 and 11. 
+          <strong>PrivGuard does not transmit data over the network, does not collect personal identity information, does not record audio or video streams, and contains zero third-party analytics or telemetry SDKs.</strong>
+        </div>
+
+        <h3>1. Audio & Video Processing Boundaries</h3>
+        <ul>
+          <li><strong>Zero Audio Recording:</strong> PrivGuard interacts solely with Windows Core Audio APIs (<code>IAudioEndpointVolume</code> via WASAPI) to query and toggle the master software mute switch on active recording endpoints. PrivGuard never reads audio buffer samples, never listens, and never records conversations.</li>
+          <li><strong>Software Mute Limitations:</strong> The muting applied by PrivGuard is software-level at the Windows audio endpoint. Specific hardware drivers or applications running in exclusive stream mode may bypass Windows endpoint muting. PrivGuard is not a physical hardware disconnect switch.</li>
+          <li><strong>Zero Camera Frame Access:</strong> PrivGuard Store Edition does not access, intercept, or render camera video frames. For camera privacy, the application provides a direct shortcut to Windows native Camera Privacy Settings (<code>ms-settings:privacy-webcam</code>).</li>
+          <li><strong>Not Antivirus or Anti-Spyware:</strong> PrivGuard is a user-controlled privacy management tool, not an antivirus, anti-spyware, or threat detection engine.</li>
+        </ul>
+
+        <h3>2. Network Transmission & Telemetry Audit</h3>
+        <ul>
+          <li><strong>Zero Network Transmission:</strong> PrivGuard initiates zero HTTP/HTTPS requests, opens zero network sockets, and declares zero network capabilities in its package manifest (<code>internetClient</code> is absent).</li>
+          <li><strong>Zero Remote Telemetry:</strong> PrivGuard does not integrate analytics frameworks, cloud crash collectors (such as Sentry or AppCenter), or tracking pixels.</li>
+          <li><strong>Distribution:</strong> Updates are distributed exclusively through the Microsoft Store client. PrivGuard performs no independent remote update queries.</li>
+        </ul>
+
+        <h3>3. Local Operational Data Inventory</h3>
+        <p>PrivGuard persists limited operational data strictly within your local Windows user profile directory (<code>%LOCALAPPDATA%\PrivGuard\Store\</code>):</p>
+        
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Artifact</th>
+                <th>Relative Path</th>
+                <th>Stored Fields</th>
+                <th>Purpose</th>
+                <th>Retention</th>
+                <th>Leaves PC?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Preferences State</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\state.json</code></td>
+                <td>Requested mute states (<code>microphoneStandard</code>, <code>cameraStandard</code>), UI language preference (<code>language</code>: en/es), autostart flag (<code>autostart</code>), advanced protection flag (<code>advancedProtectionEnabled</code>).</td>
+                <td>Preserves user configuration across application launches.</td>
+                <td>Retained until changed by the user or manually deleted.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Session Journal (WAL)</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\Recovery\privacy-session-v1.json</code></td>
+                <td>Session ID, timestamps, owner PID, active flag, recovery status, and audio endpoint state (endpoint ID, previous mute state, protected mute state, retry count, last error).</td>
+                <td>Write-ahead recovery log ensuring previous audio mute states can be safely restored upon exit or recovery.</td>
+                <td>Retained while resources are protected; updated during execution.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Coordination Latch</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\cross-edition-latch.json</code></td>
+                <td>Descriptor version, owner edition, user SID, process ID, start timestamp, session GUID, heartbeat timestamp.</td>
+                <td>Prevents concurrent conflicts between Store and Standalone editions on the same machine.</td>
+                <td>Removed on clean application exit; inspected during startup.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Diagnostic Logs</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\Logs\PrivGvard-*.log</code></td>
+                <td>Technical timestamp, log severity, process ID, thread ID, component source, event message, and exceptions; startup header logs OS description, CPU architecture, .NET runtime version, and log directory.</td>
+                <td>Local troubleshooting of audio endpoint enumeration or state issues.</td>
+                <td>Daily rolling files retained up to <strong>7 days</strong> with a 10 MB per-file limit.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Crash Reports</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\CrashReports\crash-*.json</code></td>
+                <td>Timestamp, source context, exception type, message, stack trace, inner exception, and process environment metadata.</td>
+                <td>Diagnostic dumps for unhandled software faults.</td>
+                <td>Retained locally until inspected or deleted by the user.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4. Data Retention & Uninstallation Guide</h3>
+        <p>Because PrivGuard Store Edition stores its files in <code>%LOCALAPPDATA%\PrivGuard\Store\</code> rather than the Windows-managed package family folder, the standard Windows MSIX uninstaller may not automatically delete this custom directory.</p>
+        <p><strong>To completely remove all local data:</strong></p>
+        <ol>
+          <li>Open PrivGuard and ensure the microphone is <strong>unmuted</strong> if you wish to restore default Windows audio behavior.</li>
+          <li>Right-click the PrivGuard System Tray icon and select <strong>Exit</strong> to close the recovery journal cleanly.</li>
+          <li>Uninstall PrivGuard via Windows Settings (<em>Settings &gt; Apps &gt; Installed apps &gt; PrivGuard &gt; Uninstall</em>).</li>
+          <li>Press <code>Win + R</code>, paste <code>%LOCALAPPDATA%\PrivGuard\Store</code>, press Enter, and delete the folder.</li>
+        </ol>
+
+        <h3>5. Contact & Support</h3>
+        <p>For questions regarding this privacy policy or technical assistance, visit the official open-source issue tracker:</p>
+        <p><a href="https://github.com/cristianbarreiro/PrivGuard/issues" target="_blank" rel="noopener noreferrer">https://github.com/cristianbarreiro/PrivGuard/issues</a></p>
+        <p><em>Publisher: cdev studios (Subject to final owner authorization).</em></p>
+      </article>
+
+      <!-- SPANISH SECTION -->
+      <article id="espanol">
+        <h2>Versión en Español (es-es)</h2>
+        <div class="callout">
+          <strong>Compromiso Fundamental de Privacidad:</strong> PrivGuard es una utilidad de escritorio local y desconectada para Windows 10 y 11.
+          <strong>PrivGuard no transmite datos por la red, no recopila datos de identidad personal, no graba secuencias de audio ni de video, y no integra herramientas analíticas o de telemetría de terceros.</strong>
+        </div>
+
+        <h3>1. Alcance y Límites de Procesamiento de Audio y Video</h3>
+        <ul>
+          <li><strong>Cero Grabación de Audio:</strong> PrivGuard interactúa exclusivamente con la API de Windows Core Audio (<code>IAudioEndpointVolume</code> mediante WASAPI) para consultar y conmutar el silenciado maestro por software de los dispositivos de entrada. Jamás lee muestras de audio ni graba conversaciones.</li>
+          <li><strong>Límites del Silenciado por Software:</strong> El silenciado opera a nivel de software en Windows. Ciertos controladores especializados o aplicaciones en modo exclusivo pueden eludir este silenciado. PrivGuard no es un interruptor físico de corte de hardware.</li>
+          <li><strong>Cero Acceso a la Cámara:</strong> PrivGuard Store Edition no accede, intercepta ni procesa imágenes de la cámara. Proporciona un enlace directo a la configuración nativa de Windows (<code>ms-settings:privacy-webcam</code>).</li>
+          <li><strong>No es Antivirus ni Anti-Spyware:</strong> PrivGuard es una herramienta de gestión de privacidad, no un antivirus ni un motor de detección de amenazas.</li>
+        </ul>
+
+        <h3>2. Auditoría de Red y Telemetría</h3>
+        <ul>
+          <li><strong>Cero Transmisión de Red:</strong> No efectúa peticiones HTTP/HTTPS, no abre sockets y su manifiesto de paquete carece de capacidades de red (<code>internetClient</code> no está presente).</li>
+          <li><strong>Cero Telemetría Remota:</strong> No incluye SDKs de análisis, servicios de reporte de caídas en la nube ni módulos publicitarios.</li>
+          <li><strong>Distribución:</strong> Las actualizaciones se gestionan exclusivamente a través del cliente de Microsoft Store sin comprobaciones remotas independientes.</li>
+        </ul>
+
+        <h3>3. Inventario de Datos Operativos Locales</h3>
+        <p>PrivGuard almacena datos técnicos y de preferencia estrictamente dentro del directorio de perfil del usuario (<code>%LOCALAPPDATA%\PrivGuard\Store\</code>):</p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Artefacto</th>
+                <th>Ruta Relativa</th>
+                <th>Campos Almacenados</th>
+                <th>Finalidad</th>
+                <th>Retención</th>
+                <th>¿Sale del PC?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Estado y Preferencias</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\state.json</code></td>
+                <td>Estados solicitados (<code>microphoneStandard</code>, <code>cameraStandard</code>), idioma (<code>language</code>: es/en), autostart (<code>autostart</code>), protección avanzada (<code>advancedProtectionEnabled</code>).</td>
+                <td>Mantiene las preferencias del usuario entre sesiones.</td>
+                <td>Hasta que el usuario lo cambie o borre la carpeta.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Diario de Sesión (WAL)</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\Recovery\privacy-session-v1.json</code></td>
+                <td>ID de sesión, marcas de tiempo, PID, estado de recuperación y estado de audio (ID de endpoint, silenciado previo, silenciado protegido, reintentos, último error).</td>
+                <td>Registro de recuperación duradera para restaurar fielmente el audio al cerrar o ante fallos.</td>
+                <td>Se conserva mientras existan recursos protegidos; se actualiza en ejecución.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Descriptor de Coordinación</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\cross-edition-latch.json</code></td>
+                <td>Versión, edición titular, SID de usuario, PID, fecha de inicio, GUID de sesión, latido de actividad.</td>
+                <td>Evita conflictos entre las ediciones Store y Standalone en un mismo equipo.</td>
+                <td>Se elimina al salir limpiamente; se comprueba al arrancar.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Registros Locales (Logs)</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\Logs\PrivGvard-*.log</code></td>
+                <td>Timestamp, nivel, PID, hilo, componente, mensaje y excepciones; cabecera inicial con versión de SO, arquitectura, .NET y ruta de logs.</td>
+                <td>Diagnóstico técnico local ante problemas de audio o sincronización.</td>
+                <td>Archivos rotativos diarios conservados un máximo de <strong>7 días</strong> con límite de 10 MB por archivo.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Reportes de Caída</strong></td>
+                <td><code>%LOCALAPPDATA%\PrivGuard\Store\CrashReports\crash-*.json</code></td>
+                <td>Timestamp, contexto, tipo de excepción, mensaje, traza de pila, excepción interna y metadatos del entorno.</td>
+                <td>Diagnóstico ante excepciones no controladas.</td>
+                <td>Se conservan en local hasta su eliminación manual.</td>
+                <td><strong>No.</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4. Retención y Desinstalación Limpia</h3>
+        <p>Al utilizar <code>%LOCALAPPDATA%\PrivGuard\Store\</code> y no la carpeta gestionada por el sandbox de Windows, el desinstalador de MSIX podría no borrar automáticamente esta carpeta personalizada.</p>
+        <p><strong>Pasos para la eliminación total de datos:</strong></p>
+        <ol>
+          <li>Abre PrivGuard y asegúrate de que el micrófono esté <strong>desilenciado</strong> si deseas dejar el audio en su estado habitual.</li>
+          <li>Haz clic derecho en el icono de PrivGuard en la bandeja del sistema y selecciona <strong>Salir</strong> para cerrar el diario de recuperación.</li>
+          <li>Desinstala la app desde Configuración de Windows (<em>Configuración &gt; Aplicaciones &gt; Aplicaciones instaladas &gt; PrivGuard &gt; Desinstalar</em>).</li>
+          <li>Pulsa <code>Win + R</code>, introduce <code>%LOCALAPPDATA%\PrivGuard\Store</code>, pulsa Enter y elimina la carpeta.</li>
+        </ol>
+
+        <h3>5. Contacto y Soporte</h3>
+        <p>Para consultas sobre privacidad o incidencias técnicas, accede al canal público de soporte:</p>
+        <p><a href="https://github.com/cristianbarreiro/PrivGuard/issues" target="_blank" rel="noopener noreferrer">https://github.com/cristianbarreiro/PrivGuard/issues</a></p>
+        <p><em>Publicador: cdev studios (Sujeto a la autorización final del propietario).</em></p>
+      </article>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 cdev studios &bull; PrivGuard Store Edition &bull; Licensed under GNU GPL-3.0</p>
+    </footer>
+  </div>
+</body>
+</html>

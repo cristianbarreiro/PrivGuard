@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using PrivLock.Infrastructure.Common.Storage;
 using Serilog;
 
 namespace PrivLock.Infrastructure.Common.Logging;
@@ -14,6 +15,13 @@ public static class CrashReporter
     private static readonly ILogger Log = Serilog.Log.ForContext(typeof(CrashReporter));
     private static readonly object FileLock = new();
     private static int _fileOutputSuppressed;
+    private static string? _configuredDefaultDirectory;
+
+    public static void ConfigureDefaultDirectory(string crashReportsDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(crashReportsDirectory);
+        _configuredDefaultDirectory = Path.GetFullPath(crashReportsDirectory);
+    }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -43,9 +51,8 @@ public static class CrashReporter
         {
             try
             {
-                var crashDir = customCrashDir ?? Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "PrivGvard", "CrashReports");
+                var crashDir = customCrashDir ?? _configuredDefaultDirectory ?? Path.Combine(
+                    StorageMigrationHelper.GetDefaultDataDirectory(), "CrashReports");
 
                 Directory.CreateDirectory(crashDir);
 

@@ -1,4 +1,4 @@
-using Moq;
+﻿using Moq;
 using PrivLock.Application.Services;
 using PrivLock.Platform.Abstractions;
 using Xunit;
@@ -50,7 +50,7 @@ public class LocalizationServiceTests
         Assert.Equal("es", _service.CurrentLanguage);
         Assert.Equal("Sin protección", _service.GetString("BadgeUnprotected"));
         Assert.Equal("Usuario estándar", _service.GetString("UserStandard"));
-        Assert.Equal("Abrir PrivGvard", _service.GetString("TrayOpen"));
+        Assert.Equal("Abrir PrivGuard", _service.GetString("TrayOpen"));
         Assert.Equal("Salir", _service.GetString("TrayExit"));
 
         // Switch ES -> EN
@@ -58,7 +58,7 @@ public class LocalizationServiceTests
         Assert.Equal("en", _service.CurrentLanguage);
         Assert.Equal("Unprotected", _service.GetString("BadgeUnprotected"));
         Assert.Equal("Standard User", _service.GetString("UserStandard"));
-        Assert.Equal("Open PrivGvard", _service.GetString("TrayOpen"));
+        Assert.Equal("Open PrivGuard", _service.GetString("TrayOpen"));
         Assert.Equal("Exit", _service.GetString("TrayExit"));
 
         // Switch EN -> ES
@@ -66,7 +66,7 @@ public class LocalizationServiceTests
         Assert.Equal("es", _service.CurrentLanguage);
         Assert.Equal("Sin protección", _service.GetString("BadgeUnprotected"));
         Assert.Equal("Usuario estándar", _service.GetString("UserStandard"));
-        Assert.Equal("Abrir PrivGvard", _service.GetString("TrayOpen"));
+        Assert.Equal("Abrir PrivGuard", _service.GetString("TrayOpen"));
         Assert.Equal("Salir", _service.GetString("TrayExit"));
 
         Assert.Equal(new[] { "en", "es" }, languageHistory);

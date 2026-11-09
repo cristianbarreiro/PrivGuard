@@ -3,7 +3,11 @@ using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
+using PrivLock.Domain.Models;
 using PrivLock.Domain.Results;
+using PrivLock.Infrastructure.Common.Storage;
+using PrivLock.Platform.Abstractions;
+using PrivLock.Platform.Windows.System;
 using Serilog;
 
 namespace PrivLock.Platform.Windows.Privileged;
@@ -15,7 +19,9 @@ namespace PrivLock.Platform.Windows.Privileged;
 public sealed class WindowsPrivilegedSession : IDisposable
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<WindowsPrivilegedSession>();
-    private static readonly Lazy<WindowsPrivilegedSession> InstanceLazy = new(() => new());
+    private static readonly object DefaultConfigurationLock = new();
+    private static IEditionProfileResolver? _configuredDefaultProfileResolver;
+    private static WindowsPrivilegedSession? _defaultInstance;
     private static WindowsPrivilegedSession? _testOverrideInstance;
 
     private readonly object _lock = new();
@@ -28,12 +34,103 @@ public sealed class WindowsPrivilegedSession : IDisposable
     private int _elevationLaunchCount;
     private int _deferredScopeDepth;
 
-    internal WindowsPrivilegedSession() { }
+    public WindowsPrivilegedSession(IEditionProfileResolver? profileResolver = null)
+    {
+        ProfileResolver = profileResolver
+            ?? ConfiguredDefaultProfileResolver
+            ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+    }
 
-    public static WindowsPrivilegedSession Instance => _testOverrideInstance ?? InstanceLazy.Value;
+    public static WindowsPrivilegedSession Instance
+    {
+        get
+        {
+            var testOverride = Volatile.Read(ref _testOverrideInstance);
+            if (testOverride != null)
+                return testOverride;
+
+            lock (DefaultConfigurationLock)
+            {
+                if (_defaultInstance == null)
+                {
+                    var resolver = _configuredDefaultProfileResolver
+                        ?? new DefaultEditionProfileResolver(new WindowsPackageIdentityDetector());
+                    _configuredDefaultProfileResolver = resolver;
+                    _defaultInstance = new WindowsPrivilegedSession(resolver);
+                }
+
+                return _defaultInstance;
+            }
+        }
+    }
+
+    internal static IEditionProfileResolver? ConfiguredDefaultProfileResolver
+    {
+        get
+        {
+            lock (DefaultConfigurationLock)
+            {
+                return _configuredDefaultProfileResolver;
+            }
+        }
+    }
+
+    internal static IEditionProfileResolver? ActiveOrConfiguredProfileResolver =>
+        Volatile.Read(ref _testOverrideInstance)?.ProfileResolver ?? ConfiguredDefaultProfileResolver;
+
+    /// <summary>
+    /// Configures the process-wide default edition profile snapshot for the privileged session singleton.
+    /// Write-once: once initialized, attempting to replace the resolver with a different instance throws
+    /// an <see cref="InvalidOperationException"/>.
+    /// </summary>
+    public static void ConfigureDefaultProfileResolver(IEditionProfileResolver profileResolver)
+    {
+        ArgumentNullException.ThrowIfNull(profileResolver);
+        lock (DefaultConfigurationLock)
+        {
+            if (_configuredDefaultProfileResolver != null)
+            {
+                if (ReferenceEquals(_configuredDefaultProfileResolver, profileResolver))
+                    return;
+
+                throw new InvalidOperationException(
+                    "The process-wide privileged session edition profile resolver has already been configured and cannot be replaced.");
+            }
+
+            if (_defaultInstance != null)
+            {
+                if (ReferenceEquals(_defaultInstance.ProfileResolver, profileResolver))
+                {
+                    _configuredDefaultProfileResolver = profileResolver;
+                    return;
+                }
+
+                throw new InvalidOperationException(
+                    "The default privileged session has already been initialized and its edition profile resolver cannot be replaced.");
+            }
+
+            _configuredDefaultProfileResolver = profileResolver;
+            _defaultInstance = new WindowsPrivilegedSession(profileResolver);
+        }
+    }
+
+    internal static void ResetDefaultConfigurationForTesting()
+    {
+        WindowsPrivilegedSession? previousInstance;
+        lock (DefaultConfigurationLock)
+        {
+            previousInstance = _defaultInstance;
+            _defaultInstance = null;
+            _configuredDefaultProfileResolver = null;
+        }
+
+        previousInstance?.Dispose();
+    }
 
     internal static void SetTestOverrideInstance(WindowsPrivilegedSession? testSession) =>
-        _testOverrideInstance = testSession;
+        Volatile.Write(ref _testOverrideInstance, testSession);
+
+    public IEditionProfileResolver ProfileResolver { get; }
 
     internal Func<string, string, Task<OperationResult>>? CustomCommandExecutor { get; set; }
     internal Func<Task>? CustomWorkerLauncher { get; set; }
@@ -74,6 +171,17 @@ public sealed class WindowsPrivilegedSession : IDisposable
 
     public async Task<OperationResult> ExecuteCommandAsync(string command, string argument)
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+        {
+            Log.Warning(
+                "Rejected privileged worker command '{Command}' because EditionProfile is {Profile} (SupportsPrivilegedOperations={SupportsPrivileged}).",
+                command,
+                ProfileResolver.Profile,
+                ProfileResolver.SupportsPrivilegedOperations);
+            return OperationResult.Fail(
+                $"Privileged worker execution is not supported in the {ProfileResolver.Profile} edition profile.");
+        }
+
         if (!IsValidCommand(command, argument))
             return OperationResult.Fail("Invalid elevated command framing.");
 
@@ -180,6 +288,12 @@ public sealed class WindowsPrivilegedSession : IDisposable
 
     private async Task EnsureSessionActiveAsync()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+        {
+            throw new InvalidOperationException(
+                $"Privileged worker session cannot be started in the {ProfileResolver.Profile} edition profile.");
+        }
+
         lock (_lock)
         {
             if (_isElevatedSessionActive &&
@@ -345,6 +459,11 @@ public sealed class WindowsPrivilegedSession : IDisposable
     /// </summary>
     public IDisposable BeginDeferredScope()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+        {
+            return NoOpDisposable.Instance;
+        }
+
         var depth = Interlocked.Increment(ref _deferredScopeDepth);
         Log.Information("Deferred elevation scope entered (depth: {Depth})", depth);
         return new DeferredScopeToken(this);
@@ -380,6 +499,9 @@ public sealed class WindowsPrivilegedSession : IDisposable
     /// </summary>
     public bool ReleaseSession()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+            return true;
+
         if (IsDeferredScopeActive)
         {
             int? pid;
@@ -406,6 +528,9 @@ public sealed class WindowsPrivilegedSession : IDisposable
     /// </summary>
     public bool CloseSession()
     {
+        if (ProfileResolver.Profile != EditionProfile.Standalone || !ProfileResolver.SupportsPrivilegedOperations)
+            return true;
+
         _commandGate.Wait();
         try
         {
@@ -465,6 +590,12 @@ public sealed class WindowsPrivilegedSession : IDisposable
     }
 
     public void Dispose() => CloseSession();
+
+    private sealed class NoOpDisposable : IDisposable
+    {
+        public static readonly NoOpDisposable Instance = new();
+        public void Dispose() { }
+    }
 
     private sealed class DeferredScopeToken : IDisposable
     {

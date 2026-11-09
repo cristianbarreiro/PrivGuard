@@ -79,6 +79,24 @@
                 </Grid>
             </Border>
 
+            <!-- Cross-Edition Supervision Only Banner -->
+            <Border Background="#E65100" CornerRadius="8" Padding="12,8"
+                    IsVisible="{Binding IsSupervisionOnly}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Column="0" Text="⚠️" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding SupervisionMessage}" Foreground="White" FontSize="11" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <!-- Store Mic Active Uninstall Warning Banner -->
+            <Border Background="#37474F" CornerRadius="8" Padding="12,6"
+                    IsVisible="{Binding IsMicActiveStoreWarningVisible}">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Column="0" Text="ℹ️" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding MicActiveStoreWarningMessage}" Foreground="#ECEFF1" FontSize="10" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
             <!-- Platform Diagnostics & Badge Banner -->
             <Border Background="#1F1F22" CornerRadius="8" Padding="12,8" BorderThickness="1" BorderBrush="#2C2C30">
                 <Grid ColumnDefinitions="*,Auto">
@@ -118,7 +136,7 @@
                         <TextBlock Text="{Binding UnifiedSubtitle}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding BothStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding BothStatusColor}" Margin="0,1,0,0" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsBothBlocked}"
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsBothBlocked}" IsEnabled="{Binding IsBothToggleEnabled}"
                                   VerticalAlignment="Center" Margin="10,0,0,0" />
                 </Grid>
 
@@ -132,7 +150,14 @@
                         <TextBlock Text="{Binding CameraSubtitle}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding CameraStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding CameraStatusColor}" Margin="0,1,0,0" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsCameraBlocked}"
+                    <!-- In Store Edition, direct button to Windows Settings -->
+                    <Button Grid.Column="2" IsVisible="{Binding IsStoreEdition}"
+                            Command="{Binding OpenCameraPrivacySettingsCommand}"
+                            Padding="10,6" CornerRadius="6" FontSize="11" Background="#2A2A2E" Foreground="White"
+                            Content="{Binding OpenCameraSettingsButtonText}" />
+                    <!-- In Standalone Edition, normal ToggleSwitch -->
+                    <ToggleSwitch Grid.Column="2" IsVisible="{Binding !IsStoreEdition}"
+                                  IsChecked="{Binding IsCameraBlocked}" IsEnabled="{Binding IsCameraToggleEnabled}"
                                   VerticalAlignment="Center" Margin="10,0,0,0" />
                 </Grid>
 
@@ -145,8 +170,9 @@
                         <TextBlock Text="{Binding MicrophoneTitle}" FontSize="13" FontWeight="Bold" Foreground="White" />
                         <TextBlock Text="{Binding MicrophoneSubtitle}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding MicStatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding MicStatusColor}" Margin="0,1,0,0" />
+                        <TextBlock Text="{Binding MicHardwareCapabilityText}" IsVisible="{Binding HasMicHardwareCapability}" FontSize="10" Foreground="#888888" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsMicBlocked}"
+                    <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsMicBlocked}" IsEnabled="{Binding IsMicToggleEnabled}"
                                   VerticalAlignment="Center" Margin="10,0,0,0" />
                 </Grid>
             </StackPanel>

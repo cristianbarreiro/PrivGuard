@@ -93,7 +93,7 @@ public sealed class LinuxDeviceController
 
         // 1. Try WirePlumber (wpctl)
         var wpSuccess = RunProcess("wpctl", "set-mute @DEFAULT_AUDIO_SOURCE@ 1");
-        
+
         // 2. Try PulseAudio (pactl) as fallback
         var paSuccess = RunProcess("pactl", "set-source-mute @DEFAULT_SOURCE@ 1");
 

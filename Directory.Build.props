@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <Configurations>Debug;Release;Release-Store</Configurations>
     <Version>2.0.0</Version>
     <PackageVersion>2.0.0.0</PackageVersion>
     <AssemblyVersion>2.0.0.0</AssemblyVersion>
@@ -9,4 +10,17 @@
     <Company>cdev Studio</Company>
     <Copyright>Copyright (C) 2026 cdev Studio. All rights reserved.</Copyright>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release-Store'">
+    <Optimize>true</Optimize>
+    <DefineConstants>$(DefineConstants);RELEASE;STORE_EDITION</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release-Store' or $([System.String]::Copy('$(DefineConstants)').Contains('STORE_EDITION'))">
+    <AssemblyMetadata Include="PrivGuardEditionTarget" Value="Store" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Release-Store' and !$([System.String]::Copy('$(DefineConstants)').Contains('STORE_EDITION'))">
+    <AssemblyMetadata Include="PrivGuardEditionTarget" Value="Standalone" />
+  </ItemGroup>
 </Project>

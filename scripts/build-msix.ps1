@@ -13,13 +13,13 @@
     Target architecture: 'x64' (default), 'arm64', or 'all' (builds both and creates a bundle).
 
 .PARAMETER Configuration
-    Build configuration: 'Release' (default) or 'Debug'.
+    Build configuration: 'Release' (default), 'Release-Store' (default when -ValidateStoreIdentity is specified), or 'Debug'.
 
 .PARAMETER PackageVersion
     Four-part version (Major.Minor.Build.Revision). Defaults to reading PackageVersion from Directory.Build.props.
 
 .PARAMETER PackageName
-    Package identity name. If omitted, defaults to Identity/Name in packaging/Package.appxmanifest (cdevstudios.PrivGvard).
+    Package identity name. If omitted, defaults to Identity/Name in packaging/Package.appxmanifest (cdevstudios.PrivGuard).
 
 .PARAMETER Publisher
     Publisher distinguished name (e.g. "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD" or a local dev certificate subject).
@@ -31,7 +31,7 @@
 
 .PARAMETER ValidateStoreIdentity
     Switch to strictly validate that the package identity matches Microsoft Store Partner Center requirements:
-    Name="cdevstudios.PrivGvard", Publisher="CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD", PublisherDisplayName="cdev studios".
+    Name="cdevstudios.PrivGuard", Publisher="CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD", PublisherDisplayName="cdev studios".
     Packaging fails immediately if any value differs.
 
 .PARAMETER CreateBundle
@@ -61,7 +61,7 @@
 
 .EXAMPLE
     .\scripts\build-msix.ps1 -Architecture x64 -ValidateStoreIdentity
-    Builds a Release x64 MSIX package and validates Store identity compliance.
+    Builds a Release-Store x64 MSIX package and validates Store identity compliance.
 
 .EXAMPLE
     .\scripts\build-msix.ps1 -Architecture all -CreateBundle -ValidateStoreIdentity
@@ -76,7 +76,7 @@ param (
     [ValidateSet("x64", "arm64", "all")]
     [string]$Architecture = "x64",
 
-    [ValidateSet("Release", "Debug")]
+    [ValidateSet("Release", "Release-Store", "Debug")]
     [string]$Configuration = "Release",
 
     [string]$PackageVersion,
@@ -102,6 +102,10 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($ValidateStoreIdentity -and -not $PSBoundParameters.ContainsKey("Configuration")) {
+    $Configuration = "Release-Store"
+}
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -142,7 +146,7 @@ if ([string]::IsNullOrWhiteSpace($PublisherDisplayName)) {
 }
 
 # Canonical Microsoft Store Partner Center identity constants
-$StoreRequiredName = "cdevstudios.PrivGvard"
+$StoreRequiredName = "cdevstudios.PrivGuard"
 $StoreRequiredPublisher = "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD"
 $StoreRequiredPublisherDisplayName = "cdev studios"
 
@@ -171,9 +175,12 @@ if ($ValidateStoreIdentity) {
 if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
     if (Test-Path -LiteralPath $PropsPath) {
         $propsXml = [xml](Get-Content -LiteralPath $PropsPath -Raw)
-        $PackageVersion = $propsXml.Project.PropertyGroup.PackageVersion
+        $PackageVersion = $propsXml.Project.PropertyGroup.PackageVersion | Where-Object { $_ } | Select-Object -First 1
         if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
-            $PackageVersion = $propsXml.Project.PropertyGroup.Version + ".0"
+            $ver = $propsXml.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+            if ($ver) {
+                $PackageVersion = "$ver.0"
+            }
         }
     }
     if ([string]::IsNullOrWhiteSpace($PackageVersion)) {
@@ -331,12 +338,45 @@ function Test-MsixPackageArchive {
         }
 
         if ($EnforceStore) {
-            if ($actualName -ne "cdevstudios.PrivGvard" -or
+            if ($actualName -ne "cdevstudios.PrivGuard" -or
                 $actualPublisher -ne "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD" -or
                 $actualPublisherDisplayName -ne "cdev studios") {
                 throw "Package verification failed in ${PackagePath} - Package does not meet Store requirements."
             }
         }
+
+        # 2b. Verify D-01 Store Capability Profile (runFullTrust only; forbid allowElevation & unvirtualizedResources)
+        Add-Type -AssemblyName System.Xml.Linq
+        [System.Xml.Linq.XDocument]$xDoc = [System.Xml.Linq.XDocument]::Parse($manifestContent)
+        $manifestNs = [System.Xml.Linq.XNamespace]::Get("http://schemas.microsoft.com/appx/manifest/foundation/windows10")
+        $rescapNs = [System.Xml.Linq.XNamespace]::Get("http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities")
+
+        $forbiddenElevation = @($xDoc.Descendants() | Where-Object { $_.Name.Namespace -eq $rescapNs -and ($a = $_.Attribute("Name")) -and $a.Value -eq "allowElevation" })
+        if ($forbiddenElevation.Count -gt 0) {
+            throw "Package verification failed in ${PackagePath} - Forbidden capability 'allowElevation' is present in AppxManifest.xml (violates D-01)."
+        }
+
+        $forbiddenUnvirtualized = @($xDoc.Descendants() | Where-Object { $_.Name.Namespace -eq $rescapNs -and ($a = $_.Attribute("Name")) -and $a.Value -eq "unvirtualizedResources" })
+        if ($forbiddenUnvirtualized.Count -gt 0) {
+            throw "Package verification failed in ${PackagePath} - Forbidden capability 'unvirtualizedResources' is present in AppxManifest.xml (violates D-01)."
+        }
+
+        $capabilitiesNode = $xDoc.Root.Element($manifestNs + "Capabilities")
+        if (-not $capabilitiesNode) {
+            throw "Package verification failed in ${PackagePath} - <Capabilities> node is missing from AppxManifest.xml."
+        }
+
+        $rescapElements = @($capabilitiesNode.Elements() | Where-Object { $_.Name.Namespace -eq $rescapNs })
+        $hasRunFullTrust = $rescapElements | Where-Object { $_.Name.LocalName -eq "Capability" -and ($a = $_.Attribute("Name")) -and $a.Value -eq "runFullTrust" }
+        if (-not $hasRunFullTrust) {
+            throw "Package verification failed in ${PackagePath} - Required restricted capability 'runFullTrust' is missing from AppxManifest.xml."
+        }
+
+        if ($rescapElements.Count -ne 1) {
+            $declaredNames = ($rescapElements | ForEach-Object { $a = $_.Attribute("Name"); if ($a) { $a.Value } else { $_.Name.LocalName } }) -join ", "
+            throw "Package verification failed in ${PackagePath} - Expected exactly 1 restricted capability (runFullTrust), found $($rescapElements.Count): [$declaredNames]."
+        }
+        Write-Host "   Capabilities (D-01):             runFullTrust (sole capability verified)" -ForegroundColor DarkGray
 
         # 3. Check PrivGvard.exe presence
         if (-not $entryNames.Contains("PrivGvard.exe")) {
@@ -378,7 +418,7 @@ function Test-MsixPackageArchive {
                 throw "Package verification failed in ${PackagePath} - Referenced asset '$asset' (normalized: '$normalized') was not found in package entries."
             }
         }
-        Write-Host "   Verification: PASS (Identity, Version, Architecture, Executable, PRI & $($referencedAssets.Count) Visual Assets)" -ForegroundColor Green
+        Write-Host "   Verification: PASS (Identity, Version, Architecture, D-01 Capabilities, Executable, PRI & $($referencedAssets.Count) Visual Assets)" -ForegroundColor Green
     }
     finally {
         $zip.Dispose()
@@ -445,7 +485,7 @@ function Test-MsixBundleArchive {
                 -ExpectedArch $pkgArch `
                 -ExpectedVersion $ExpectedVersion `
                 -ExpectedName $ExpectedName `
-                -ExpectedPublisher $ExpectedPublisher `
+                -ExpectedPublisher $Publisher `
                 -ExpectedPublisherDisplayName $ExpectedPublisherDisplayName `
                 -EnforceStore $EnforceStore
         }
@@ -482,6 +522,10 @@ foreach ($arch in $architecturesToBuild) {
         "-p:PublishSingleFile=false",
         "-o", $stagingDir
     )
+
+    if ($Configuration -eq "Release-Store" -or $ValidateStoreIdentity) {
+        $publishArgs += "-p:DefineConstants=STORE_EDITION"
+    }
 
     Write-Host "dotnet $($publishArgs -join ' ')" -ForegroundColor DarkGray
     & dotnet @publishArgs
@@ -538,7 +582,8 @@ foreach ($arch in $architecturesToBuild) {
 
     # Pack MSIX
     Write-Host "`n [3/3] Packaging MSIX container for $arch..." -ForegroundColor Yellow
-    $packageFileName = "PrivGvard-$PackageVersion-$arch.msix"
+    $productShortName = if ($PackageName -match "cdevstudios\.(.+)") { $Matches[1] } else { $PackageName }
+    $packageFileName = "$productShortName-$PackageVersion-$arch.msix"
     $packageFilePath = Join-Path $OutputDir $packageFileName
 
     if (Test-Path -LiteralPath $packageFilePath) {
@@ -584,7 +629,7 @@ if ($CreateBundle -and $builtPackages.Count -gt 0) {
         Copy-Item -LiteralPath $pkg -Destination $bundleStagingDir -Force
     }
 
-    $bundleFileName = "PrivGvard-$PackageVersion.msixbundle"
+    $bundleFileName = "$productShortName-$PackageVersion.msixbundle"
     $bundleFilePath = Join-Path $OutputDir $bundleFileName
 
     if (Test-Path -LiteralPath $bundleFilePath) {

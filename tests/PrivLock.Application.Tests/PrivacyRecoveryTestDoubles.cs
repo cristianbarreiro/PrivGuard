@@ -284,24 +284,24 @@ internal static class PrivacyRecoveryTestData
         ProtectionLayer layer = ProtectionLayer.Standard,
         BlockTarget target = BlockTarget.Camera,
         bool safelyRestorable = true) => new()
-    {
-        ResourceId = $"device:{id}",
-        OperationId = "Op-Test",
-        Layer = layer,
-        Target = target,
-        CapturedAtUtc = CapturedAt,
-        LastUpdatedAtUtc = CapturedAt,
-        JournalState = journalState,
-        ModifiedByPrivLock = modifiedByPrivLock,
-        InstanceId = id,
-        FriendlyName = id,
-        DeviceClass = target == BlockTarget.Camera ? "Camera" : "AudioEndpoint",
-        IsPresentAtCapture = true,
-        OriginalEnabledState = originalEnabled,
-        OriginalProblemCode = originalEnabled ? 0u : 22u,
-        ProtectedEnabledState = protectedEnabled,
-        IsSafelyRestorable = safelyRestorable
-    };
+        {
+            ResourceId = $"device:{id}",
+            OperationId = "Op-Test",
+            Layer = layer,
+            Target = target,
+            CapturedAtUtc = CapturedAt,
+            LastUpdatedAtUtc = CapturedAt,
+            JournalState = journalState,
+            ModifiedByPrivLock = modifiedByPrivLock,
+            InstanceId = id,
+            FriendlyName = id,
+            DeviceClass = target == BlockTarget.Camera ? "Camera" : "AudioEndpoint",
+            IsPresentAtCapture = true,
+            OriginalEnabledState = originalEnabled,
+            OriginalProblemCode = originalEnabled ? 0u : 22u,
+            ProtectedEnabledState = protectedEnabled,
+            IsSafelyRestorable = safelyRestorable
+        };
 
     public static OriginalPolicyState Policy(
         string id,
@@ -311,45 +311,45 @@ internal static class PrivacyRecoveryTestData
         PrivacyResourceJournalState journalState = PrivacyResourceJournalState.Applied,
         ProtectionLayer layer = ProtectionLayer.Secure,
         BlockTarget target = BlockTarget.Camera) => new()
-    {
-        ResourceId = $"registry:{id}",
-        OperationId = "Op-Test",
-        Layer = layer,
-        Target = target,
-        CapturedAtUtc = CapturedAt,
-        LastUpdatedAtUtc = CapturedAt,
-        JournalState = journalState,
-        ModifiedByPrivLock = true,
-        RegistryHive = layer == ProtectionLayer.Secure
+        {
+            ResourceId = $"registry:{id}",
+            OperationId = "Op-Test",
+            Layer = layer,
+            Target = target,
+            CapturedAtUtc = CapturedAt,
+            LastUpdatedAtUtc = CapturedAt,
+            JournalState = journalState,
+            ModifiedByPrivLock = true,
+            RegistryHive = layer == ProtectionLayer.Secure
             ? PrivacyRegistryHive.LocalMachine
             : PrivacyRegistryHive.CurrentUser,
-        RegistryView = PrivacyRegistryView.Default,
-        RegistryPath = $@"Software\PrivLock.Tests\{id}",
-        ValueName = "PrivacyValue",
-        ValueExisted = valueExisted,
-        OriginalValueKind = valueExisted ? originalKind : PrivacyRegistryValueKind.None,
-        OriginalValue = valueExisted ? originalValue : null,
-        ProtectedValueExists = true,
-        ProtectedValueKind = PrivacyRegistryValueKind.DWord,
-        ProtectedValue = "2"
-    };
+            RegistryView = PrivacyRegistryView.Default,
+            RegistryPath = $@"Software\PrivLock.Tests\{id}",
+            ValueName = "PrivacyValue",
+            ValueExisted = valueExisted,
+            OriginalValueKind = valueExisted ? originalKind : PrivacyRegistryValueKind.None,
+            OriginalValue = valueExisted ? originalValue : null,
+            ProtectedValueExists = true,
+            ProtectedValueKind = PrivacyRegistryValueKind.DWord,
+            ProtectedValue = "2"
+        };
 
     public static OriginalAudioEndpointState AudioEndpoint(
         string id,
         PrivacyResourceJournalState journalState = PrivacyResourceJournalState.Applied) => new()
-    {
-        ResourceId = $"audio-mute:{id}",
-        OperationId = "Op-Test",
-        Layer = ProtectionLayer.Standard,
-        Target = BlockTarget.Microphone,
-        CapturedAtUtc = CapturedAt,
-        LastUpdatedAtUtc = CapturedAt,
-        JournalState = journalState,
-        ModifiedByPrivLock = true,
-        EndpointId = id,
-        OriginalMutedState = false,
-        ProtectedMutedState = true
-    };
+        {
+            ResourceId = $"audio-mute:{id}",
+            OperationId = "Op-Test",
+            Layer = ProtectionLayer.Standard,
+            Target = BlockTarget.Microphone,
+            CapturedAtUtc = CapturedAt,
+            LastUpdatedAtUtc = CapturedAt,
+            JournalState = journalState,
+            ModifiedByPrivLock = true,
+            EndpointId = id,
+            OriginalMutedState = false,
+            ProtectedMutedState = true
+        };
 
     public static PrivacySession ActiveSession(params PrivacyResourceState[] resources) => new()
     {
@@ -469,6 +469,8 @@ internal sealed class RecoveryHostDependencies :
     public Action? BeforeStandardEnableReturn { get; set; }
     public int StandardEnableCalls { get; private set; }
     public int StandardDisableCalls { get; private set; }
+    public int SecureEnableCalls { get; private set; }
+    public int SecureDisableCalls { get; private set; }
 
     public FullProtectionState CurrentProtectionState { get; set; } = new()
     {
@@ -476,13 +478,19 @@ internal sealed class RecoveryHostDependencies :
         {
             Target = BlockTarget.Camera,
             StandardState = StandardProtectionState.Inactive,
-            SecureState = SecureProtectionState.Unavailable
+            SecureState = SecureProtectionState.Unavailable,
+            StandardIsVerified = true,
+            SecureIsVerified = true,
+            IsVerified = true
         },
         Microphone = new TargetProtectionStatus
         {
             Target = BlockTarget.Microphone,
             StandardState = StandardProtectionState.Inactive,
-            SecureState = SecureProtectionState.Unavailable
+            SecureState = SecureProtectionState.Unavailable,
+            StandardIsVerified = true,
+            SecureIsVerified = true,
+            IsVerified = true
         }
     };
 
@@ -541,9 +549,17 @@ internal sealed class RecoveryHostDependencies :
         if (StandardEnableResult.Success)
         {
             if (target is BlockTarget.Camera or BlockTarget.Both)
+            {
                 SetCameraStandardState(StandardProtectionState.Active);
+                if (CurrentProtectionState.Camera.SecureState == SecureProtectionState.Unavailable)
+                    SetCameraSecureState(SecureProtectionState.Available);
+            }
             if (target is BlockTarget.Microphone or BlockTarget.Both)
+            {
                 SetMicrophoneStandardState(StandardProtectionState.Active);
+                if (CurrentProtectionState.Microphone.SecureState == SecureProtectionState.Unavailable)
+                    SetMicrophoneSecureState(SecureProtectionState.Available);
+            }
         }
         return Task.FromResult(StandardEnableResult);
     }
@@ -554,9 +570,15 @@ internal sealed class RecoveryHostDependencies :
     {
         StandardDisableCalls++;
         if (target is BlockTarget.Camera or BlockTarget.Both)
+        {
             SetCameraStandardState(StandardProtectionState.Inactive);
+            SetCameraSecureState(SecureProtectionState.Unavailable);
+        }
         if (target is BlockTarget.Microphone or BlockTarget.Both)
+        {
             SetMicrophoneStandardState(StandardProtectionState.Inactive);
+            SetMicrophoneSecureState(SecureProtectionState.Unavailable);
+        }
         return Task.FromResult(OperationResult.Ok());
     }
 
@@ -564,6 +586,7 @@ internal sealed class RecoveryHostDependencies :
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        SecureEnableCalls++;
         var result = EnableSecureHandler?.Invoke(target) ?? SecureEnableResult;
         if (result.Success)
         {
@@ -579,6 +602,7 @@ internal sealed class RecoveryHostDependencies :
         BlockTarget target,
         CancellationToken cancellationToken = default)
     {
+        SecureDisableCalls++;
         if (target is BlockTarget.Camera or BlockTarget.Both)
             SetCameraSecureState(SecureProtectionState.Available);
         if (target is BlockTarget.Microphone or BlockTarget.Both)
