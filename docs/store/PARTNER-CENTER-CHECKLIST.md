@@ -93,7 +93,7 @@ Click **Start your submission** (or edit current draft submission).
 ### 2.6 Store Listings
 
 #### English (United States) — Default
-- Copy text from [docs/store/STORE-LISTING-CONTENT.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/STORE-LISTING-CONTENT.md) Section 2:
+- Copy text from [docs/store/STORE-LISTING-CONTENT.md](STORE-LISTING-CONTENT.md) Section 2:
   - Product title: `PrivGuard`
   - Subtitle / Short description
   - Full description
@@ -109,7 +109,7 @@ Click **Start your submission** (or edit current draft submission).
 
 #### Spanish (Spain) — Add Language
 1. Click **Add language** > Select **Spanish (Spain)**.
-2. Copy text from [docs/store/STORE-LISTING-CONTENT.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/STORE-LISTING-CONTENT.md) Section 3:
+2. Copy text from [docs/store/STORE-LISTING-CONTENT.md](STORE-LISTING-CONTENT.md) Section 3:
    - Título: `PrivGuard`
    - Subtítulo
    - Descripción completa
@@ -120,9 +120,9 @@ Click **Start your submission** (or edit current draft submission).
 
 ### 2.7 Submission Options & Certification Notes
 1. Open the **Notes for certification** section.
-2. Copy the entire contents of [docs/store/REVIEWER-CERTIFICATION-NOTES.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/REVIEWER-CERTIFICATION-NOTES.md).
+2. Copy the entire contents of [docs/store/REVIEWER-CERTIFICATION-NOTES.md](REVIEWER-CERTIFICATION-NOTES.md).
 3. In the **Capabilities Declaration** section:
-   - Paste the justification for `runFullTrust` from [docs/store/MICROSOFT-STORE-JUSTIFICATION.md](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/MICROSOFT-STORE-JUSTIFICATION.md).
+   - Paste the justification for `runFullTrust` from [docs/store/MICROSOFT-STORE-JUSTIFICATION.md](MICROSOFT-STORE-JUSTIFICATION.md).
 4. Click **Save**.
 
 ---

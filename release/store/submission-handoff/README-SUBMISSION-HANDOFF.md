@@ -1,6 +1,6 @@
-# PrivGuard 2.0 — Submission Handoff README (Fase 8B.1E)
+# PrivGuard 2.0 — Submission Handoff README (Fase 8B.1F)
 
-Este directorio contiene el expediente formal y determinista para realizar la presentación y carga de PrivGuard Store Edition en **Microsoft Partner Center** (`https://partner.microsoft.com/dashboard`).
+Este directorio contiene el expediente formal, congelado y determinista para realizar la presentación y carga de PrivGuard Store Edition en **Microsoft Partner Center** (`https://partner.microsoft.com/dashboard`).
 
 ---
 
@@ -22,19 +22,33 @@ Este directorio contiene el expediente formal y determinista para realizar la pr
 
 ---
 
-## 2. Formato de Carga: Subida Directa de `.msix`
+## 2. Formato de Carga: Direct MSIX Supported Fallback
 
-Microsoft Partner Center admite la carga directa de archivos `.msix` para aplicaciones de escritorio empaquetadas (Desktop Bridge). No es necesario ni recomendable generar un archivo `.msixupload` artificial si no se cuenta con un pipeline de compilación de símbolos corporativo. El archivo `PrivGuard-2.0.0.0-x64.msix` es el artefacto que debe subirse en la sección **Packages** del portal.
+- **Recomendación de Microsoft:** Microsoft documenta `.msixupload` como el formato recomendado para Windows 10 y posteriores cuando el entorno de compilación genera automáticamente paquetes de símbolos públicos (`.appxsym`).
+- **Soporte de Carga Directa:** Partner Center admite y valida de forma nativa la carga directa de archivos `.msix` individuales para aplicaciones de escritorio empaquetadas (Desktop Bridge).
+- **Dictamen del Expediente:** Dado que el pipeline `scripts/build-msix.ps1` compila directamente el paquete MSIX mediante `MakeAppx.exe`, y conforme a la norma de seguridad que prohíbe fabricar archivos ZIP arbitrarios o crear símbolos ficticios vacíos, se establece la subida directa del archivo `.msix` verificado (`MSIXUPLOAD NOT GENERATED — DIRECT MSIX SUPPORTED FALLBACK`).
 
 ---
 
 ## 3. Guía de Archivos del Expediente
 
-- **`ARTIFACT-MANIFEST.json`**: Metadatos estructurados del paquete y firmas criptográficas.
-- **`SHA256SUMS.txt`**: Sumas de comprobación SHA-256 del binario y de los activos.
-- **`PARTNER-CENTER-STEP-BY-STEP.md`**: Guía paso a paso para navegar y completar el portal de Microsoft.
-- **`docs/store/OWNER-DECISIONS.md`**: Lista de decisiones comerciales que debe ingresar el propietario.
-- **`docs/store/PARTNER-CENTER-SUBMISSION-CHECKLIST.md`**: Checklist con todos los textos comerciales (EN/ES).
-- **`docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md`**: Notas en inglés para los revisores de Microsoft.
-- **`docs/store/PRIVACY-POLICY-DRAFT.md`**: Texto de política de privacidad listo para ser publicado en la web.
-- **`docs/store/REAL-HARDWARE-RT05-TEST.md`**: Prueba física rápida del silenciado de micrófono en PC real.
+### En este directorio (`release/store/submission-handoff/`):
+- **`ARTIFACT-MANIFEST.json`**: Metadatos estructurados del paquete, capacidades, procedencia y sumas criptográficas.
+- **`SHA256SUMS.txt`**: Sumas de comprobación SHA-256 de todos los artefactos incluidos en la entrega.
+- **`PARTNER-CENTER-STEP-BY-STEP.md`**: Runbook con la secuencia detallada de pasos en el portal de Microsoft.
+
+### En la carpeta de distribución (`release/store/`):
+- **`PrivGuard-2.0.0.0-x64.msix`**: Binario oficial para carga.
+- **`BUILD-PROVENANCE.json`**: Metadatos de procedencia de compilación y entorno.
+- **`StoreListing-300x300.png`**: Icono de ficha de aplicación (1:1 300x300) para búsquedas de la Tienda.
+- **Capturas de Pantalla (4 imágenes):**
+  - `main-window.png` (593 x 625)
+  - `mainwindow_dark.png` (563 x 788)
+  - `protection_overview.png` (563 x 356)
+  - `tray_menu.png` (465 x 190)
+
+### En la carpeta de documentación (`docs/store/`):
+- **`docs/store/STORE-LISTING-FINAL.md`**: Ficha comercial bilingüe completa (EN/ES), palabras clave, licencia y justificaciones.
+- **`docs/store/PRIVACY-POLICY-FINAL.md`**: Política de privacidad bilingüe auditada basada en el inventario real de datos.
+- **`docs/store/privacy-policy/index.html`**: Página web estática, responsive y autónoma, lista para publicar.
+- **`docs/store/OWNER-DECISIONS.md`**: Matriz con las decisiones exclusivas que debe introducir el propietario en el portal.

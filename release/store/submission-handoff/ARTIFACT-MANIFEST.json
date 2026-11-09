@@ -16,7 +16,42 @@
     "sizeBytes": 58573769,
     "sha256": "707857E283D304F0965BD1BCFECC1636017B732E9C6497B883FF7AA28BC45BA7",
     "targetOsMinVersion": "10.0.19041.0",
-    "targetOsMaxTested": "10.0.26100.0"
+    "targetOsMaxTested": "10.0.26100.0",
+    "uploadFormat": "msix (Direct MSIX Supported Fallback - msixupload recommended by MS when automated symbol packaging is present)"
+  },
+  "visualAssets": {
+    "screenshots": [
+      {
+        "fileName": "main-window.png",
+        "relativePath": "release/store/main-window.png",
+        "resolution": "593x625",
+        "sha256": "ebcc070cc59e4a7b0b04367bef722858db04969317f50af556264dd16c34a37c"
+      },
+      {
+        "fileName": "mainwindow_dark.png",
+        "relativePath": "release/store/mainwindow_dark.png",
+        "resolution": "563x788",
+        "sha256": "324c190a5904927afbc323eff6f738e525293c7ed7b6de2f875b6cc0947bc7ae"
+      },
+      {
+        "fileName": "protection_overview.png",
+        "relativePath": "release/store/protection_overview.png",
+        "resolution": "563x356",
+        "sha256": "edc20a997c061b57364f3f36f8e7a4f5f3cd9b3081e88ded1c5f31f4fb18e9d3"
+      },
+      {
+        "fileName": "tray_menu.png",
+        "relativePath": "release/store/tray_menu.png",
+        "resolution": "465x190",
+        "sha256": "5b56e1fbbcbf83024dbf8a1098a2a7b3e11a1849dbe227460324f7c74ea62076"
+      }
+    ],
+    "storeListingTileIcon": {
+      "fileName": "StoreListing-300x300.png",
+      "relativePath": "release/store/StoreListing-300x300.png",
+      "resolution": "300x300",
+      "sha256": "75b7a44ab32dbc6f0923bff4c2e31605c3334d2e75e1046ab3acab361927fd92"
+    }
   },
   "capabilities": {
     "declaredCapabilities": [
@@ -32,11 +67,13 @@
     "verificationScript": "scripts/verify-store-msix.ps1",
     "scriptResult": "PASS",
     "activeTestSuite": {
+      "ciRunId": "42705190058",
+      "baselineCommit": "ecd15afd5200696cde838d778125ae4fe4dbf73b",
       "totalPassed": 632,
       "totalFailed": 0,
       "totalSkipped": 0
     },
-    "runtimeDiagnosticVerdict": "READY FOR PARTNER CENTER DRAFT — OWNER INPUTS PENDING"
+    "runtimeDiagnosticVerdict": "READY FOR PARTNER CENTER DRAFT — REPOSITORY HANDOFF FROZEN"
   },
   "provenance": {
     "baseCommit": "ecd15afd5200696cde838d778125ae4fe4dbf73b",

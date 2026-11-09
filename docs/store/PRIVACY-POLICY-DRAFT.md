@@ -1,3 +1,13 @@
+# PrivGuard — Privacy Policy Draft (Historical / Archived)
+
+> **IMPORTANT NOTICE / AVISO IMPORTANTE:**  
+> This draft has been superseded by the audited, production-grade final privacy policy:  
+> **[`docs/store/PRIVACY-POLICY-FINAL.md`](PRIVACY-POLICY-FINAL.md)**  
+> and the self-contained static web page ready for hosting at **[`docs/store/privacy-policy/index.html`](privacy-policy/index.html)**.  
+> Please refer to `PRIVACY-POLICY-FINAL.md` for accurate local operational data inventories, uninstallation instructions, and honest non-telemetry declarations.
+
+---
+
 # PrivGuard — Privacy Policy Draft / Borrador de Política de Privacidad (Fase 8B.1E)
 
 **Fecha:** Noviembre de 2026  

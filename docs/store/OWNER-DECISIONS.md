@@ -1,39 +1,58 @@
-# PrivGuard 2.0 — Matriz de Decisiones del Propietario (Fase 8B.1E)
+# PrivGuard 2.0 — Matriz de Decisiones Exclusivas del Propietario (`OWNER-DECISIONS.md`)
 
-Este documento identifica y aísla de forma explícita las decisiones comerciales, de cuenta y de configuración de Microsoft Partner Center que **corresponden exclusivamente al propietario de la aplicación**. 
+Este documento consolida las decisiones comerciales, de cuenta y de configuración en **Microsoft Partner Center** que corresponden exclusivamente al propietario del producto. No contiene valores ficticios ni decisiones asumidas como definitivas sin autorización expresa.
 
-> **Advertencia Crítica sobre Publicación en Microsoft Store:**  
-> La documentación oficial de Microsoft establece que, una vez iniciado el proceso de publicación automática tras la certificación, **no es posible cancelar la presentación ni alterar la fecha de lanzamiento dentro de esa misma fase**.  
-> **Recomendación Técnica Obligatoria:** Configurar la opción de publicación como **Manual Publishing (Hold)** para que el paquete quede retenido tras superar la certificación oficial, permitiendo al propietario revisar el dictamen y autorizar manualmente la salida a la tienda.
-
----
-
-## 1. Matriz de Decisiones para Microsoft Partner Center
-
-| Campo / Sección en Partner Center | Estado Actual | Dato que Falta / A Decidir | Recomendación Técnica / Contexto | Confirmación del Propietario |
-|---|---|---|---|---|
-| **Reserva de Nombre y Product ID** | PENDIENTE | Coincidencia de `9NQ56N45XH5N` con la reserva activa | Verificar en el dashboard que la app reservada coincida con `cdevstudios.PrivGuard` y PFN `cdevstudios.PrivGuard_tv7b4yqg10sw2`. | `[PENDING OWNER]` |
-| **Precio Base y Oferta** | PENDIENTE | Nivel de precio ($0.00 Free vs de pago) | Se sugiere **Gratuito (Free)** para maximizar la adopción de la utilidad y alinearse con la naturaleza open source del proyecto. | `[PENDING OWNER]` |
-| **Mercados de Distribución** | PENDIENTE | Lista de países habilitados | Seleccionar **Todos los mercados mundiales** (o excluir regiones donde no se ofrezca soporte). | `[PENDING OWNER]` |
-| **Visibilidad / Discoverability** | PENDIENTE | Distribución pública o mediante enlace directo | Para lanzamiento general en tienda: **Público (Make this product available in the Store)**. Para pruebas privadas previas: **Oculto (Hidden)**. | `[PENDING OWNER]` |
-| **Opciones de Publicación** | PENDIENTE | Inmediata vs Retención Manual | **Manual Publish (Recomendada):** Permite inspeccionar el informe emitido por Microsoft antes de liberar el producto a los usuarios finales. | `[PENDING OWNER]` |
-| **Categoría del Producto** | DRAFT READY | Confirmación en portal | Principal: `Security` > `Personal security`. Secundaria: `Utilities & tools`. | `[PENDING OWNER]` |
-| **Cuestionario IARC (Clasificación de Edad)** | PENDIENTE | Completar respuestas en el portal | Responder con las funciones reales de la app: 0 violencia, 0 lenguaje ofensivo, 0 compras integradas, 0 uso de red. Suele otorgar clasificación 3+ / Todos. | `[PENDING OWNER]` |
-| **URL de Política de Privacidad** | PENDIENTE | URL pública HTTPS | Publicar el contenido de `docs/store/PRIVACY-POLICY-DRAFT.md` en una URL accesible (ej. GitHub Pages o blob público del repo) e ingresarla en el portal. | `[PENDING OWNER]` |
-| **Canal de Soporte / Contacto** | PENDIENTE | URL de soporte o correo electrónico | Ingresar enlace al repositorio (`https://github.com/cristianbarreiro/PrivGuard/issues`) o correo oficial del publicador. | `[PENDING OWNER]` |
-| **Capturas de Pantalla (Screenshots)** | LISTO | Carga en la ficha comercial | Utilizar las 4 capturas reales auditadas en `release/store/` (`main-window.png`, `mainwindow_dark.png`, `protection_overview.png`, `tray_menu.png`). | `[PENDING OWNER]` |
-| **Restricted Capability (`runFullTrust`)** | DRAFT READY | Pegar justificación técnica | Texto oficial redactado y verificado en `docs/store/PARTNER-CENTER-SUBMISSION-CHECKLIST.md`. No requiere cambios. | **DRAFT READY** |
-| **Notas para Certificación** | DRAFT READY | Pegar instrucciones de prueba | Texto oficial en inglés con pasos de prueba guiados en `docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md`. | **DRAFT READY** |
+> **Recomendación Técnica de Publicación:**  
+> En la sección **Submission options**, seleccionar **Manual Publishing (Hold)** (`Don't publish this submission until I select Publish now`).  
+> *Razón:* Microsoft no permite cancelar ni retener una publicación automática una vez iniciada la certificación. La opción manual permite al propietario inspeccionar el informe emitido por Microsoft antes de que la aplicación sea pública.
 
 ---
 
-## 2. Hoja de Ruta de Entrada de Datos
+## 1. Tabla de Decisiones y Confirmaciones Pendientes
 
-Para completar el formulario de envío en Partner Center en una sola sesión, el propietario debe disponer de:
+| Decisión / Campo | Valor Preparado / Recomendación Técnica | Confirmación Pendiente del Propietario |
+|---|---|---|
+| **Store Product ID** | `9NQ56N45XH5N` | Confirmar que coincide con el ID asignado en el dashboard de Partner Center. |
+| **Identidad del Paquete** | `cdevstudios.PrivGuard` | Confirmar coincidencia exacta con el nombre de producto reservado en la cuenta. |
+| **Publisher Subject** | `CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD` (`cdev studios`) | Confirmar coincidencia con el perfil de editor de la cuenta de desarrollador. |
+| **Precio Base** | Recomendación: **Free** ($0.00 USD) | El propietario decide el precio comercial (gratuito o de pago). |
+| **Mercados de Distribución** | Todos los mercados (o excluir regiones específicas) | El propietario decide los países de distribución. |
+| **Visibilidad / Discoverability** | Recomendación: **Público** (visible en la Tienda) o **Hidden** (acceso solo con enlace directo) | El propietario decide el tipo de visibilidad para esta primera versión. |
+| **Publicación tras Certificación** | Recomendación: **Manual hold** (`Don't publish until I select Publish now`) | Confirmar si desea retener la publicación para revisar el informe de Microsoft. |
+| **URL de Política de Privacidad** | Documento preparado en `docs/store/privacy-policy/index.html` | El propietario aloja la página en un servidor/hosting HTTPS público y autoriza la URL. |
+| **Canal de Soporte al Usuario** | Propuesta: `https://github.com/cristianbarreiro/PrivGuard/issues` | El propietario confirma si utilizará este enlace de GitHub o un correo oficial. |
+| **Cuestionario IARC (Edad)** | Sin predicción automática; completar cada pregunta en el portal según comportamiento real | El propietario responde directamente a las preguntas del cuestionario de IARC en el portal. |
+| **Categoría del Producto** | Propuesta: Primaria `Security > Personal security`, Secundaria `Utilities & tools` | El propietario confirma la categoría según las opciones vigentes del portal. |
+| **Capacidad `runFullTrust`** | Justificación técnica redactada en `docs/store/STORE-LISTING-FINAL.md` | El propietario copia y pega el texto en el formulario del portal. |
+| **Hardware RT-05** | Prueba física en micrófono real (silenciado por software WASAPI) | El propietario ejecuta la prueba en un PC con micrófono físico cuando esté disponible. |
 
-1. [ ] Confirmación visual del Store Product ID en `partner.microsoft.com`.
-2. [ ] Decisión tomada sobre precio (Free) y mercados.
-3. [ ] URL pública accesible para la Política de Privacidad (subir `docs/store/PRIVACY-POLICY-DRAFT.md`).
-4. [ ] Archivo binario candidato: `release/store/PrivGuard-2.0.0.0-x64.msix` (SHA-256 verificado: `707857E283D304F0965BD1BCFECC1636017B732E9C6497B883FF7AA28BC45BA7`).
-5. [ ] Las 4 imágenes de captura de `release/store/`.
-6. [ ] Opción "Manual publish" seleccionada en la pestaña **Submission options**.
+---
+
+## 2. Puntos Clave para el Cuestionario IARC
+
+El cuestionario de la International Age Rating Coalition (IARC) en Partner Center formula preguntas directas sobre el contenido y funcionamiento de la aplicación:
+
+1. **Información técnica a tener a mano:**
+   - La aplicación no recopila ubicación física ni datos personales identificables.
+   - La aplicación no permite compras dentro de la aplicación ni monedas virtuales.
+   - La aplicación no permite compartir contenido generado por usuarios ni comunicarse con otros usuarios.
+   - La aplicación no contiene violencia, lenguaje vulgar, referencias a drogas ni contenido para adultos.
+   - La aplicación interactúa exclusivamente con el silenciado de puntos de conexión de audio de Windows y no transmite sonido ni video.
+2. **Acción requerida:** El propietario debe responder a cada pregunta según la realidad de la aplicación. No se debe predecir ni asumir una calificación fija de forma anticipada.
+
+---
+
+## 3. Lista de Archivos que el Propietario Debe Tener Listos para la Sesión
+
+1. Paquete binario verificado: `release/store/PrivGuard-2.0.0.0-x64.msix`
+   - SHA-256: `707857E283D304F0965BD1BCFECC1636017B732E9C6497B883FF7AA28BC45BA7`
+2. Capturas de pantalla (4 archivos PNG):
+   - `release/store/main-window.png`
+   - `release/store/mainwindow_dark.png`
+   - `release/store/protection_overview.png`
+   - `release/store/tray_menu.png`
+3. Icono de ficha de aplicación (1:1 300x300 PNG):
+   - `release/store/StoreListing-300x300.png`
+4. Textos para copiar y pegar:
+   - `docs/store/STORE-LISTING-FINAL.md` (textos bilingües, justificación `runFullTrust` y notas de certificación).
+5. URL pública HTTPS de la política de privacidad (alojar `docs/store/privacy-policy/index.html`).
