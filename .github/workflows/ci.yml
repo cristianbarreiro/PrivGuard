@@ -52,6 +52,11 @@ jobs:
         ./scripts/build-msix.ps1 -Architecture x64 -Configuration Release-Store -ValidateStoreIdentity -OutputDir $outputDir
         ./scripts/verify-store-msix.ps1 -PackageDir $outputDir
 
+    - name: Run L0 Host Preflight Logic Tests
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: ./scripts/lab/Test-L0HostPreflightLogic.ps1
+
   publish-artifacts:
     name: Publish Single-File (${{ matrix.target.rid }})
     needs: build-and-test
