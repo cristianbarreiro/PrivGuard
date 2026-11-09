@@ -35,13 +35,28 @@ public sealed class PrivacySessionService
 
     public bool SupportsPersistentRecovery => _platform.SupportsPersistentRecovery;
 
+    private readonly ICrossEditionCoordinator? _coordinator;
+
     public PrivacySessionService(
         IPrivacySessionStore sessionStore,
-        IPrivacySessionPlatformAdapter platform)
+        IPrivacySessionPlatformAdapter platform,
+        ICrossEditionCoordinator? coordinator = null)
     {
         _sessionStore = sessionStore;
         _platform = platform;
+        _coordinator = coordinator;
     }
+
+    private void SaveSession(PrivacySession session)
+    {
+        _sessionStore.Save(session);
+        if (!session.IsActive)
+        {
+            _coordinator?.TryReleaseOwnership(session.SessionId);
+        }
+    }
+
+
 
     public async Task<PrivacyBlockPreparation> PrepareBlockAsync(
         ProtectionLayer layer,
@@ -74,7 +89,7 @@ public sealed class PrivacySessionService
                 foreach (var resource in session.Resources.Where(resource => resource.ExecutionMayStillBeInFlight))
                     resource.ExecutionMayStillBeInFlight = false;
                 session.UpdatedAtUtc = MaxTimestamp(now, session.CreatedAtUtc, session.UpdatedAtUtc);
-                _sessionStore.Save(session);
+                SaveSession(session);
                 throw new InvalidOperationException(
                     "A previous uncertain privacy operation was quiesced; restore it before applying new protection changes.");
             }
@@ -154,8 +169,18 @@ public sealed class PrivacySessionService
                 session.UpdatedAtUtc,
                 session.Resources.Select(resource => resource.LastUpdatedAtUtc).DefaultIfEmpty().Max());
 
+            if (_coordinator != null)
+            {
+                var acq = _coordinator.TryAcquireOwnership(session.SessionId);
+                if (!acq.Success)
+                {
+                    throw new InvalidOperationException(
+                        acq.ErrorMessage ?? "Cannot acquire privacy session ownership across editions.");
+                }
+            }
+
             // This commit is the safety boundary: the caller must not mutate the OS if it fails.
-            _sessionStore.Save(session);
+            SaveSession(session);
 
             Log.Information(
                 "Privacy snapshot committed: SessionId={SessionId}, Layer={Layer}, Target={Target}, ResourceCount={ResourceCount}",
@@ -442,7 +467,7 @@ public sealed class PrivacySessionService
             if (!session.Resources.Any(IsOutstandingOwnedChange))
             {
                 RecalculateSessionStatus(session);
-                _sessionStore.Save(session);
+                SaveSession(session);
             }
 
             if (!platformResult.Success)
@@ -750,7 +775,7 @@ public sealed class PrivacySessionService
                         SetMonotonicProgressTimestamp(session, resource);
                     }
                     RecalculateSessionStatus(session);
-                    _sessionStore.Save(session);
+                    SaveSession(session);
                 }
                 catch (Exception ex)
                 {
@@ -863,7 +888,7 @@ public sealed class PrivacySessionService
                     DateTimeOffset.UtcNow,
                     session.CreatedAtUtc,
                     session.UpdatedAtUtc);
-                _sessionStore.Save(session);
+                SaveSession(session);
             }
 
             var restoredCount = 0;
@@ -1141,7 +1166,7 @@ public sealed class PrivacySessionService
             }
 
             RecalculateSessionStatus(session);
-            _sessionStore.Save(session);
+            SaveSession(session);
 
             var completeForScope = missingCount == 0 && failedCount == 0;
             Log.Information(
@@ -1319,7 +1344,7 @@ public sealed class PrivacySessionService
     private void PersistResourceProgress(PrivacySession session, PrivacyResourceState resource)
     {
         SetMonotonicProgressTimestamp(session, resource);
-        _sessionStore.Save(session);
+        SaveSession(session);
     }
 
     private static void SetMonotonicProgressTimestamp(
@@ -1368,7 +1393,7 @@ public sealed class PrivacySessionService
             session.CreatedAtUtc,
             session.UpdatedAtUtc,
             session.Resources.Select(resource => resource.LastUpdatedAtUtc).DefaultIfEmpty().Max());
-        _sessionStore.Save(session);
+        SaveSession(session);
     }
 
     private static IEnumerable<PrivacyResourceState> SelectResources(

@@ -202,6 +202,21 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasError;
 
+    [ObservableProperty]
+    private bool _isSupervisionOnly;
+
+    [ObservableProperty]
+    private string _supervisionMessage = "";
+
+    [ObservableProperty]
+    private bool _isMicActiveStoreWarningVisible;
+
+    [ObservableProperty]
+    private string _micActiveStoreWarningMessage = "";
+
+    [ObservableProperty]
+    private string _openCameraSettingsButtonText = "Settings";
+
     public ObservableCollection<DeviceItemViewModel> Devices { get; } = [];
 
     // Localized Labels
@@ -345,7 +360,6 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(MenuHelp));
             OnPropertyChanged(nameof(MenuDiagnostics));
             OnPropertyChanged(nameof(MenuAbout));
-
             UpdatePlatformAndCapabilities();
             _ = RefreshStateAsync();
         });
@@ -842,6 +856,41 @@ public sealed partial class MainViewModel : ObservableObject
                 Devices.Add(new DeviceItemViewModel(d, category, enabledStr, disabledStr));
             }
 
+            // Cross-Edition Inspection & Supervision Only Mode
+            var crossInspection = _protectionService.CrossEditionCoordinator.InspectOwnership();
+            if (crossInspection.RequiresSupervisionOnly)
+            {
+                IsSupervisionOnly = true;
+                SupervisionMessage = crossInspection.Message ?? _localizationService.GetString("SupervisionModeActive", "Supervision Only Mode");
+                IsBothToggleEnabled = false;
+                IsCameraToggleEnabled = false;
+                IsMicToggleEnabled = false;
+                IsAdvancedProtectionToggleEnabled = false;
+                IsCameraSecureButtonEnabled = false;
+                IsMicSecureButtonEnabled = false;
+                IsBothSecureButtonEnabled = false;
+            }
+            else
+            {
+                IsSupervisionOnly = false;
+                SupervisionMessage = string.Empty;
+            }
+
+            // Store Edition specific hints & warnings
+            OpenCameraSettingsButtonText = _localizationService.GetString("OpenCameraSettingsButtonText", "Settings");
+            if (isStore && micBlocked)
+            {
+                IsMicActiveStoreWarningVisible = true;
+                MicActiveStoreWarningMessage = _localizationService.GetString(
+                    "StoreMicUninstallWarning",
+                    "Notice: If you uninstall the app while the microphone is muted, Windows will not automatically unmute it. Please unmute before uninstalling.");
+            }
+            else
+            {
+                IsMicActiveStoreWarningVisible = false;
+                MicActiveStoreWarningMessage = string.Empty;
+            }
+
             UpdatePlatformAndCapabilities();
         }
         finally
@@ -861,6 +910,12 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task ExecuteCameraToggleAsync(bool enable)
     {
         ClearError();
+        if (IsSupervisionOnly)
+        {
+            ShowError(SupervisionMessage);
+            await RefreshStateAsync();
+            return;
+        }
         Log.Information("User toggled Camera to {Enable} (IsStoreEdition={IsStore})", enable, _protectionService.IsStoreEdition);
 
         if (_protectionService.IsStoreEdition)
@@ -919,6 +974,12 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task ExecuteMicToggleAsync(bool enable)
     {
         ClearError();
+        if (IsSupervisionOnly)
+        {
+            ShowError(SupervisionMessage);
+            await RefreshStateAsync();
+            return;
+        }
         Log.Information("User toggled Microphone to {Enable}", enable);
 
         var result = enable
@@ -947,6 +1008,12 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task ExecuteBothToggleAsync(bool enable)
     {
         ClearError();
+        if (IsSupervisionOnly)
+        {
+            ShowError(SupervisionMessage);
+            await RefreshStateAsync();
+            return;
+        }
         Log.Information("User toggled Unified Control to {Enable}", enable);
 
         var result = enable

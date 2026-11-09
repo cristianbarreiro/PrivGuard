@@ -79,6 +79,13 @@ public static class LocalizationCatalog
         ["OpenPrivacySettings"] = "Abrir Configuración de Privacidad de Windows",
         ["StoreEditionCameraSettingsHint"] = "En la edición Microsoft Store, administra los permisos de cámara en Configuración de Windows",
         ["StoreEditionSecureNotSupported"] = "No disponible en la edición Microsoft Store",
+        ["SupervisionModeActive"] = "Modo Solo Supervisión: La otra edición de PrivGuard está activa. Los controles de modificación están deshabilitados.",
+        ["SupervisionModeAbandoned"] = "Modo Solo Supervisión: Se detectó una sesión abandonada de la otra edición. Inicia dicha edición para restaurar el estado.",
+        ["SupervisionModeCorrupt"] = "Modo Solo Supervisión: El descriptor de coordinación entre ediciones está dañado. Las modificaciones han sido bloqueadas por seguridad.",
+        ["StoreMicUninstallWarning"] = "Aviso: Si desinstala la aplicación mientras el micrófono está silenciado, Windows no lo reactivará automáticamente. Restaure el micrófono antes de desinstalar.",
+        ["HardwareMuteNotSupportedWarning"] = "Silenciamiento por software: Las aplicaciones con acceso exclusivo al hardware podrían omitir el silenciamiento.",
+        ["OpenCameraSettingsButtonText"] = "Configuración",
+        ["OpenMicrophoneSettings"] = "Configuración de Micrófono",
 
         // Notifications & Errors
         ["ElevationCancelled"] = "Operación cancelada: Se denegaron los permisos de administrador.",
@@ -296,6 +303,13 @@ public static class LocalizationCatalog
         ["OpenPrivacySettings"] = "Open Windows Privacy Settings",
         ["StoreEditionCameraSettingsHint"] = "In the Microsoft Store edition, manage camera permissions in Windows Settings",
         ["StoreEditionSecureNotSupported"] = "Unavailable in Microsoft Store edition",
+        ["SupervisionModeActive"] = "Supervision Only Mode: Another PrivGuard edition is active. Modification controls are disabled.",
+        ["SupervisionModeAbandoned"] = "Supervision Only Mode: An abandoned session from the other edition was detected. Launch that edition to restore system state.",
+        ["SupervisionModeCorrupt"] = "Supervision Only Mode: The cross-edition coordination descriptor is corrupted. Modifications are blocked for safety.",
+        ["StoreMicUninstallWarning"] = "Notice: If you uninstall the app while the microphone is muted, Windows will not automatically unmute it. Please unmute before uninstalling.",
+        ["HardwareMuteNotSupportedWarning"] = "Software mute: Applications using exclusive mode audio streams may bypass software muting.",
+        ["OpenCameraSettingsButtonText"] = "Settings",
+        ["OpenMicrophoneSettings"] = "Microphone Settings",
 
         // Notifications & Errors
         ["ElevationCancelled"] = "Operation cancelled: Administrator permissions were denied.",

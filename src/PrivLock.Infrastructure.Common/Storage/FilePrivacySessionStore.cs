@@ -41,6 +41,13 @@ public sealed class FilePrivacySessionStore : IPrivacySessionStore
     private readonly object _pathLock;
     private readonly IActivePrivacySessionMarker _activeSessionMarker;
 
+    public FilePrivacySessionStore(
+        IEditionProfileResolver profileResolver,
+        IActivePrivacySessionMarker activeSessionMarker)
+        : this(profileResolver?.RecoveryDirectory, activeSessionMarker)
+    {
+    }
+
     public FilePrivacySessionStore(string? customDirectory = null)
         : this(customDirectory, new NoOpActivePrivacySessionMarker())
     {

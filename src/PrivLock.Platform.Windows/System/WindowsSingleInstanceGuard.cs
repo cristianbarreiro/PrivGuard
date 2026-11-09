@@ -32,6 +32,11 @@ public sealed class WindowsSingleInstanceGuard : ISingleInstanceGuard, IWindowsD
     private bool _hasAcquired;
     private bool _hasUninstallGate;
 
+    public WindowsSingleInstanceGuard(IEditionProfileResolver profileResolver)
+        : this(profileResolver?.SingleInstanceMutexName ?? MutexName, UninstallGateMutexName)
+    {
+    }
+
     public WindowsSingleInstanceGuard()
         : this(MutexName, UninstallGateMutexName)
     {

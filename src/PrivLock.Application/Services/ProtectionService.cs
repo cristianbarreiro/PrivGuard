@@ -24,6 +24,9 @@ public sealed class ProtectionService
     private readonly ILegacyArtifactDetector _legacyDetector;
     private readonly IEditionProfileResolver? _profileResolver;
     private readonly IPrivacySettingsLauncher _privacySettingsLauncher;
+    private readonly ICrossEditionCoordinator _crossEditionCoordinator;
+
+    public ICrossEditionCoordinator CrossEditionCoordinator => _crossEditionCoordinator;
     private readonly bool _allowUntrackedMutations;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private int _shutdownStarted;
@@ -46,7 +49,8 @@ public sealed class ProtectionService
         IStateStore stateStore,
         PrivacySessionService privacySessions,
         IEditionProfileResolver? profileResolver = null,
-        IPrivacySettingsLauncher? privacySettingsLauncher = null)
+        IPrivacySettingsLauncher? privacySettingsLauncher = null,
+        ICrossEditionCoordinator? crossEditionCoordinator = null)
         : this(
             protectionProvider,
             deviceDetector,
@@ -56,7 +60,8 @@ public sealed class ProtectionService
             legacyDetector: null,
             allowUntrackedMutations: false,
             profileResolver: profileResolver,
-            privacySettingsLauncher: privacySettingsLauncher)
+            privacySettingsLauncher: privacySettingsLauncher,
+            crossEditionCoordinator: crossEditionCoordinator)
     {
     }
 
@@ -68,7 +73,8 @@ public sealed class ProtectionService
         PrivacySessionService privacySessions,
         ILegacyArtifactDetector? legacyDetector,
         IEditionProfileResolver? profileResolver = null,
-        IPrivacySettingsLauncher? privacySettingsLauncher = null)
+        IPrivacySettingsLauncher? privacySettingsLauncher = null,
+        ICrossEditionCoordinator? crossEditionCoordinator = null)
         : this(
             protectionProvider,
             deviceDetector,
@@ -78,7 +84,8 @@ public sealed class ProtectionService
             legacyDetector,
             allowUntrackedMutations: false,
             profileResolver: profileResolver,
-            privacySettingsLauncher: privacySettingsLauncher)
+            privacySettingsLauncher: privacySettingsLauncher,
+            crossEditionCoordinator: crossEditionCoordinator)
     {
     }
 
@@ -91,7 +98,8 @@ public sealed class ProtectionService
         ILegacyArtifactDetector? legacyDetector,
         bool allowUntrackedMutations,
         IEditionProfileResolver? profileResolver = null,
-        IPrivacySettingsLauncher? privacySettingsLauncher = null)
+        IPrivacySettingsLauncher? privacySettingsLauncher = null,
+        ICrossEditionCoordinator? crossEditionCoordinator = null)
     {
         _protectionProvider = protectionProvider;
         _deviceDetector = deviceDetector;
@@ -102,6 +110,7 @@ public sealed class ProtectionService
         _allowUntrackedMutations = allowUntrackedMutations;
         _profileResolver = profileResolver;
         _privacySettingsLauncher = privacySettingsLauncher ?? new PrivLock.Infrastructure.Common.Packaging.NoOpPrivacySettingsLauncher();
+        _crossEditionCoordinator = crossEditionCoordinator ?? new PrivLock.Infrastructure.Common.Storage.NoOpCrossEditionCoordinator();
     }
 
     /// <summary>
@@ -114,7 +123,8 @@ public sealed class ProtectionService
         IPlatformCapabilityProvider capabilityProvider,
         IStateStore stateStore,
         IEditionProfileResolver? profileResolver = null,
-        IPrivacySettingsLauncher? privacySettingsLauncher = null)
+        IPrivacySettingsLauncher? privacySettingsLauncher = null,
+        ICrossEditionCoordinator? crossEditionCoordinator = null)
         : this(
             protectionProvider,
             deviceDetector,
@@ -126,7 +136,8 @@ public sealed class ProtectionService
             legacyDetector: null,
             allowUntrackedMutations: true,
             profileResolver: profileResolver,
-            privacySettingsLauncher: privacySettingsLauncher)
+            privacySettingsLauncher: privacySettingsLauncher,
+            crossEditionCoordinator: crossEditionCoordinator)
     {
     }
 
@@ -181,6 +192,13 @@ public sealed class ProtectionService
         {
             return OperationResult.Fail(
                 "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead.");
+        }
+
+        var crossInspection = _crossEditionCoordinator.InspectOwnership();
+        if (crossInspection.RequiresSupervisionOnly)
+        {
+            return OperationResult.Fail(
+                crossInspection.Message ?? "Operation rejected: opposing edition owns or abandoned an active privacy session.");
         }
 
         var operationId = CreateOperationId("StdEn");
@@ -279,6 +297,13 @@ public sealed class ProtectionService
                 "Direct camera ConsentStore modification is not supported in the Microsoft Store edition. Use Windows Settings (ms-settings:privacy-webcam) instead.");
         }
 
+        var crossInspection = _crossEditionCoordinator.InspectOwnership();
+        if (crossInspection.RequiresSupervisionOnly)
+        {
+            return OperationResult.Fail(
+                crossInspection.Message ?? "Operation rejected: opposing edition owns or abandoned an active privacy session.");
+        }
+
         var operationId = CreateOperationId("StdDis");
         using var context = LogContext.PushProperty("OperationId", operationId);
         return await RunSerializedUserOperationAsync(async () =>
@@ -330,6 +355,13 @@ public sealed class ProtectionService
         {
             return OperationResult.Fail(
                 "Secure Protection (PnP + HKLM Group Policy) is not supported in the Microsoft Store edition.");
+        }
+
+        var crossInspection = _crossEditionCoordinator.InspectOwnership();
+        if (crossInspection.RequiresSupervisionOnly)
+        {
+            return OperationResult.Fail(
+                crossInspection.Message ?? "Operation rejected: opposing edition owns or abandoned an active privacy session.");
         }
 
         var operationId = CreateOperationId("SecEn");
@@ -512,6 +544,13 @@ public sealed class ProtectionService
         {
             return OperationResult.Fail(
                 "Secure Protection (PnP + HKLM Group Policy) is not supported in the Microsoft Store edition.");
+        }
+
+        var crossInspection = _crossEditionCoordinator.InspectOwnership();
+        if (crossInspection.RequiresSupervisionOnly)
+        {
+            return OperationResult.Fail(
+                crossInspection.Message ?? "Operation rejected: opposing edition owns or abandoned an active privacy session.");
         }
 
         var operationId = CreateOperationId("SecDis");
@@ -717,6 +756,13 @@ public sealed class ProtectionService
         {
             return OperationResult.Fail(
                 "Advanced Protection (PnP + HKLM Group Policy) is not supported in the Microsoft Store edition.");
+        }
+
+        var crossInspection = _crossEditionCoordinator.InspectOwnership();
+        if (crossInspection.RequiresSupervisionOnly)
+        {
+            return OperationResult.Fail(
+                crossInspection.Message ?? "Operation rejected: opposing edition owns or abandoned an active privacy session.");
         }
 
         if (enable)

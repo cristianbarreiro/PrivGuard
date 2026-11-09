@@ -21,6 +21,11 @@ public sealed class FileStateStore : IStateStore
     private readonly string _filePath;
     private readonly object _lock = new();
 
+    public FileStateStore(IEditionProfileResolver profileResolver)
+        : this(profileResolver?.DataDirectory)
+    {
+    }
+
     public FileStateStore(string? customDirectory = null)
     {
         var appDataDir = customDirectory ?? StorageMigrationHelper.GetDefaultDataDirectory();

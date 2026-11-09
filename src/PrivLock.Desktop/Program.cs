@@ -49,7 +49,17 @@ public static class Program
             return 1;
         }
         // 2. Initialize standard logging
-        LoggingConfiguration.Initialize();
+        if (profileResolver.Profile == EditionProfile.UntrustedOrIndeterminate)
+        {
+            System.Diagnostics.Trace.TraceError(
+                "PrivGvard terminated immediately: untrusted or indeterminate package identity (Kind={0}).",
+                identityDetector.Kind);
+            return 1;
+        }
+
+        // 2. Initialize standard logging
+        LoggingConfiguration.Initialize(profileResolver.LogsDirectory);
+        CrashReporter.ConfigureDefaultDirectory(profileResolver.CrashReportsDirectory);
         Log.Information(
             "=== PrivGvard Desktop Starting (IdentityKind={IdentityKind}, EditionProfile={EditionProfile}, SupportsPrivileged={SupportsPrivileged}) ===",
             identityDetector.Kind,
@@ -631,22 +641,31 @@ public static class Program
         // 1. Common Storage & Infrastructure
         // NOTE (D-05 boundary): Storage, WAL, active markers, logs, and crash reports keep their
         // existing canonical paths until D-05 is explicitly approved.
-        services.AddSingleton<IStateStore, FileStateStore>();
-        services.AddSingleton<ILegacyArtifactDetector, DefaultLegacyArtifactDetector>();
-        services.AddSingleton<IActivePrivacySessionMarker>(_ =>
+        services.AddSingleton<IStateStore>(sp =>
+            new FileStateStore(sp.GetRequiredService<IEditionProfileResolver>()));
+        services.AddSingleton<ILegacyArtifactDetector>(sp =>
+            new DefaultLegacyArtifactDetector(sp.GetRequiredService<IEditionProfileResolver>()));
+        services.AddSingleton<IActivePrivacySessionMarker>(sp =>
             OperatingSystem.IsWindows()
-                ? new FileActivePrivacySessionMarker(GetWindowsActiveMarkerDirectory())
+                ? new FileActivePrivacySessionMarker(sp.GetRequiredService<IEditionProfileResolver>().RecoveryDirectory)
                 : new NoOpActivePrivacySessionMarker());
         services.AddSingleton<IPrivacySessionStore>(serviceProvider =>
             new FilePrivacySessionStore(
+                serviceProvider.GetRequiredService<IEditionProfileResolver>(),
                 serviceProvider.GetRequiredService<IActivePrivacySessionMarker>()));
 
         // 2. Platform-Specific Native Providers
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
+            services.AddSingleton<ICrossEditionCoordinator>(sp =>
+                new Platform.Windows.System.WindowsCrossEditionCoordinator(
+                    sp.GetRequiredService<IEditionProfileResolver>()));
             ConfigureWindowsServices(services, resolvedProfile);
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else
+        {
+            services.AddSingleton<ICrossEditionCoordinator, NoOpCrossEditionCoordinator>();
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             ConfigureLinuxServices(services);
         }
@@ -657,6 +676,7 @@ public static class Program
         else
         {
             throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
+        }
         }
 
         // 3. Application Services
@@ -700,7 +720,7 @@ public static class Program
         services.AddSingleton<IAutostartProvider, Platform.Windows.System.WindowsAutostartProvider>();
         services.AddSingleton<IAutostartChangeObserver, Platform.Windows.System.WindowsAutostartChangeObserver>();
         services.AddSingleton<IGlobalHotkeyProvider, Platform.Windows.System.WindowsHotkeyProvider>();
-        services.AddSingleton<ISingleInstanceGuard, Platform.Windows.System.WindowsSingleInstanceGuard>();
+        services.AddSingleton<ISingleInstanceGuard>(sp => new Platform.Windows.System.WindowsSingleInstanceGuard(sp.GetRequiredService<IEditionProfileResolver>()));
         services.AddSingleton<IUninstallRequestListener, Platform.Windows.System.WindowsUninstallRequestListener>();
         services.AddSingleton<IApplicationActivationListener, Platform.Windows.System.WindowsApplicationActivationListener>();
     }
