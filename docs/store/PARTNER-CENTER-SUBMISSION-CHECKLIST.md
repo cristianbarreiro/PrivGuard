@@ -56,7 +56,7 @@ En la sección **Submission > Product declarations / Capabilities** de Partner C
 ### Idioma Principal: Inglés (`en-us`)
 - **Product Title:** `PrivGuard`
 - **Subtitle / Short Description:** `Manage and verify native Windows camera and microphone privacy controls.`
-- **Description:** Disponible completa en [`docs/store/STORE-LISTING-CONTENT.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/STORE-LISTING-CONTENT.md#L26-L43).
+- **Description:** Disponible completa en [`docs/store/STORE-LISTING-CONTENT.md`](STORE-LISTING-CONTENT.md) y auditada en [`docs/store/STORE-LISTING-REVIEW.md`](STORE-LISTING-REVIEW.md).
 - **Key Features:**
   - `Microphone Privacy Muting: Quickly silence active recording endpoints using native Windows Core Audio APIs.`
   - `Observable Status Verification: Live reporting based on actual Windows endpoint volume and mute state.`
@@ -70,7 +70,7 @@ En la sección **Submission > Product declarations / Capabilities** de Partner C
 ### Idioma Adicional: Español (`es-es`)
 - **Título del Producto:** `PrivGuard`
 - **Subtítulo / Descripción Corta:** `Administra y verifica controles nativos de privacidad de cámara y micrófono en Windows.`
-- **Descripción:** Disponible completa en [`docs/store/STORE-LISTING-CONTENT.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/STORE-LISTING-CONTENT.md#L67-L84).
+- **Descripción:** Disponible completa en [`docs/store/STORE-LISTING-CONTENT.md`](STORE-LISTING-CONTENT.md) y auditada en [`docs/store/STORE-LISTING-REVIEW.md`](STORE-LISTING-REVIEW.md).
 - **Palabras Clave (7 permitidas):**
   `privacidad microfono`, `silenciar microfono`, `privacidad camara`, `mute audio`, `control privacidad`, `privacidad windows`, `privguard`.
 
@@ -107,4 +107,4 @@ Los siguientes puntos dependen exclusivamente de la titularidad y preferencias d
    - **URL de Política de Privacidad:** URL pública donde se describa que PrivGuard no recopila datos (ej. enlace al archivo `PRIVACY.md` o sitio web del proyecto).
    - **URL o Correo de Soporte:** Canal de contacto del desarrollador (ej. página de GitHub Issues o correo oficial).
 4. **Notas para Certificación:**
-   - Pegar el contenido de [`PARTNER-CENTER-CERTIFICATION-NOTES.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md).
+   - Pegar el contenido de [`docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md`](PARTNER-CENTER-CERTIFICATION-NOTES.md).

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "productName": "PrivGuard",
+  "productEdition": "Store",
+  "packageIdentity": {
+    "name": "cdevstudios.PrivGuard",
+    "publisher": "CN=85AB4167-A0AE-4FDF-B840-B95CD225F7DD",
+    "publisherDisplayName": "cdev studios",
+    "version": "2.0.0.0",
+    "processorArchitecture": "x64",
+    "packageFamilyName": "cdevstudios.PrivGuard_tv7b4yqg10sw2"
+  },
+  "packageArtifact": {
+    "fileName": "PrivGuard-2.0.0.0-x64.msix",
+    "relativePath": "release/store/PrivGuard-2.0.0.0-x64.msix",
+    "sizeBytes": 58573769,
+    "sha256": "707857E283D304F0965BD1BCFECC1636017B732E9C6497B883FF7AA28BC45BA7",
+    "targetOsMinVersion": "10.0.19041.0",
+    "targetOsMaxTested": "10.0.26100.0"
+  },
+  "capabilities": {
+    "declaredCapabilities": [
+      "runFullTrust"
+    ],
+    "restrictedCapabilitiesVerified": true,
+    "forbiddenCapabilitiesAbsent": [
+      "allowElevation",
+      "unvirtualizedResources"
+    ]
+  },
+  "verification": {
+    "verificationScript": "scripts/verify-store-msix.ps1",
+    "scriptResult": "PASS",
+    "activeTestSuite": {
+      "totalPassed": 632,
+      "totalFailed": 0,
+      "totalSkipped": 0
+    },
+    "runtimeDiagnosticVerdict": "READY FOR PARTNER CENTER DRAFT — OWNER INPUTS PENDING"
+  },
+  "provenance": {
+    "baseCommit": "ecd15afd5200696cde838d778125ae4fe4dbf73b",
+    "branch": "main",
+    "builtAtUtc": "2026-11-09T15:02:40Z",
+    "buildConfiguration": "Release-Store"
+  }
+}

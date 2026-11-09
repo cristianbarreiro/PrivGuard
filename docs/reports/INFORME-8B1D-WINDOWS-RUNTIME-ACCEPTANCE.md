@@ -98,13 +98,13 @@ Se realizó una inspección no destructiva de las capacidades del entorno local 
 
 Se han generado los dos instrumentos operativos requeridos para el envío manual:
 
-1. **[`docs/store/PARTNER-CENTER-SUBMISSION-CHECKLIST.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/PARTNER-CENTER-SUBMISSION-CHECKLIST.md):**
+1. **[`docs/store/PARTNER-CENTER-SUBMISSION-CHECKLIST.md`](../store/PARTNER-CENTER-SUBMISSION-CHECKLIST.md):**
    - Resumen integral de identidad, paquete binario, metadatos y hash.
    - Textos aprobados para la ficha comercial en inglés (`en-us`) y español (`es-es`).
    - Referencia a los activos gráficos presentes en `packaging/Assets/` y capturas de `release/store/`.
    - Justificación técnica oficial de la capacidad restringida `runFullTrust`.
    - Lista explícita de campos que requieren decisión del propietario (precios, mercados, URLs de soporte y privacidad).
-2. **[`docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md`](file:///c:/Users/Cristian/Documents/GitHub/PrivGuard/docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md):**
+2. **[`docs/store/PARTNER-CENTER-CERTIFICATION-NOTES.md`](../store/PARTNER-CENTER-CERTIFICATION-NOTES.md):**
    - Notas en inglés redactadas para los revisores del equipo de certificación de Microsoft.
    - Instrucciones paso a paso para probar inicio sin elevación, redirección de cámara a `ms-settings:privacy-webcam`, silenciado/desilenciado de micrófono por WASAPI, banner de desinstalación y minimizado/salida desde el System Tray.
 
